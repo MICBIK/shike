@@ -1,0 +1,21 @@
+# macOS
+.DS_Store
+
+# Xcode（工程文件由 project.yml 通过 XcodeGen 生成，不入库）
+*.xcodeproj/
+xcuserdata/
+DerivedData/
+build/
+
+# Swift Package Manager
+.build/
+.swiftpm/
+
+# 本地工具的状态目录
+.mimosa/
+
+# 发布产物与密钥（私钥只放钥匙串，绝不入库）
+dist/
+*.dmg
+*.zip
+*sparkle*private*
