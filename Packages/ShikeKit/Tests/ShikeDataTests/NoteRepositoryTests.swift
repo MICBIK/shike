@@ -311,7 +311,7 @@ struct NoteObservationTests {
         }
 
         let stream = repository.observeActive()
-        let received = ReceiveBox()
+        let received = ReceiveBox<NoteListItem>()
         let task = Task {
             for try await items in stream {
                 received.append(items)
@@ -467,10 +467,10 @@ private final class ErrorBox: @unchecked Sendable {
     }
 }
 
-/// 线程安全的结果收集器：观察流的回调在任意执行器上。
-private final class ReceiveBox: @unchecked Sendable {
+/// 线程安全的结果收集器：观察流的回调在任意执行器上。（便签与待办测试共用）
+final class ReceiveBox<Value>: @unchecked Sendable {
     private let lock = NSLock()
-    private var items: [[NoteListItem]] = []
+    private var items: [[Value]] = []
 
     var count: Int {
         lock.lock()
@@ -478,13 +478,13 @@ private final class ReceiveBox: @unchecked Sendable {
         return items.count
     }
 
-    var snapshot: [[NoteListItem]] {
+    var snapshot: [[Value]] {
         lock.lock()
         defer { lock.unlock() }
         return items
     }
 
-    func append(_ value: [NoteListItem]) {
+    func append(_ value: [Value]) {
         lock.lock()
         defer { lock.unlock() }
         items.append(value)
