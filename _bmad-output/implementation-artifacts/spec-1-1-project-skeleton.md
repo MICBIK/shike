@@ -37,7 +37,7 @@ context:
 - Blind Hunter#2（Assets.xcassets 无人认领）：属实，属规格与故事间的缺口——已记入 deferred-work.md，留待 1.17 收尾修订 app-shell.md，不补建空目录。
 - Blind Hunter#3（README 缺 runFirstLaunch 与 brew 安装命令）：属实——已补两处前提，与 06 §1 原文核对一致。
 - Blind Hunter#4（测试中 try? 无注释违反 conventions.md）：属实——已补注释说明为何可忽略。
-- Blind Hunter#5（/tmp/shike-tests 父目录残留）：属实——清理改为连同父目录一并删除（defer）。
+- Blind Hunter#5（/tmp/shike-tests 父目录残留）：属实——已修复：清理改为连同父目录一并删除（defer 调用）。
 - Blind Hunter#6（matchedRanges 文档与测试对契约归属说法相反）：属实——文档改为"解析器产出有序不重叠区间，本类型是被动持有者"。
 - Blind Hunter#7（invalidLocation 注释漏"的文件 URL"）：属实——已按 data-layer.md 逐字补齐。
 - Blind Hunter#8（GRDB 并发证明只走同步 API）：属实——补 asyncWrite/asyncRead 测试，严格并发下通过。

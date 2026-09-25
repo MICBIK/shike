@@ -1,0 +1,65 @@
+# 拾刻 CI（stack.md「CI 工作流」）
+# 三个作业：checks（合规检查）、package-tests（ShikeKit 包测试）、app（构建 App + App 层测试）。
+# 分支保护按作业名绑定：checks、package-tests、app。
+
+name: CI
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    name: checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: 检查脚本自检（每条规则用违规样例验证会失败）
+        run: bash scripts/checks.sh --self-check
+      - name: 架构合规检查
+        run: bash scripts/checks.sh
+
+  package-tests:
+    name: package-tests
+    runs-on: macos-26
+    timeout-minutes: 30
+    env:
+      SHIKE_WARNINGS_AS_ERRORS: "YES"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Xcode 版本
+        run: xcodebuild -version
+      - name: ShikeKit 包测试（警告即错误）
+        run: swift test --package-path Packages/ShikeKit
+
+  app:
+    name: app
+    runs-on: macos-26
+    timeout-minutes: 30
+    env:
+      SHIKE_WARNINGS_AS_ERRORS: "YES"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Xcode 版本
+        run: xcodebuild -version
+      - name: 安装 XcodeGen 2.46.0（先校验 SHA-256）
+        run: |
+          curl -fsSL -o xcodegen.zip https://github.com/yonaskolb/XcodeGen/releases/download/2.46.0/xcodegen.zip
+          echo "4d9e34b62172d645eed6457cac13fc222569974098ef4ee9c3368bedf0196806  xcodegen.zip" | shasum -a 256 -c
+          unzip -q -o xcodegen.zip
+      - name: 生成工程
+        run: ./xcodegen/bin/xcodegen generate
+      - name: 构建并测试（警告即错误）
+        run: xcodebuild -project Shike.xcodeproj -scheme Shike -destination 'platform=macOS' SHIKE_WARNINGS_AS_ERRORS=YES build test

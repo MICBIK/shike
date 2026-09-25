@@ -41,6 +41,12 @@ open Shike.xcodeproj                     # 或直接用 Xcode 打开开发
 
 生成工程后重新打开 Xcode 即可获得最新工程；生成的 `Shike.xcodeproj` 与构建产物不入库。
 
+提交前可以在本地跑一次架构合规检查（与 CI 的 `checks` 作业同一份脚本）：
+
+```bash
+bash scripts/checks.sh              # 文件头、导入边界、解析器区域、禁用项
+```
+
 详细说明见 [开发规范](docs/06-开发规范.md)。
 
 ## 文档
