@@ -1,0 +1,6 @@
+# 拾刻的团队配置（入库）。约定见 docs/06 §8。
+[workflow]
+persistent_facts = [
+  "拾刻每个阶段的权威契约是 `{project-root}/_bmad-output/specs/spec-stage-N-主题/` 中的 SPEC.md，以及它的 frontmatter `companions:` 列出的伴随文件。为史诗故事编写实现规格时，把 SPEC.md 和故事『依据』中引用的伴随文件列入实现规格 frontmatter 的 `context`。",
+  "史诗编号 = 阶段编号 + 1（阶段 0 为 Epic 1）；阶段 N 的史诗和故事在 `{planning_artifacts}/epics-stage-N.md` 中。",
+]
