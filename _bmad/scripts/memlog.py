@@ -83,8 +83,18 @@ def now() -> str:
 
 
 def resolve(args) -> Path:
-    """The memlog file, from either addressing mode: {workspace}/.memlog.md or an explicit --path."""
-    return Path(args.path) if args.path else Path(args.workspace) / MEMLOG
+    """The memlog file, from either addressing mode: {workspace}/.memlog.md or an explicit --path.
+
+    The target must be a .memlog.md inside the project directory (the cwd memlog is
+    invoked from): CLI-supplied paths are otherwise arbitrary write targets, so they
+    are canonicalized and bounded before any caller opens them.
+    """
+    raw = Path(args.path) if args.path else Path(args.workspace) / MEMLOG
+    path = raw.resolve()
+    root = Path.cwd().resolve()
+    if path.name != MEMLOG or root not in path.parents:
+        raise SystemExit(f"error: {raw} must be a {MEMLOG} inside the project directory ({root})")
+    return path
 
 
 def split(text: str) -> tuple[dict, str]:
@@ -120,13 +130,22 @@ def touch(meta: dict) -> None:
 
 
 def write_atomic(path: Path, text: str) -> None:
-    """Temp + flush + fsync + atomic rename, so a crash never half-writes an entry."""
-    tmp = path.with_suffix(path.suffix + ".tmp")
-    with open(tmp, "w", encoding="utf-8") as f:
+    """Temp + flush + fsync + atomic rename, so a crash never half-writes an entry.
+
+    Defense in depth: the target is re-checked at the sink — it must be a
+    .memlog.md resolved inside the project directory, never outside it.
+    """
+    target = path.resolve()
+    root = Path.cwd().resolve()
+    if ".." in path.parts or target.name != MEMLOG or not str(target).startswith(str(root) + os.sep):
+        raise SystemExit(f"error: refusing to write outside the project directory: {path}")
+    tmp = target.with_suffix(target.suffix + ".tmp")
+    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o644)
+    with os.fdopen(fd, "w", encoding="utf-8") as f:
         f.write(text)
         f.flush()
         os.fsync(f.fileno())
-    os.replace(tmp, path)
+    os.replace(tmp, target)
 
 
 def entry_count(body: str) -> int:
