@@ -1,0 +1,17 @@
+{
+  "sourceLanguage" : "zh-Hans",
+  "strings" : {
+    "app.name" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "拾刻"
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}
