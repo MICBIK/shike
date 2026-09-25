@@ -32,10 +32,11 @@ public final class AppDatabase: Sendable {
 
     /// 仓储与观察使用；公开签名中不出现 GRDB 类型。
     let writer: any DatabaseWriter
-    /// timeZone/simulateWriteFailure 由 Story 1.4 起的仓储写路径与备份使用。
-    private let options: Options
+    /// timeZone/simulateWriteFailure 由仓储写路径与备份使用。
+    let options: Options
 
-    private init(writer: any DatabaseWriter, options: Options) {
+    /// 仓储内部与测试使用。
+    init(writer: any DatabaseWriter, options: Options) {
         self.writer = writer
         self.options = options
     }
