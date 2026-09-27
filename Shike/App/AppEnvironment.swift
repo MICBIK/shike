@@ -16,6 +16,7 @@ public final class AppEnvironment {
     public let noteRepository: NoteRepository
     public let todoRepository: TodoRepository
     public let stickyCardRepository: StickyCardRepository
+    let panelModel: PanelModel
 
     public init(database: AppDatabase, preferences: Preferences, dataDirectory: URL) {
         self.database = database
@@ -24,5 +25,6 @@ public final class AppEnvironment {
         self.noteRepository = NoteRepository(database: database)
         self.todoRepository = TodoRepository(database: database)
         self.stickyCardRepository = StickyCardRepository(database: database)
+        self.panelModel = PanelModel()
     }
 }

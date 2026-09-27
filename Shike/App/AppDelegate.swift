@@ -4,6 +4,7 @@
 
 import AppKit
 import ShikeData
+import SwiftUI
 
 /// 管理应用生命周期；启动流程见 architecture-diagrams.md §3。
 @MainActor
@@ -12,6 +13,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var simulatedOpenFailureUsed = false
 
     private(set) var environment: AppEnvironment?
+    private var popoverController: PopoverController?
+    private var statusItemController: StatusItemController?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // 测试宿主下跳过全部启动步骤：不创建数据目录、不写真实偏好、不打开库（CAP-11）。
@@ -60,8 +63,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             preferences: Preferences(defaults: .standard),
             dataDirectory: dataDirectory
         )
-        // 主菜单、菜单栏图标、面板与备份由 Story 1.9～1.13 接入（§3 的后续节点）。
+
+        // 菜单栏图标与常驻面板（§3 节点 H）；数据流由 1.10、右键菜单由 1.11 接入。
+        guard let environment else { return }
+        let popoverController = PopoverController(
+            contentViewController: NSHostingController(
+                rootView: PanelView(model: environment.panelModel)
+            )
+        )
+        self.popoverController = popoverController
+        statusItemController = StatusItemController(popoverController: popoverController)
+
+        // 主菜单与备份由 Story 1.11/1.13 接入（§3 的后续节点）。
         Log.app.info("启动完成")
+    }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        popoverController?.stop()
     }
 
     private func openDatabase(into directory: URL, launchOptions: LaunchOptions) throws -> AppDatabase {

@@ -12,7 +12,10 @@
 
 移植基线为 demo 提交 `e3c0260a8630381224e80f5f0e0c6700f2e417aa`（2026-09-19）。
 
-目前还没有移植任何文件。
+| 拾刻文件 | 来源文件 | 修改说明 | 日期 |
+|---|---|---|---|
+| `Shike/MenuBar/StatusItemController.swift` | `demo/reminders-menubar/reminders-menubar/AppDelegate.swift`（configureMenuBarButton、handleStatusBarButtonAction） | 拆成独立控制器；去掉计数/预览、隐藏图标逻辑与单例；图标固定为模板图像 `note.text`；右键菜单暂不响应（1.11 接 StatusMenu） | 2026-09-27 |
+| `Shike/MenuBar/PopoverController.swift` | `demo/reminders-menubar/reminders-menubar/AppDelegate.swift`（togglePopover、外部点击监听、didClose/didShow 兜底）、`MainPopoverSizing.swift`、`Extensions/Comparable+Extensions.swift`（constrainedTo） | 拆成独立控制器；去掉 EventKit 授权与单例；尺寸改为 03 §3 的 360×520（最小 300×360、最大 600×1000）；`activate(ignoringOtherApps:)` 改为 `activate()` | 2026-09-27 |
 
 ## 依赖库
 
