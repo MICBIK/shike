@@ -22,7 +22,8 @@ struct AppEnvironmentTests {
     func assemblesRepositoriesAndPreferences() async throws {
         let environment = AppEnvironment(
             database: try AppDatabase.inMemory(),
-            preferences: Preferences(defaults: makeIsolatedDefaults())
+            preferences: Preferences(defaults: makeIsolatedDefaults()),
+            dataDirectory: URL(fileURLWithPath: "/tmp/shike-tests-env", isDirectory: true)
         )
 
         // Preferences 可用
@@ -49,7 +50,8 @@ struct AppEnvironmentTests {
         let windowsBefore = Set(NSApplication.shared.windows)
         _ = AppEnvironment(
             database: try AppDatabase.inMemory(),
-            preferences: Preferences(defaults: makeIsolatedDefaults())
+            preferences: Preferences(defaults: makeIsolatedDefaults()),
+            dataDirectory: URL(fileURLWithPath: "/tmp/shike-tests-env", isDirectory: true)
         )
         let windowsAfter = Set(NSApplication.shared.windows)
         #expect(windowsAfter == windowsBefore)

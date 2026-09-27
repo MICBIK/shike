@@ -12,13 +12,15 @@ import ShikeData
 public final class AppEnvironment {
     public let database: AppDatabase
     public let preferences: Preferences
+    public let dataDirectory: URL
     public let noteRepository: NoteRepository
     public let todoRepository: TodoRepository
     public let stickyCardRepository: StickyCardRepository
 
-    public init(database: AppDatabase, preferences: Preferences) {
+    public init(database: AppDatabase, preferences: Preferences, dataDirectory: URL) {
         self.database = database
         self.preferences = preferences
+        self.dataDirectory = dataDirectory
         self.noteRepository = NoteRepository(database: database)
         self.todoRepository = TodoRepository(database: database)
         self.stickyCardRepository = StickyCardRepository(database: database)
