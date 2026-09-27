@@ -88,12 +88,50 @@ extension AppDatabase {
 
     /// 文件名 `shike-YYYY-MM-DD.sqlite`：公历 + 指定时区，en_US_POSIX 与系统区域无关。
     static func backupFileName(for date: Date, timeZone: TimeZone) -> String {
+        "shike-\(backupDateString(for: date, timeZone: timeZone)).sqlite"
+    }
+
+    /// 日期串 `YYYY-MM-DD`：公历 + 指定时区，年月日补零，en_US_POSIX 与系统区域无关。
+    static func backupDateString(for date: Date, timeZone: TimeZone) -> String {
         let formatter = DateFormatter()
         formatter.calendar = Calendar(identifier: .gregorian)
         formatter.timeZone = timeZone
         formatter.locale = Locale(identifier: "en_US_POSIX")
         formatter.dateFormat = "yyyy-MM-dd"
-        return "shike-\(formatter.string(from: date)).sqlite"
+        return formatter.string(from: date)
+    }
+
+    /// 迁移前备份（ADR-018，data-layer.md「迁移前备份」）：
+    /// 库中已有迁移且还有待执行的迁移时，先备份当前内容再迁移；新建空库不做。
+    /// 文件名 `shike-before-<迁移标识>-YYYY-MM-DD.sqlite`；同一天同一迁移已有备份时不重复生成；
+    /// 这类文件不参与每日轮换（rotate 的模式匹配天然排除）。写入方式与每日备份相同。
+    static func preMigrationBackupIfNeeded(
+        writer: any DatabaseWriter,
+        to directory: URL,
+        migrator: DatabaseMigrator,
+        timeZone: TimeZone,
+        clock: @escaping () -> Date
+    ) throws {
+        let applied = try writer.read { try migrator.appliedMigrations($0) }
+        let pending = migrator.migrations.filter { !applied.contains($0) }
+        guard !applied.isEmpty, let nextMigration = pending.first else { return }
+
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        // 与每日备份一致：先清理上次中断残留的临时文件（含边车），避免残留导致本路径持续失败。
+        try cleanLeftoverTemporaries(in: directory)
+        let fileURL = directory.appendingPathComponent(
+            "shike-before-\(nextMigration)-\(backupDateString(for: clock(), timeZone: timeZone)).sqlite"
+        )
+        guard !FileManager.default.fileExists(atPath: fileURL.path) else { return }
+
+        let temporaryURL = directory.appendingPathComponent("." + fileURL.lastPathComponent + ".partial")
+        do {
+            try writeOnlineBackup(from: writer, to: temporaryURL)
+            try FileManager.default.moveItem(at: temporaryURL, to: fileURL)
+        } catch {
+            removeTemporaryArtifacts(at: temporaryURL)
+            throw error
+        }
     }
 
     /// 清理上次中断残留的临时文件（`.shike-*.sqlite.partial` 及其边车）。

@@ -71,7 +71,15 @@ public final class AppDatabase: Sendable {
             if try pool.read({ database in try migrator.hasBeenSuperseded(database) }) {
                 throw ShikeDataError.openFailed(.newerSchema)
             }
-            // （迁移前备份的步骤由 Story 1.14 接入）
+            // 4.5 迁移前备份（ADR-018）：已有迁移且还有待执行迁移时，先备份当前内容；
+            // 备份失败抛 openFailed(原因)，不执行迁移，库停留在原版本
+            try Self.preMigrationBackupIfNeeded(
+                writer: pool,
+                to: directory.appendingPathComponent("Backups", isDirectory: true),
+                migrator: migrator,
+                timeZone: options.timeZone,
+                clock: options.clock
+            )
             // 5. 在事务中执行迁移
             try migrator.migrate(pool)
             return AppDatabase(writer: pool, options: options)
