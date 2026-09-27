@@ -12,6 +12,17 @@
         }
       }
     },
+    "about.acknowledgments.detail": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reminders MenuBar（GPL-3.0）、GRDB.swift（MIT）"
+          }
+        }
+      }
+    },
     "about.copyright": {
       "extractionState": "manual",
       "localizations": {

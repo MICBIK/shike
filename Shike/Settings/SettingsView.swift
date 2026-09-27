@@ -7,6 +7,7 @@ import SwiftUI
 /// 设置窗口内容（03 §9）：顶部六个分页，由 SettingsTab 注册表驱动。
 struct SettingsView: View {
     @Bindable var model: SettingsModel
+    let onViewLicense: () -> Void
 
     var body: some View {
         TabView(selection: $model.selectedTab) {
@@ -16,7 +17,7 @@ struct SettingsView: View {
                     .tag(tab)
             }
         }
-        .frame(width: 460, height: 320)
+        .frame(width: 460, height: 380)
     }
 
     @ViewBuilder
@@ -24,7 +25,7 @@ struct SettingsView: View {
         if let stage = tab.placeholderStage {
             PlaceholderSettingsView(stage: stage)
         } else {
-            AboutSettingsView()
+            AboutSettingsView(onViewLicense: onViewLicense)
         }
     }
 }
