@@ -15,6 +15,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private(set) var environment: AppEnvironment?
     private var popoverController: PopoverController?
     private var statusItemController: StatusItemController?
+    private var statusMenu: StatusMenu?
+    private var settingsWindowController: SettingsWindowController?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // 测试宿主下跳过全部启动步骤：不创建数据目录、不写真实偏好、不打开库（CAP-11）。
@@ -64,24 +66,53 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             dataDirectory: dataDirectory
         )
 
-        // 菜单栏图标与常驻面板（§3 节点 H）；右键菜单由 1.11 接入。
+        // 隐藏主菜单（§3 节点 G：组装之后、创建图标之前）。
+        NSApp.mainMenu = MainMenu.make()
+
         guard let environment else { return }
+
+        // 设置窗口（单实例）与图标右键菜单。
+        let settingsWindowController = SettingsWindowController()
+        self.settingsWindowController = settingsWindowController
+        let statusMenu = StatusMenu(actions: .init(
+            openSettings: { [weak self] in self?.openSettings() },
+            openAbout: { [weak self] in self?.openAbout() }
+        ))
+        self.statusMenu = statusMenu
+
+        // 菜单栏图标与常驻面板（§3 节点 H）。
         let popoverController = PopoverController(
             contentViewController: NSHostingController(
                 rootView: PanelView(model: environment.panelModel)
             )
         )
         self.popoverController = popoverController
-        statusItemController = StatusItemController(popoverController: popoverController)
+        let statusItemController = StatusItemController(popoverController: popoverController)
+        self.statusItemController = statusItemController
+        statusItemController.menuProvider = { [weak statusMenu] in statusMenu?.buildMenu() }
         environment.panelModel.start()
 
-        // 主菜单与备份由 Story 1.11/1.13 接入（§3 的后续节点）。
+        // 备份由 Story 1.13 接入（§3 节点 I/J）。
         Log.app.info("启动完成")
     }
 
     func applicationWillTerminate(_ notification: Notification) {
         popoverController?.stop()
         environment?.panelModel.stop()
+    }
+
+    // - MARK: 设置窗口（主菜单与右键菜单共用；单实例）
+
+    @objc func openSettingsFromMenu(_ sender: Any?) {
+        openSettings()
+    }
+
+    private func openSettings() {
+        settingsWindowController?.show()
+    }
+
+    private func openAbout() {
+        settingsWindowController?.show(tab: .about)
     }
 
     private func openDatabase(into directory: URL, launchOptions: LaunchOptions) throws -> AppDatabase {

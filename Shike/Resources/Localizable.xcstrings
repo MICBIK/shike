@@ -528,6 +528,17 @@
           }
         }
       }
+    },
+    "settings.window.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "设置"
+          }
+        }
+      }
     }
   },
   "version": "1.0"
