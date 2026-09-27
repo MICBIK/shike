@@ -13,3 +13,10 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-1-2-ci-pipeline.md`
   summary: ci.yml 同时触发 push 与 pull_request，同一 PR 的推送会跑两遍完整流水线且 concurrency 组互不取消；可考虑 push 限 main 或按分支名归一 concurrency 组。
   evidence: 1.2 评审发现；双触发是 stack.md「CI 工作流」的既定规定，改动属于规格层决定，留给产品负责人裁量。
+
+## 面板提示条的重试生命周期（S1 写路径故事时处理）
+
+来自 Story 1.10 盲审（2026-09-27）：
+1. saveFailed 提示条显示期间观察流又以 readFailed 结束时，report 会覆盖 banner 与 bannerRetry，原写入重试闭包丢失；重新订阅清掉 loadFailed 条后，那次失败的写再无重试入口。
+2. saveFailed 提示条在重试成功后无人清除（重试闭包无成功回调；阶段 0 没有写路径）。
+S1-10（写路径）实现真实写入重试时一并设计：重试闭包携带完成回调，或提示条带标识按需清除。

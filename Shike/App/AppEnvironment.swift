@@ -22,9 +22,11 @@ public final class AppEnvironment {
         self.database = database
         self.preferences = preferences
         self.dataDirectory = dataDirectory
-        self.noteRepository = NoteRepository(database: database)
-        self.todoRepository = TodoRepository(database: database)
+        let noteRepository = NoteRepository(database: database)
+        let todoRepository = TodoRepository(database: database)
+        self.noteRepository = noteRepository
+        self.todoRepository = todoRepository
         self.stickyCardRepository = StickyCardRepository(database: database)
-        self.panelModel = PanelModel()
+        self.panelModel = PanelModel(noteRepository: noteRepository, todoRepository: todoRepository)
     }
 }

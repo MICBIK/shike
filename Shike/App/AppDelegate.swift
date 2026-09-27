@@ -64,7 +64,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             dataDirectory: dataDirectory
         )
 
-        // 菜单栏图标与常驻面板（§3 节点 H）；数据流由 1.10、右键菜单由 1.11 接入。
+        // 菜单栏图标与常驻面板（§3 节点 H）；右键菜单由 1.11 接入。
         guard let environment else { return }
         let popoverController = PopoverController(
             contentViewController: NSHostingController(
@@ -73,6 +73,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         )
         self.popoverController = popoverController
         statusItemController = StatusItemController(popoverController: popoverController)
+        environment.panelModel.start()
 
         // 主菜单与备份由 Story 1.11/1.13 接入（§3 的后续节点）。
         Log.app.info("启动完成")
@@ -80,6 +81,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationWillTerminate(_ notification: Notification) {
         popoverController?.stop()
+        environment?.panelModel.stop()
     }
 
     private func openDatabase(into directory: URL, launchOptions: LaunchOptions) throws -> AppDatabase {
