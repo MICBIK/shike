@@ -56,6 +56,9 @@ targets:
       - path: ShikeTests
     dependencies:
       - target: Shike
+      - package: ShikeKit
+        products:
+          - ShikeData
     settings:
       base:
         TEST_HOST: $(BUILT_PRODUCTS_DIR)/Shike.app/Contents/MacOS/Shike
