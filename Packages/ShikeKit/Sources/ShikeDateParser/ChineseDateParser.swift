@@ -359,7 +359,7 @@ public struct ChineseDateParser: Sendable {
             } else {
                 timeKind = .periodOnly
             }
-            guard let info = classifyTime(match: match, nsText: nsText, kind: timeKind) else { return nil }
+            guard let info = classifyTime(match: match, nsText: nsText, kind: timeKind, fullRange: full) else { return nil }
             return MatchCandidate(range: full, text: matchedText, dayKind: nil, timeKind: timeKind, timeInfo: info, priority: priority)
         }
     }
@@ -431,7 +431,30 @@ public struct ChineseDateParser: Sendable {
         return nil
     }
 
-    private func classifyTime(match: NSTextCheckingResult, nsText: NSString, kind: TimeMatchKind) -> (period: TimePeriod?, hour: Int?, minute: Int?)? {
+    static let ambiguityContentWords = [
+        "建议", "意见", "要求", "问题", "原因", "理由", "想法", "注意", "体会", "收获",
+        "内容", "说明", "总结", "看法", "思考", "改进", "好处", "不足", "区别", "事项", "共识", "结论",
+    ]
+
+    /// 05 §6 歧义与误识别规则 A1～A4：满足时「X点」不识别为时刻；
+    /// 例外：前面紧挨时段词，或后面带分钟、"半""整""钟"（05 §6 例外行）。
+    private func isAmbiguousCounting(_ nsText: NSString, fullRange: NSRange, period: TimePeriod?, minute: Int?) -> Bool {
+        if period != nil || minute != nil { return false }
+        if fullRange.location > 0 {
+            let before = nsText.substring(with: NSRange(location: fullRange.location - 1, length: 1))
+            if before == "第" { return true } // A1
+            if "有这那共另".contains(before) { return true } // A2
+        }
+        let afterLocation = fullRange.location + fullRange.length
+        guard afterLocation < nsText.length else { return false }
+        let after = nsText.substring(with: NSRange(location: afterLocation, length: 1))
+        if "心子儿滴赞击名评菜头数位亮燃火歌单餐播缀拨题睛明破清".contains(after) { return true } // A3
+        let remaining = nsText.substring(with: NSRange(location: afterLocation, length: min(4, nsText.length - afterLocation)))
+        if Self.ambiguityContentWords.contains(where: { remaining.hasPrefix($0) }) { return true } // A4
+        return false
+    }
+
+    private func classifyTime(match: NSTextCheckingResult, nsText: NSString, kind: TimeMatchKind, fullRange: NSRange) -> (period: TimePeriod?, hour: Int?, minute: Int?)? {
         func group(_ index: Int) -> String? {
             guard index < match.numberOfRanges else { return nil }
             let range = match.range(at: index)
@@ -465,6 +488,7 @@ public struct ChineseDateParser: Sendable {
             case .none:
                 break
             }
+            if isAmbiguousCounting(nsText, fullRange: fullRange, period: period, minute: minute) { return nil }
             return (period, hour, minute)
         }
     }

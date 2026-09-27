@@ -24,7 +24,10 @@ struct ParserSectionTests {
         return calendar.date(from: components)!
     }
 
-    private static let t0 = makeDateStatic(2026, 9, 23, 12, 0)
+    static let t0 = makeDateStatic(2026, 9, 23, 12, 0)
+
+    /// 供其他测试文件取基准时间 T0。
+    static func makeT0() -> Date { t0 }
 
     private static func makeDateStatic(_ year: Int, _ month: Int, _ day: Int, _ hour: Int, _ minute: Int) -> Date {
         var components = DateComponents()
@@ -38,12 +41,12 @@ struct ParserSectionTests {
         return calendar.date(from: components)!
     }
 
-    private enum Expect {
+    enum Expect {
         case allDay(Int, Int, Int)
         case at(Int, Int, Int, Int, Int)
     }
 
-    private struct CaseData {
+    struct CaseData {
         let id: String
         let input: String
         let now: Date
@@ -100,7 +103,10 @@ struct ParserSectionTests {
 
     @Test("05 §9.1 相对日")
     func section91() {
-        run([
+        run(Self.section91)
+    }
+
+    private static let section91: [CaseData] = [
             CaseData("A01", "今天", .allDay(2026, 9, 23), ["今天"]),
             CaseData("A02", "明天交", .allDay(2026, 9, 24), ["明天"]),
             CaseData("A03", "后天", .allDay(2026, 9, 25), ["后天"]),
@@ -111,26 +117,30 @@ struct ParserSectionTests {
             CaseData("A08", "明晚", .at(2026, 9, 24, 20, 0), ["明晚"]),
             CaseData("A09", "今早八点", .at(2026, 9, 23, 8, 0), ["今早", "八点"]),
             CaseData("A10", "今天上午九点", .at(2026, 9, 23, 9, 0), ["今天", "上午九点"]),
-        ])
-    }
+        ]
 
     // MARK: - §9.2 若干天后（B01～B04）
 
     @Test("05 §9.2 若干天后")
     func section92() {
-        run([
+        run(Self.section92)
+    }
+
+    private static let section92: [CaseData] = [
             CaseData("B01", "三天后", .allDay(2026, 9, 26), ["三天后"]),
             CaseData("B02", "3天后", .allDay(2026, 9, 26), ["3天后"]),
             CaseData("B03", "三十天以后", .allDay(2026, 10, 23), ["三十天以后"]),
             CaseData("B04", "两天之后", .allDay(2026, 9, 25), ["两天之后"]),
-        ])
-    }
+        ]
 
     // MARK: - §9.3 相对时长（C01～C10）
 
     @Test("05 §9.3 相对时长")
     func section93() {
-        run([
+        run(Self.section93)
+    }
+
+    private static let section93: [CaseData] = [
             CaseData("C01", "半小时后", .at(2026, 9, 23, 12, 30), ["半小时后"]),
             CaseData("C02", "半个小时后", .at(2026, 9, 23, 12, 30), ["半个小时后"]),
             CaseData("C03", "10分钟后", .at(2026, 9, 23, 12, 10), ["10分钟后"]),
@@ -141,14 +151,16 @@ struct ParserSectionTests {
             CaseData("C08", "一个半小时后", .at(2026, 9, 23, 13, 30), ["一个半小时后"]),
             CaseData("C09", "1.5小时后", .at(2026, 9, 23, 13, 30), ["1.5小时后"]),
             CaseData("C10", "一刻钟后", .at(2026, 9, 23, 12, 15), ["一刻钟后"]),
-        ])
-    }
+        ]
 
     // MARK: - §9.4 星期（D01～D16）
 
     @Test("05 §9.4 星期")
     func section94() {
-        run([
+        run(Self.section94)
+    }
+
+    private static let section94: [CaseData] = [
             CaseData("D01", "周五", .allDay(2026, 9, 25), ["周五"]),
             CaseData("D02", "周一", .allDay(2026, 9, 28), ["周一"]),
             CaseData("D03", "周三", .allDay(2026, 9, 23), ["周三"]),
@@ -165,28 +177,32 @@ struct ParserSectionTests {
             CaseData("D14", "周五三点", now: Self.makeDateStatic(2026, 9, 25, 16, 0), .at(2026, 10, 2, 15, 0), ["周五", "三点"]),
             CaseData("D15", "周五下午三点交报告", .at(2026, 9, 25, 15, 0), ["周五", "下午三点"]),
             CaseData("D16", "下周日", .allDay(2026, 10, 4), ["下周日"]),
-        ])
-    }
+        ]
 
     // MARK: - §9.5 下周与周末（E01～E06）
 
     @Test("05 §9.5 下周与周末")
     func section95() {
-        run([
+        run(Self.section95)
+    }
+
+    private static let section95: [CaseData] = [
             CaseData("E01", "下周交报告", .allDay(2026, 9, 28), ["下周"]),
             CaseData("E02", "周末大扫除", .allDay(2026, 9, 26), ["周末"]),
             CaseData("E03", "这周末", .allDay(2026, 9, 26), ["这周末"]),
             CaseData("E04", "下周末", .allDay(2026, 10, 3), ["下周末"]),
             CaseData("E05", "周末", now: Self.makeDateStatic(2026, 9, 27, 10, 0), .allDay(2026, 9, 27), ["周末"]),
             CaseData("E06", "周末下午三点", .at(2026, 9, 26, 15, 0), ["周末", "下午三点"]),
-        ])
-    }
+        ]
 
     // MARK: - §9.6 月日（F01～F10）
 
     @Test("05 §9.6 月日")
     func section96() {
-        run([
+        run(Self.section96)
+    }
+
+    private static let section96: [CaseData] = [
             CaseData("F01", "10月1号", .allDay(2026, 10, 1), ["10月1号"]),
             CaseData("F02", "十月一号", .allDay(2026, 10, 1), ["十月一号"]),
             CaseData("F03", "10月1日", .allDay(2026, 10, 1), ["10月1日"]),
@@ -197,14 +213,16 @@ struct ParserSectionTests {
             CaseData("F08", "下个月3号", .allDay(2026, 10, 3), ["下个月3号"]),
             CaseData("F09", "下月31号", .allDay(2026, 10, 31), ["下月31号"]),
             CaseData("F10", "下个月31号", now: Self.makeDateStatic(2026, 1, 15, 12, 0), .allDay(2026, 2, 28), ["下个月31号"]),
-        ])
-    }
+        ]
 
     // MARK: - §9.7 时段与时刻（G01～G21）
 
     @Test("05 §9.7 时段与时刻")
     func section97() {
-        run([
+        run(Self.section97)
+    }
+
+    private static let section97: [CaseData] = [
             CaseData("G01", "明早八点", .at(2026, 9, 24, 8, 0), ["明早", "八点"]),
             CaseData("G02", "明天下午三点", .at(2026, 9, 24, 15, 0), ["明天", "下午三点"]),
             CaseData("G03", "今晚九点", .at(2026, 9, 23, 21, 0), ["今晚", "九点"]),
@@ -226,14 +244,16 @@ struct ParserSectionTests {
             CaseData("G19", "9点30分", .at(2026, 9, 24, 9, 30), ["9点30分"]),
             CaseData("G20", "15点", .at(2026, 9, 23, 15, 0), ["15点"]),
             CaseData("G21", "早上", .at(2026, 9, 24, 8, 0), ["早上"]),
-        ])
-    }
+        ]
 
     // MARK: - §9.8 时段换算（H01～H14）
 
     @Test("05 §9.8 时段换算")
     func section98() {
-        run([
+        run(Self.section98)
+    }
+
+    private static let section98: [CaseData] = [
             CaseData("H01", "中午一点吃饭", .at(2026, 9, 23, 13, 0), ["中午一点"]),
             CaseData("H02", "明天中午一点", .at(2026, 9, 24, 13, 0), ["明天", "中午一点"]),
             CaseData("H03", "午后两点", .at(2026, 9, 23, 14, 0), ["午后两点"]),
@@ -248,14 +268,16 @@ struct ParserSectionTests {
             CaseData("H12", "上午十二点", now: Self.makeDateStatic(2026, 9, 23, 10, 0), .at(2026, 9, 23, 12, 0), ["上午十二点"]),
             CaseData("H13", "晚上十一点", .at(2026, 9, 23, 23, 0), ["晚上十一点"]),
             CaseData("H14", "晚上五点", .at(2026, 9, 23, 17, 0), ["晚上五点"]),
-        ])
-    }
+        ]
 
     // MARK: - §9.9 冒号时间（I01～I07）
 
     @Test("05 §9.9 冒号时间")
     func section99() {
-        run([
+        run(Self.section99)
+    }
+
+    private static let section99: [CaseData] = [
             CaseData("I01", "15:30开会", .at(2026, 9, 23, 15, 30), ["15:30"]),
             CaseData("I02", "明天 9:30", .at(2026, 9, 24, 9, 30), ["明天", "9:30"]),
             CaseData("I03", "下午3:30", .at(2026, 9, 23, 15, 30), ["下午3:30"]),
@@ -263,6 +285,11 @@ struct ParserSectionTests {
             CaseData("I05", "8:00", .at(2026, 9, 24, 8, 0), ["8:00"]),
             CaseData("I06", "15：30", .at(2026, 9, 23, 15, 30), ["15：30"]),
             CaseData("I07", "周五 14:00", .at(2026, 9, 25, 14, 0), ["周五", "14:00"]),
-        ])
+        ]
+
+    static var allRegistry: [(id: String, input: String)] {
+        [section91, section92, section93, section94, section95, section96, section97, section98, section99]
+            .flatMap { $0 }
+            .map { (id: $0.id, input: $0.input) }
     }
 }

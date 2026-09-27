@@ -51,6 +51,6 @@ development_status:
   1-13-每日自动备份: done
   1-14-迁移前备份: done
   1-15-识别中文日期与时刻: done
-  1-16-排除误识别-高亮与标题清理: backlog
+  1-16-排除误识别-高亮与标题清理: done
   1-17-架构交接: backlog
   epic-1-retrospective: optional
