@@ -17,6 +17,7 @@ public final class AppEnvironment {
     public let todoRepository: TodoRepository
     public let stickyCardRepository: StickyCardRepository
     let panelModel: PanelModel
+    let backupService: BackupService
 
     public init(database: AppDatabase, preferences: Preferences, dataDirectory: URL) {
         self.database = database
@@ -28,5 +29,10 @@ public final class AppEnvironment {
         self.todoRepository = todoRepository
         self.stickyCardRepository = StickyCardRepository(database: database)
         self.panelModel = PanelModel(noteRepository: noteRepository, todoRepository: todoRepository)
+        self.backupService = BackupService(
+            database: database,
+            backupsDirectory: dataDirectory.appendingPathComponent("Backups", isDirectory: true),
+            keepCount: { preferences.backupKeepCount }
+        )
     }
 }

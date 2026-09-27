@@ -95,13 +95,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusItemController.menuProvider = { [weak statusMenu] in statusMenu?.buildMenu() }
         environment.panelModel.start()
 
-        // 备份由 Story 1.13 接入（§3 节点 I/J）。
+        // 每日备份（§3 节点 I/J）：后台执行一次，跨天再备份；不等待完成。
+        environment.backupService.start()
+
         Log.app.info("启动完成")
     }
 
     func applicationWillTerminate(_ notification: Notification) {
         popoverController?.stop()
         environment?.panelModel.stop()
+        environment?.backupService.stop()
     }
 
     // - MARK: 设置窗口（主菜单与右键菜单共用；单实例）
