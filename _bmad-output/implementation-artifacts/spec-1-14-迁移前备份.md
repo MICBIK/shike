@@ -35,4 +35,9 @@ context:
 
 ## Review Triage Log
 
-（待盲审后填写）
+盲审（Blind Hunter）结论 pass，3 条 low 全部补强：
+- [low→已修] preMigrationBackupIfNeeded 与每日备份对齐：进入前先 cleanLeftoverTemporaries（含边车），消除"残留导致 open 持续失败而清理者永不运行"的自愈断链。
+- [low→已修] 失败原因断言收窄到 permissionDenied/ioError（failures 表类别），防 mapFailure 回归。
+- [low→已修] 备份内容断言补强：独立打开 journal_mode=delete、含 note 且不含 premig_test（证明快照取自迁移前）。
+- [false] 触发条件核查：appliedMigrations=已注册∩已应用、migrations 注册序、pending.first 即第一个待执行迁移；fresh 库与全部已应用均精确跳过。
+- 已实测：包内 59 测试全绿；App 34 测试全绿；checks.sh 通过。
