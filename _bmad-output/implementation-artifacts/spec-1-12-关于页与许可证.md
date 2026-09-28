@@ -41,3 +41,4 @@ context:
 - [low→已修] 本 spec 测试计数更正为 31。
 - [false×2] about.acknowledgments.detail 新键（规格明文要求致谢明细、文案表无键、符合 conventions 文案集中）；闭包穿线无保留环、Link 在 NSHostingView 可用、GPL 5(d) 四要素齐备——复核均不成立。
 - 真机验收遗留：源码链接实际在默认浏览器打开、许可证窗口断网显示（需要 GUI）。
+- [CI 发现→已修]（2026-09-27 晚，8471846）CI（macos-26，Xcode 26）自本故事起 app 作业持续红灯：#expect 宏展开把表达式放入非隔离上下文，引用 View 推断的 @MainActor 静态成员（versionText/sourceURL）报隔离错误；本地 Xcode 27 不报，掩盖了问题约 5 个提交。修复：AboutPageTests 标记 @MainActor（两代编译器均合法）。教训：本地编译器（27）与 CI（macos-26 默认 Xcode 26）行为有差异，"本地绿"不能替代 CI 确认；后续故事每轮推送必须盯到 CI 全绿再收工。
