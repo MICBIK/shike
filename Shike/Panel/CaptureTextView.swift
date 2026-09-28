@@ -157,6 +157,8 @@ struct CaptureTextView: NSViewRepresentable {
 
     // - MARK: Coordinator
 
+    /// delegate 回调均在主线程（AppKit 保证）；显式标注以满足 Xcode 26 的隔离推断。
+    @MainActor
     class Coordinator: NSObject, NSTextViewDelegate {
         var parent: CaptureTextView
         var lastFocusTrigger: UUID?
