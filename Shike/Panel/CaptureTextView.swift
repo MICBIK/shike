@@ -27,6 +27,8 @@ struct CaptureTextView: NSViewRepresentable {
     var onSubmit: () -> Void
     /// Tab 切换模式（03 §4）；Shift+Tab 同样切换到另一模式。
     var onTab: (_ direction: FocusDirection) -> Void
+    /// 输入框获得焦点并就绪（S1-04）：呼出即打字的缓冲回放在此触发。
+    var onViewReady: (NSTextView) -> Void = { _ in }
 
     private let textFont = NSFont.systemFont(ofSize: NSFont.systemFontSize)
 
@@ -73,6 +75,8 @@ struct CaptureTextView: NSViewRepresentable {
             }
             let textLength = (textView.string as NSString).length
             textView.setSelectedRange(NSRange(location: textLength, length: 0))
+            // 就绪回调（呼出即打字）：缓冲回放在文本视图可接收 keyDown 后触发。
+            context.coordinator.parent.onViewReady(textView)
         }
 
         textView.scrollRangeToVisible(textView.selectedRange())
@@ -162,10 +166,17 @@ struct CaptureTextView: NSViewRepresentable {
             self.parent = parent
         }
 
+        /// 事件修饰键：回放期间按"裸回车"处理（程序化 keyDown 不更新 NSApp.currentEvent，
+        /// 会残留呼出热键的 ⌃⌥——见 CaptureNSTextView.isReplayingKeys）。
+        private func eventModifiers(for textView: NSTextView) -> NSEvent.ModifierFlags {
+            if (textView as? CaptureNSTextView)?.isReplayingKeys == true { return [] }
+            return NSApp.currentEvent?.modifierFlags.intersection([.command, .option, .shift, .control]) ?? []
+        }
+
         func textView(_ textView: NSTextView, doCommandBy commandSelector: Selector) -> Bool {
             switch commandSelector {
             case #selector(NSResponder.insertNewline(_:)):
-                let modifiers = NSApp.currentEvent?.modifierFlags.intersection([.command, .option, .shift, .control]) ?? []
+                let modifiers = eventModifiers(for: textView)
                 switch CaptureTextView.newlineDecision(
                     hasMarkedText: textView.hasMarkedText(),
                     allowsLineBreaks: parent.allowsLineBreaks,
@@ -197,7 +208,7 @@ struct CaptureTextView: NSViewRepresentable {
             guard let replacementString else { return true }
             if replacementString == "\n" {
                 // 只有"⇧↩ 且模式允许换行"才真正插入换行；其余回车已被 doCommandBy 消费。
-                let modifiers = NSApp.currentEvent?.modifierFlags.intersection([.command, .option, .shift, .control]) ?? []
+                let modifiers = eventModifiers(for: textView)
                 return parent.allowsLineBreaks && modifiers == .shift
             }
             if replacementString == "\t" {
@@ -226,6 +237,9 @@ enum FocusDirection {
 
 final class CaptureNSTextView: NSTextView {
     var placeholder = ""
+    /// 回放缓冲按键期间为真（S1-04）：回放的回车按"裸回车=提交"处理，
+    /// 不读 NSApp.currentEvent（程序化 keyDown 不会更新它，会残留热键修饰键）。
+    var isReplayingKeys = false
 
     override func draw(_ rect: CGRect) {
         super.draw(rect)

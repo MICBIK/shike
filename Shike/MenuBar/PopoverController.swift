@@ -47,6 +47,8 @@ final class PopoverController {
     var persistSize: (CGSize) -> Void = { _ in }
     /// 面板弹出（S1-03）：每次呼出应用"呼出时进入"设置；由 App 接到 PanelModel.applyOpenMode。
     var onShow: () -> Void = {}
+    /// 面板收起（S1-04）：呼出即打字的缓冲在此丢弃；由 App 接到 TypingBuffer.reset。
+    var onClose: () -> Void = {}
     /// ⌘1/⌘2 切模式（S1-03）：参数为数字字符（"1"/"2"）；返回 true 表示已消费。
     var modeKeyHandler: (String) -> Bool = { _ in false }
 
@@ -192,6 +194,7 @@ final class PopoverController {
                     self?.didCloseEventDate = Date()
                     self?.stopOutsideClickMonitors()
                     self?.stopEscapeMonitor()
+                    self?.onClose()
                 }
             }
     }

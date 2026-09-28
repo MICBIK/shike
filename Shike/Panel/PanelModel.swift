@@ -2,6 +2,7 @@
 // Copyright (C) 2026 Shike contributors
 // SPDX-License-Identifier: GPL-3.0-only
 
+import AppKit
 import Foundation
 import Observation
 import os
@@ -110,6 +111,27 @@ final class PanelModel {
     @ObservationIgnored var resizeApply: (_ proposed: CGSize, _ isFinal: Bool) -> Void = { _, _ in }
     /// Esc 第一级"结束编辑"：返回 true 表示有编辑被结束。列表编辑在 2.6/2.7 接入。
     @ObservationIgnored var endEditingIfNeeded: () -> Bool = { false }
+    /// 呼出即打字（S1-04）：输入框就绪时回放呼出期间缓冲的按键；由 App 接到 TypingBuffer。
+    @ObservationIgnored var replayBufferedKeys: (NSTextView) -> Void = { _ in }
+    /// 输入框是否已就绪可接收输入（S1-04）：呼出即打字的截获判定依据。
+    /// 呼出时复位（新空窗开始），输入框就绪时置位（captureDidBecomeReady）。
+    private(set) var isCaptureReady = false
+
+    /// 输入框就绪（S1-04）：置位并触发缓冲回放；由 CaptureTextView 的 onViewReady 经 App 接入。
+    func captureDidBecomeReady(_ textView: NSTextView) {
+        isCaptureReady = true
+        replayBufferedKeys(textView)
+    }
+
+    /// 新的呼出空窗开始（S1-04）：复位就绪标志；由 PopoverController.onShow 经 App 接入。
+    func beginCaptureWindow() {
+        isCaptureReady = false
+    }
+
+    /// 面板收起（S1-04）：复位就绪标志；缓冲的丢弃由 App 接到 TypingBuffer.reset。
+    func endCaptureWindow() {
+        isCaptureReady = false
+    }
 
     /// 提交的创建动作（默认走仓储；测试可替换以模拟失败/成功，与 runNotes/runTodos 同类接缝）。
     @ObservationIgnored internal var createNote: (String) async throws -> Note

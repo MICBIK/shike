@@ -117,6 +117,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // S1-03：每次呼出应用"呼出时进入"；⌘1/⌘2 切模式。
         popoverController.onShow = { [weak environment] in
             environment?.panelModel.applyOpenMode()
+            environment?.panelModel.beginCaptureWindow()
         }
         popoverController.modeKeyHandler = { [weak environment] digit in
             guard let environment else { return false }
@@ -137,6 +138,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                   let button = self.statusItemController?.statusBarButton else { return }
             popoverController.toggle(from: button)
         }
+
+        // 呼出即打字（S1-04）：呼出空窗期（输入框未就绪且焦点不在其它键窗）的
+        // 可打印按键与回车入缓冲，输入框就绪时回放（按"裸回车=提交"）；面板收起丢弃缓冲。
+        environment.typingBuffer.installMonitor { [weak environment, weak popoverController] in
+            guard let environment, let popoverController,
+                  !environment.panelModel.isCaptureReady else { return false }
+            // 其它键窗（设置窗口等）拥有焦点时不截获，避免吞掉它们的键盘操作。
+            if let keyWindow = NSApp.keyWindow,
+               keyWindow !== popoverController.popover.contentViewController?.view.window {
+                return false
+            }
+            return true
+        }
+        environment.panelModel.replayBufferedKeys = { [weak environment] textView in
+            guard let environment else { return }
+            (textView as? CaptureNSTextView)?.isReplayingKeys = true
+            environment.typingBuffer.replayPendingEvents(in: textView)
+            (textView as? CaptureNSTextView)?.isReplayingKeys = false
+        }
+        popoverController.onClose = { [weak environment] in
+            environment?.typingBuffer.reset()
+            environment?.panelModel.endCaptureWindow()
+        }
         environment.panelModel.start()
 
         // 每日备份（§3 节点 I/J）：后台执行一次，跨天再备份；不等待完成。
@@ -149,6 +173,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         popoverController?.stop()
         environment?.panelModel.stop()
         environment?.backupService.stop()
+        environment?.typingBuffer.stopMonitor()
     }
 
     // - MARK: 设置窗口（主菜单与右键菜单共用；单实例）

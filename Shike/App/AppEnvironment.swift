@@ -19,6 +19,7 @@ public final class AppEnvironment {
     let panelModel: PanelModel
     let backupService: BackupService
     let hotkeyService: HotkeyService
+    let typingBuffer = TypingBuffer()
 
     public init(database: AppDatabase, preferences: Preferences, dataDirectory: URL) {
         self.database = database

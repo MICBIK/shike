@@ -61,7 +61,8 @@ struct PanelView: View {
             onTab: { _ in
                 // 03 §4：Tab 切换到另一模式（Shift+Tab 同向处理）。
                 model.mode = model.mode == .note ? .todo : .note
-            }
+            },
+            onViewReady: { textView in model.captureDidBecomeReady(textView) }
         )
         .frame(height: max(captureHeight, 22))
         .padding(.horizontal, 12)
