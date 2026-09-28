@@ -70,6 +70,104 @@ final class PanelModel {
     private(set) var todos: [Todo] = []
     private(set) var banner: BannerState?
 
+    // - MARK: 删除与撤销（S1-07，03 §7）
+
+    /// 删除撤销栈的一条记录（会话级，不持久化）。
+    struct DeletedItem {
+        enum Kind: Equatable {
+            case note(Note.ID)
+            case todo(Todo.ID)
+        }
+
+        let kind: Kind
+        let summary: String
+    }
+
+    /// 删除撤销栈：按删除先后入栈，⌘Z 逐条弹出（最近删的先恢复）。
+    private(set) var deletedStack: [DeletedItem] = []
+    /// 底部撤销提示条（03 §7）：显示删除摘要 + "撤销"，5 秒自动消失。
+    private(set) var deletedBarSummary: String?
+    /// 隐藏延迟（L2 测试注入缩短；默认 5 秒）。
+    @ObservationIgnored var deletedBarHideDelay: Duration = .seconds(5)
+    /// nonisolated(unsafe) 供 deinit 取消。
+    @ObservationIgnored nonisolated(unsafe) private var deletedBarHideTask: Task<Void, Never>?
+
+    /// 面板内 ⌘Z（非编辑态）：逐条撤销最近一次删除；无可撤销时无反应（返回 false 交回默认链）。
+    func undoLastDeleteIfNeeded() -> Bool {
+        guard !isEditingAny else { return false }
+        guard let last = deletedStack.popLast() else { return false }
+        Task {
+            await restore(last)
+            await MainActor.run { self.refreshDeletedBar() }
+        }
+        return true
+    }
+
+    /// 撤销提示条的"撤销"按钮：同 ⌘Z。
+    func undoLastDelete() {
+        _ = undoLastDeleteIfNeeded()
+    }
+
+    /// 是否处于任一编辑态（Esc/⌘Z 的分级依据）。
+    var isEditingAny: Bool {
+        editingNoteID != nil || editingTodoID != nil
+    }
+
+    /// 恢复一条删除（restore 走数据层；失败走提示条并把条目放回栈顶——撤销入口不能丢）。
+    private func restore(_ item: DeletedItem) async {
+        do {
+            switch item.kind {
+            case .note(let id): try await noteRepository.restore(id)
+            case .todo(let id): try await todoRepository.restore(id)
+            }
+        } catch let error as ShikeDataError {
+            await MainActor.run {
+                self.deletedStack.append(item) // 失败回栈：重试成功前撤销入口保持可达
+                self.report(error, retry: { [weak self] in Task { await self?.retryRestore(item) } })
+            }
+        } catch {
+            await MainActor.run {
+                self.deletedStack.append(item)
+                self.report(.writeFailed(.ioError), retry: { [weak self] in Task { await self?.retryRestore(item) } })
+            }
+        }
+    }
+
+    /// 撤销重试：先从栈顶取回条目（与 undoLastDeleteIfNeeded 的弹出对称），成功则刷新提示条。
+    private func retryRestore(_ item: DeletedItem) async {
+        deletedStack.removeAll { $0.kind == item.kind }
+        await restore(item)
+        await MainActor.run { self.refreshDeletedBar() }
+    }
+
+    /// 删除入栈并显示撤销提示条（5 秒；连续删除重置计时与内容；超长摘要加省略号）。
+    fileprivate func recordDeletion(kind: DeletedItem.Kind, summary: String) {
+        let truncated = String(summary.prefix(12))
+        let display = summary.count > 12 ? truncated + "…" : truncated
+        deletedStack.append(DeletedItem(kind: kind, summary: display))
+        showDeletedBar(display)
+    }
+
+    /// 显示提示条并排 5 秒隐藏任务（连续删除/撤销显示下一条时同样重启计时）。
+    private func showDeletedBar(_ summary: String) {
+        deletedBarSummary = summary
+        deletedBarHideTask?.cancel()
+        deletedBarHideTask = Task { [weak self] in
+            try? await Task.sleep(for: self?.deletedBarHideDelay ?? .seconds(5))
+            guard !Task.isCancelled else { return }
+            self?.deletedBarSummary = nil
+        }
+    }
+
+    /// 撤销后刷新提示条：栈空则收起，否则显示下一条并重启计时（03 §7）。
+    private func refreshDeletedBar() {
+        if let last = deletedStack.last {
+            showDeletedBar(last.summary)
+        } else {
+            deletedBarSummary = nil
+        }
+    }
+
     /// 两份草稿（S1-04，03 §4）：随输入持久化；收起面板、切换模式不清空；提交成功清空。
     var draftNote: String = "" {
         didSet { preferences.panelDraftNote = draftNote }
@@ -158,6 +256,7 @@ final class PanelModel {
         do {
             if trimmed.isEmpty {
                 try await noteRepository.softDelete(id)
+                recordDeletion(kind: .note(id), summary: item.note.content)
             } else if item.note.content != text {
                 try await noteRepository.updateContent(id, to: text)
             }
@@ -179,10 +278,12 @@ final class PanelModel {
         }
     }
 
-    /// 删除便签（软删除）；撤销提示条与 ⌘Z 撤销在 Story 2.8 接入。
+    /// 删除便签（软删除），入撤销栈并显示撤销提示条（S1-07）。
     func deleteNote(_ id: Note.ID) async {
+        let summary = notes.first { $0.note.id == id }?.note.content ?? ""
         do {
             try await noteRepository.softDelete(id)
+            recordDeletion(kind: .note(id), summary: summary)
         } catch let error as ShikeDataError {
             report(error, retry: { [weak self] in Task { await self?.deleteNote(id) } })
         } catch {
@@ -277,10 +378,12 @@ final class PanelModel {
         }
     }
 
-    /// 删除待办（软删除）；撤销提示条与 ⌘Z 撤销在 Story 2.8 接入。
+    /// 删除待办（软删除），入撤销栈并显示撤销提示条（S1-07）。
     func deleteTodo(_ id: Todo.ID) async {
+        let summary = todos.first { $0.id == id }?.title ?? ""
         do {
             try await todoRepository.softDelete(id)
+            recordDeletion(kind: .todo(id), summary: summary)
         } catch let error as ShikeDataError {
             report(error, retry: { [weak self] in Task { await self?.deleteTodo(id) } })
         } catch {
@@ -378,6 +481,7 @@ final class PanelModel {
         todoTask?.cancel()
         highlightClearTask?.cancel()
         completionTimers.values.forEach { $0.cancel() }
+        deletedBarHideTask?.cancel()
     }
 
     /// 订阅两类观察流（app-shell.md：start() 订阅便签与待办两个观察）。

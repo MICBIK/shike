@@ -814,6 +814,28 @@
           }
         }
       }
+    },
+    "undoBar.deleted": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已删除「%@」"
+          }
+        }
+      }
+    },
+    "undoBar.undo": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "撤销"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

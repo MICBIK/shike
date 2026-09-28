@@ -20,6 +20,10 @@ struct PanelView: View {
             }
             captureArea
             content
+            if let summary = model.deletedBarSummary {
+                Divider()
+                UndoBar(summary: summary) { model.undoLastDelete() }
+            }
         }
         .overlay(alignment: .bottomTrailing) {
             PopoverResizeHandle(

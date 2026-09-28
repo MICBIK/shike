@@ -51,6 +51,8 @@ final class PopoverController {
     var onClose: () -> Void = {}
     /// ⌘1/⌘2 切模式（S1-03）：参数为数字字符（"1"/"2"）；返回 true 表示已消费。
     var modeKeyHandler: (String) -> Bool = { _ in false }
+    /// 面板内 ⌘Z 撤销最近一次删除（S1-07，非编辑态）；返回 true 表示已消费。
+    var undoKeyHandler: () -> Bool = { false }
 
     init(contentViewController: NSViewController, initialSize: CGSize = PanelSizing.defaultSize) {
         popover.animates = false
@@ -168,10 +170,15 @@ final class PopoverController {
                         return true
                     }
                 }
-                if modifiers.subtracting([.numericPad, .function, .capsLock]) == .command,
-                   let digit = event.charactersIgnoringModifiers,
-                   digit == "1" || digit == "2" {
-                    return self.modeKeyHandler(digit)
+                if modifiers.subtracting([.numericPad, .function, .capsLock]) == .command {
+                    // ⌘Z：非编辑态撤销最近一次删除；编辑态返回 false 交回文字撤销（03 §7）。
+                    if event.charactersIgnoringModifiers == "z" {
+                        return self.undoKeyHandler()
+                    }
+                    if let digit = event.charactersIgnoringModifiers,
+                       digit == "1" || digit == "2" {
+                        return self.modeKeyHandler(digit)
+                    }
                 }
                 return false
             }

@@ -108,6 +108,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return environment.panelModel.endEditingIfNeeded()
         }
         // 收起面板时结束编辑（03 §5：收起面板自动保存）。
+        // 面板内 ⌘Z（S1-07）：非编辑态撤销最近一次删除。
+        popoverController.undoKeyHandler = { [weak environment] in
+            environment?.panelModel.undoLastDeleteIfNeeded() ?? false
+        }
         popoverController.onClose = { [weak environment] in
             environment?.typingBuffer.reset()
             _ = environment?.panelModel.endEditingIfNeeded()

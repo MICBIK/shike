@@ -98,6 +98,22 @@ private struct NoteRow: View {
                 flushEditing()
             }
         }
+        .contextMenu {
+            Button(String(localized: .listMenuEdit)) {
+                startEditing()
+            }
+            Button(item.note.pinnedAt == nil ? String(localized: .listMenuPin) : String(localized: .listMenuUnpin)) {
+                Task { await model.setNotePinned(item.note.id, item.note.pinnedAt == nil) }
+            }
+            Button(String(localized: .listMenuCopy)) {
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.setString(item.note.content, forType: .string)
+            }
+            Divider()
+            Button(String(localized: .listMenuDelete), role: .destructive) {
+                Task { await model.deleteNote(item.note.id) }
+            }
+        }
         .onDisappear {
             saveDebounceTask?.cancel()
         }
