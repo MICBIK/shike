@@ -19,6 +19,12 @@ struct PanelView: View {
             }
             content
         }
+        .overlay(alignment: .bottomTrailing) {
+            PopoverResizeHandle(
+                currentSize: { model.resizeCurrentSize() },
+                onResize: { proposed, isFinal in model.resizeApply(proposed, isFinal) }
+            )
+        }
     }
 
     private var topBar: some View {

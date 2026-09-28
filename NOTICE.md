@@ -16,7 +16,8 @@
 |---|---|---|---|
 | `Shike/MenuBar/StatusItemController.swift` | `demo/reminders-menubar/reminders-menubar/AppDelegate.swift`（configureMenuBarButton、handleStatusBarButtonAction、showRightClickMenu） | 拆成独立控制器；去掉计数/预览、隐藏图标逻辑与单例；图标固定为模板图像 `note.text`；右键菜单经 menuProvider 临时挂载 | 2026-09-27 |
 | `Shike/MenuBar/StatusMenu.swift` | `demo/reminders-menubar/reminders-menubar/Services/RightClickMenuHelper.swift` | 菜单项换成拾刻的三项（设置…、关于拾刻、退出拾刻）；去掉单例与重载数据、检查更新等更新相关菜单项；动作经闭包回调 AppDelegate | 2026-09-27 |
-| `Shike/MenuBar/PopoverController.swift` | `demo/reminders-menubar/reminders-menubar/AppDelegate.swift`（togglePopover、外部点击监听、didClose/didShow 兜底）、`MainPopoverSizing.swift`、`Extensions/Comparable+Extensions.swift`（constrainedTo） | 拆成独立控制器；去掉 EventKit 授权与单例；尺寸改为 03 §3 的 360×520（最小 300×360、最大 600×1000）；`activate(ignoringOtherApps:)` 改为 `activate()` | 2026-09-27 |
+| `Shike/MenuBar/PopoverController.swift` | `demo/reminders-menubar/reminders-menubar/AppDelegate.swift`（togglePopover、外部点击监听、didClose/didShow 兜底）、`MainPopoverSizing.swift`、`Extensions/Comparable+Extensions.swift`（constrainedTo） | 拆成独立控制器；去掉 EventKit 授权与单例；尺寸改为 03 §3 的 360×520（最小 300×360、最大 600×1000）；`activate(ignoringOtherApps:)` 改为 `activate()`；S1-01 增加尺寸把手回调、Esc 监听与持久化接线 | 2026-09-27 |
+| `Shike/Panel/PopoverResizeHandle.swift` | `demo/reminders-menubar/reminders-menubar/Views/Helpers/PopoverResizeHandleView.swift`、`Extensions/NSCursor+Extensions.swift` | 去掉 AppDelegate.shared 单例，改经回调读写尺寸；光标用系统 crosshair（无图片资源）；帮助气泡省略 | 2026-09-28 |
 
 ## 依赖库
 

@@ -53,6 +53,15 @@ final class PanelModel {
     @ObservationIgnored nonisolated(unsafe) private var noteTask: Task<Void, Never>?
     @ObservationIgnored nonisolated(unsafe) private var todoTask: Task<Void, Never>?
 
+    // - MARK: 面板行为的回调（S1-01，由 App 接到 PopoverController；默认空实现供 L2 直接组装）
+
+    /// 尺寸把手的"当前面板尺寸"。
+    @ObservationIgnored var resizeCurrentSize: () -> CGSize = { CGSize(width: 360, height: 520) }
+    /// 尺寸把手的拖动回调：proposed 为建议尺寸，isFinal 表示拖动结束（应持久化）。
+    @ObservationIgnored var resizeApply: (_ proposed: CGSize, _ isFinal: Bool) -> Void = { _, _ in }
+    /// Esc 第一级"结束编辑"：返回 true 表示有编辑被结束。列表编辑在 2.6/2.7 接入。
+    @ObservationIgnored var endEditingIfNeeded: () -> Bool = { false }
+
     init(noteRepository: NoteRepository, todoRepository: TodoRepository) {
         self.noteRepository = noteRepository
         self.todoRepository = todoRepository

@@ -87,9 +87,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let popoverController = PopoverController(
             contentViewController: NSHostingController(
                 rootView: PanelView(model: environment.panelModel)
-            )
+            ),
+            initialSize: environment.preferences.panelSize
         )
         self.popoverController = popoverController
+        // S1-01：尺寸把手的持久化、Esc 的"结束编辑"经面板模型回调（无单例）。
+        popoverController.persistSize = { [weak environment] size in
+            guard let environment else { return }
+            environment.preferences.panelSize = size
+        }
+        popoverController.escapeHandler = { [weak environment] in
+            environment?.panelModel.endEditingIfNeeded() ?? false
+        }
+        environment.panelModel.resizeCurrentSize = { [weak popoverController] in
+            popoverController.map {
+                CGSize(width: $0.popover.contentSize.width, height: $0.popover.contentSize.height)
+            } ?? CGSize(width: PanelSizing.defaultSize.width, height: PanelSizing.defaultSize.height)
+        }
+        environment.panelModel.resizeApply = { [weak popoverController] proposed, isFinal in
+            popoverController?.applyResize(proposed, isFinal: isFinal)
+        }
         let statusItemController = StatusItemController(popoverController: popoverController)
         self.statusItemController = statusItemController
         statusItemController.menuProvider = { [weak statusMenu] in statusMenu?.buildMenu() }
