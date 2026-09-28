@@ -220,6 +220,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             environment.panelModel.locateTodo(uuid: uuid)
         }
         UNUserNotificationCenter.current().delegate = environment.notificationCoordinator
+
+        // 提醒调度（S2-05）：启动对账由观察流首帧触发（todosChanged 在首批数据即发射）——
+        // 首帧前不拿到空快照做对账，避免清掉系统里已排的提醒（盲审 3.5-F1）；
+        // 数据变化 0.5 秒合并；跨天/唤醒由调度器订阅；提醒设置变化 → 重对账 + 重注册类别。
+        environment.panelModel.todosChanged = { [weak environment] in
+            environment?.reminderScheduler.scheduleReconcile()
+        }
+        environment.reminderScheduler.startObservingSystemEvents()
+        settingsModel.onReminderSettingsChanged = { [weak environment] in
+            guard let environment else { return }
+            environment.notificationCoordinator.registerCategory(
+                snoozeMinutes: {
+                    let stored = environment.preferences.reminderSnoozeMinutes
+                    return SettingsModel.snoozeOptions.contains(stored) ? stored : 10
+                }()
+            )
+            environment.reminderScheduler.scheduleReconcile()
+        }
         environment.panelModel.start()
 
         // 每日备份（§3 节点 I/J）：后台执行一次，跨天再备份；不等待完成。

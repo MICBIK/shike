@@ -282,6 +282,8 @@ final class PanelModel {
     /// 通知权限请求钩子（S2-10）：提交带时间待办时触发；App 接 NotificationScheduling，
     /// L2 留空实现保持零系统调用。
     @ObservationIgnored var notificationPermissionRequester: () -> Void = {}
+    /// 待办数据变化钩子（S2-05）：提醒调度器经它做 0.5 秒合并对账；L2 留空。
+    @ObservationIgnored var todosChanged: () -> Void = {}
     /// 通知点本体后的定位目标（S2-04）：TodoListView 滚动定位并高亮，1.5 秒后清除。
     private(set) var locateTodoID: String?
     /// 定位高亮的清除任务（nonisolated(unsafe) 供 deinit 取消）。
@@ -695,6 +697,7 @@ final class PanelModel {
         do {
             for try await items in stream {
                 todos = items
+                todosChanged()
                 clearLoadBannerIfNeeded()
             }
             reportIfNotCancelled(.readFailed(.ioError))

@@ -28,11 +28,16 @@ struct ReminderSettingsView: View {
             )
             .onChange(of: allDayTime) { _, newValue in
                 model.reminderAllDayMinutes = Self.minutes(from: newValue)
+                model.onReminderSettingsChanged()
             }
             Picker(String(localized: .settingsReminderSnooze), selection: $model.reminderSnoozeMinutes) {
                 ForEach(SettingsModel.snoozeOptions, id: \.self) { minutes in
                     Text(String(localized: .settingsReminderSnoozeMinutes(minutes))).tag(minutes)
                 }
+            }
+            .onChange(of: model.reminderSnoozeMinutes) { _, _ in
+                // 时长变化：重对账之外还需重注册类别（按钮括号文案随设置变化，盲审 3.4-F3）。
+                model.onReminderSettingsChanged()
             }
         }
         .padding(20)

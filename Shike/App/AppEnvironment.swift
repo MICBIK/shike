@@ -24,6 +24,7 @@ public final class AppEnvironment {
     /// 通知接缝与动作协调（S2-04）：L2 可注入内存替身保持零系统调用。
     let notificationScheduling: NotificationScheduling
     let notificationCoordinator: NotificationCoordinator
+    let reminderScheduler: ReminderScheduler
 
     init(
         database: AppDatabase,
@@ -52,10 +53,22 @@ public final class AppEnvironment {
         panelModel.notificationPermissionRequester = { [notificationScheduling] in
             Task { _ = await notificationScheduling.requestAuthorization() }
         }
-        // 通知动作（S2-04）：先完成全部存储属性初始化，再接回调（闭包要访问 self.panelModel）。
-        // snoozeMinutes 动作发生时读偏好；面板的打开与定位由 AppDelegate 接线。
-        let notificationCoordinator = NotificationCoordinator(scheduling: notificationScheduling, handlers: .init())
+        // 通知动作协调（S2-04）。
+        let notificationCoordinator = NotificationCoordinator(
+            scheduling: notificationScheduling,
+            handlers: .init()
+        )
         self.notificationCoordinator = notificationCoordinator
+        // 提醒调度（S2-05）：待办数据变化的合并对账在 AppDelegate 接线（todoChanged 钩子）。
+        let reminderScheduler = ReminderScheduler(
+            scheduling: notificationScheduling,
+            todosProvider: { [weak panelModel] in panelModel?.todos ?? [] },
+            preferences: preferences,
+            timeZoneProvider: { [weak panelModel] in panelModel?.timeZone ?? .current }
+        )
+        self.reminderScheduler = reminderScheduler
+        // 通知动作（S2-04）：全部存储属性已就绪，接回调（闭包访问 self.panelModel）。
+        // snoozeMinutes 动作发生时读偏好；面板的打开与定位由 AppDelegate 接线。
         notificationCoordinator.handlers.complete = { [weak self] uuid in
             Task { await self?.panelModel.completeTodo(uuid: uuid) }
         }

@@ -55,6 +55,9 @@ final class SettingsModel {
     /// "稍后提醒"的合法档位（03 §9）：5 / 10（默认）/ 15 / 30 / 60 分钟。
     static let snoozeOptions = [5, 10, 15, 30, 60]
 
+    /// 提醒设置变化钩子（S2-05）：调度器重对账 + 重注册类别；AppDelegate 接线。
+    @ObservationIgnored var onReminderSettingsChanged: () -> Void = {}
+
     /// "呼出时进入"（S1-03）；存储值非法时回落 last。
     var panelOpenMode: PanelModel.OpenMode {
         get { PanelModel.OpenMode(rawValue: preferences.panelOpenMode) ?? .last }
