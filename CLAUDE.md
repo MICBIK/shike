@@ -20,9 +20,12 @@ macOS 菜单栏便签与待办应用。与产品负责人 MICBIK 用简体中文
 - 修改中文日期解析规则时，同时更新 [docs/05](docs/05-中文日期解析规格.md) 的用例表和对应测试。
 - "完成"以 CI 和实测为准（[docs/06 §7](docs/06-开发规范.md#7-完成的定义)），不以文档中的声明为准。
 
-## 常用命令（阶段 0 完成后可用）
+## 常用命令
 
 ```bash
 xcodegen generate                             # 生成 Shike.xcodeproj（不入库）
-swift test --package-path Packages/ShikeKit   # 解析与数据层测试
+swift test --package-path Packages/ShikeKit   # 解析与数据层测试（L1）
+bash scripts/checks.sh                        # 架构合规检查（与 CI 的 checks 作业同一份脚本）
+SHIKE_WARNINGS_AS_ERRORS=YES xcodebuild -project Shike.xcodeproj -scheme Shike \
+  -destination 'platform=macOS' test          # App 层测试（L2）；本地可省略环境变量（警告即错误只在 CI 开启，ADR-019）
 ```

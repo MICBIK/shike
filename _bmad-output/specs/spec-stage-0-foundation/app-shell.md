@@ -19,7 +19,7 @@
 | `Shike/Settings/SettingsWindowController.swift`、`SettingsTab.swift`、`SettingsView.swift`、`AboutSettingsView.swift`、`PlaceholderSettingsView.swift`、`LicenseWindowController.swift` | 设置窗口；许可证窗口 |
 | `Shike/Services/Preferences.swift`、`BackupService.swift` | 服务 |
 | `Shike/Support/Log.swift`、`ErrorText.swift` | 日志分类；错误原因到文案的映射 |
-| `Shike/Resources/Assets.xcassets`、`Localizable.xcstrings` | 资源 |
+| `Shike/Resources/Localizable.xcstrings` | 资源（文案目录）。阶段 0 的图标全部用 SF Symbol，不建 Assets.xcassets；正式图标定稿时（阶段 4）再创建（1.17 修订：原列为 `Assets.xcassets、Localizable.xcstrings`，资产目录无故事认领且阶段 0 用不到） |
 | 仓库根目录的 `LICENSE` | 在 project.yml 中作为资源打包，不复制副本 |
 | `ShikeTests/…` | L2 测试（见本文末节） |
 
@@ -68,7 +68,7 @@
   - 应用菜单：设置…（⌘,）、退出拾刻（⌘Q）。
   - 编辑菜单：撤销（`undo:`，⌘Z）、重做（`redo:`，⇧⌘Z）、剪切（`cut:`，⌘X）、复制（`copy:`，⌘C）、粘贴（`paste:`，⌘V）、全选（`selectAll:`，⌘A）。这些菜单项的 target 都为 nil，由响应链处理。
 - **BackupService：**
-  - `start()` 在后台执行一次 `backupIfNeeded(into: 数据目录/Backups, keep: preferences.backupKeepCount)`，并订阅 `NSCalendarDayChanged`，跨天时再执行一次。
+  - `start()` 在后台执行一次 `backupIfNeeded(to: 数据目录/Backups, keep: preferences.backupKeepCount)`，并订阅 `NSCalendarDayChanged`，跨天时再执行一次。（1.17 修订：参数标签按实现 `to:keep:` 更正，原为 `into:`）
   - 结果和失败都写入日志（category `backup`）。
 - **ErrorText：**把 `DataFailureReason` 映射为文案。
 
