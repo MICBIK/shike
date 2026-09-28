@@ -20,6 +20,9 @@ public struct Preferences {
         public static let panelOpenMode = "panel.openMode"
         public static let panelDraftNote = "panel.draft.note"
         public static let panelDraftTodo = "panel.draft.todo"
+        public static let menuBarCounter = "menuBar.counter"
+        public static let reminderAllDayMinutes = "reminder.allDayMinutes"
+        public static let reminderSnoozeMinutes = "reminder.snoozeMinutes"
     }
 
     /// 默认值注册表：与 Key 同处维护（计算属性，避免非 Sendable 静态共享状态）。
@@ -32,6 +35,9 @@ public struct Preferences {
             Key.panelOpenMode: "last",
             Key.panelDraftNote: "",
             Key.panelDraftTodo: "",
+            Key.menuBarCounter: "overdueAndToday",
+            Key.reminderAllDayMinutes: 540,
+            Key.reminderSnoozeMinutes: 10,
         ]
     }
 
@@ -106,5 +112,27 @@ public struct Preferences {
     public var panelDraftTodo: String {
         get { defaults.string(forKey: Key.panelDraftTodo) ?? "" }
         nonmutating set { defaults.set(newValue, forKey: Key.panelDraftTodo) }
+    }
+
+    /// 菜单栏计数口径（S2-08，03 §9）：none / overdueAndToday（默认）/ allIncomplete；
+    /// 存储值非法时由消费端回落 overdueAndToday。
+    public var menuBarCounter: String {
+        get { defaults.string(forKey: Key.menuBarCounter) ?? "overdueAndToday" }
+        nonmutating set { defaults.set(newValue, forKey: Key.menuBarCounter) }
+    }
+
+    /// 全天待办的提醒时刻（S2-03，03 §9）：从 0 点起的分钟数，默认 540（09:00）。
+    /// 键被外部写坏成非数字时 integer(forKey:) 会返回 0（=00:00），因此用 object 强转回落
+    /// 默认值（盲审 F2）；越界值由消费端钳制到 0...1439。
+    public var reminderAllDayMinutes: Int {
+        get { (defaults.object(forKey: Key.reminderAllDayMinutes) as? Int) ?? 540 }
+        nonmutating set { defaults.set(newValue, forKey: Key.reminderAllDayMinutes) }
+    }
+
+    /// "稍后提醒"的时长（S2-04，03 §9/§11）：分钟数，默认 10；合法档位 5/10/15/30/60，
+    /// 非法值由消费端回落 10（读取同样防非数字写坏）。
+    public var reminderSnoozeMinutes: Int {
+        get { (defaults.object(forKey: Key.reminderSnoozeMinutes) as? Int) ?? 10 }
+        nonmutating set { defaults.set(newValue, forKey: Key.reminderSnoozeMinutes) }
     }
 }

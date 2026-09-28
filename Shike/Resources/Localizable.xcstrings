@@ -815,6 +815,39 @@
         }
       }
     },
+    "settings.reminder.allDayTime": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "全天待办提醒时间"
+          }
+        }
+      }
+    },
+    "settings.reminder.snooze": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "稍后提醒时长"
+          }
+        }
+      }
+    },
+    "settings.reminder.snoozeMinutes": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld 分钟"
+          }
+        }
+      }
+    },
     "settings.shortcuts.accessDenied": {
       "extractionState": "manual",
       "localizations": {
