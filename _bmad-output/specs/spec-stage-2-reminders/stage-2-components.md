@@ -22,8 +22,8 @@ PanelModel（待办模式）
 ## 2. 提交与标题清理
 
 - 带识别：`title = TitleCleaner.clean(text, ranges: matchedRanges)`，`due = recognizedDue`。
-- 取消识别：`title = TitleCleaner.stripWhitespaceAndPunctuationOnly(text)`，`due = nil`。
-- 清理后为空 → 用原文去首尾空白（05 §7 第 5 步）。
+- 取消识别：`title = TitleCleaner.stripWhitespaceAndPunctuation(text)`，`due = nil`。
+- 清理后为空 → 用原文去首尾空白（05 §7 第 6 步）。
 - 提交失败：输入、识别状态全部保留（阶段 1 语义不变）。
 - 05 §7 修订：第 3、4 步迭代执行直到不再变化（Issue #2）；docs/05 §7 与 §9.13 同提交更新。
 

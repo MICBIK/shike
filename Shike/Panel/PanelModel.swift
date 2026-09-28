@@ -203,7 +203,7 @@ final class PanelModel {
     /// 识别用"现在"（L2 注入固定值断言；默认系统时间）。
     @ObservationIgnored var parseNow: () -> Date = { Date() }
 
-    /// 提交用（3.2 接线）：当前识别对应的待办时间。
+    /// 当前识别对应的待办时间（识别提示与测试用；提交载荷在 todoSubmission 定格）。
     var recognizedDue: TodoDue? {
         guard let recognition else { return nil }
         return TodoDue(date: recognition.date, hasTime: recognition.hasTime)
@@ -501,40 +501,67 @@ final class PanelModel {
 
     // - MARK: 快速输入（S1-04，03 §4）
 
+    /// 一次提交的载荷（S2-02）：标题与时间在提交时点定格，重试重放同一对，
+    /// 不随等待期间识别状态的变化漂移。
+    private enum Submission {
+        case note(content: String)
+        /// originalText 用于成功后比对草稿（重试期间用户改动的新草稿绝不丢）。
+        case todo(originalText: String, title: String, due: TodoDue?)
+    }
+
+    /// 待办提交物（S2-02，05 §7）：识别中→清理标题+due；识别被取消（✕）→
+    /// 仅空白与标点清理、无时间（05 §7 修订的豁免仅限 ✕）；无识别→照常执行
+    /// 第 3 步提醒词清理（matchedRanges 为空，"记得还信用卡"→"还信用卡"，盲审 F2）。
+    private func todoSubmission(from text: String) -> Submission {
+        if !recognitionDismissed, let recognition {
+            let title = TitleCleaner.clean(text, removing: recognition.matchedRanges)
+            return .todo(originalText: text, title: title, due: TodoDue(date: recognition.date, hasTime: recognition.hasTime))
+        }
+        if recognitionDismissed {
+            return .todo(originalText: text, title: TitleCleaner.stripWhitespaceAndPunctuation(text), due: nil)
+        }
+        return .todo(originalText: text, title: TitleCleaner.clean(text, removing: []), due: nil)
+    }
+
     /// 提交当前输入（03 §4：↩）。trim 后为空则无反应；成功清空该模式草稿并记录新条目；
-    /// 失败保留输入，提示条的"重试"绑定当次输入（NFR19），重试成功后清除保存失败提示条。
+    /// 失败保留输入，提示条的"重试"绑定当次载荷（NFR19），重试成功后清除保存失败提示条。
     func submitCurrentDraft() {
         let text = currentDraft
         guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
-        submit(text, mode: mode)
+        switch mode {
+        case .note:
+            submit(.note(content: text))
+        case .todo:
+            submit(todoSubmission(from: text))
+        }
     }
 
-    private func submit(_ text: String, mode: Mode) {
+    private func submit(_ submission: Submission) {
         Task { [weak self] in
             guard let self else { return }
             do {
                 let createdID: String
-                switch mode {
-                case .note:
-                    createdID = try await self.createNote(text).uuid.uuidString
-                case .todo:
-                    createdID = try await self.createTodo(text, nil).uuid.uuidString
+                switch submission {
+                case .note(let content):
+                    createdID = try await self.createNote(content).uuid.uuidString
+                case .todo(_, let title, let due):
+                    createdID = try await self.createTodo(title, due).uuid.uuidString
                 }
-                self.finishSubmit(text: text, mode: mode, createdID: createdID)
+                self.finishSubmit(submission: submission, createdID: createdID)
             } catch let error as ShikeDataError {
-                // 输入保留（不改草稿）；重试重放同一次提交。
-                self.report(error, retry: { [weak self] in self?.submit(text, mode: mode) })
+                // 输入保留（不改草稿）；重试重放同一次提交载荷。
+                self.report(error, retry: { [weak self] in self?.submit(submission) })
             } catch {
-                self.report(.writeFailed(.ioError), retry: { [weak self] in self?.submit(text, mode: mode) })
+                self.report(.writeFailed(.ioError), retry: { [weak self] in self?.submit(submission) })
             }
         }
     }
 
-    private func finishSubmit(text: String, mode: Mode, createdID: String) {
+    private func finishSubmit(submission: Submission, createdID: String) {
         // 只在草稿仍是提交时的文本时清空——重试期间用户若已改动，新草稿绝不能丢（不丢数据）。
-        switch mode {
-        case .note: if draftNote == text { draftNote = "" }
-        case .todo: if draftTodo == text { draftTodo = "" }
+        switch submission {
+        case .note(let content): if draftNote == content { draftNote = "" }
+        case .todo(let originalText, _, _): if draftTodo == originalText { draftTodo = "" }
         }
         // 若保存失败提示条还在（重试成功的路径），按 NFR19 清除它。
         if case .saveFailed = banner?.kind {
