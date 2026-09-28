@@ -52,17 +52,41 @@ final class PanelModel {
         }
     }
 
-    /// 模式切换（分段控件、⌘1/⌘2、Tab 均落到这里）；didSet 持久化 lastMode（S1-03）。
+    /// 模式切换（分段控件、⌘1/⌘2、Tab 均落到这里）；didSet 持久化 lastMode（S1-03），
+    /// 并发出外部变更令牌——输入框在焦点态也要换显示另一模式的草稿（S1-04）。
     var mode: Mode = .note {
         didSet {
             guard mode != oldValue else { return }
             preferences.panelLastMode = mode.rawValue
+            draftResetToken = UUID()
         }
     }
+    /// 草稿被"输入框以外"的路径改变（模式切换、提交清空）的信号（S1-04）：
+    /// CaptureTextView 据此在焦点态回写视图，绕过"活动编辑器不回写"守卫。
+    private(set) var draftResetToken: UUID?
 
     private(set) var notes: [NoteListItem] = []
     private(set) var todos: [Todo] = []
     private(set) var banner: BannerState?
+
+    /// 两份草稿（S1-04，03 §4）：随输入持久化；收起面板、切换模式不清空；提交成功清空。
+    var draftNote: String = "" {
+        didSet { preferences.panelDraftNote = draftNote }
+    }
+    var draftTodo: String = "" {
+        didSet { preferences.panelDraftTodo = draftTodo }
+    }
+    /// 当前模式的草稿（输入框绑定用）。
+    var currentDraft: String {
+        get { mode == .note ? draftNote : draftTodo }
+        set {
+            if mode == .note { draftNote = newValue } else { draftTodo = newValue }
+        }
+    }
+    /// 最近创建的条目（S1-04）：列表用它做 1 秒高亮；创建任务在 1 秒后清空。
+    private(set) var recentlyCreatedItemID: String?
+    /// 呼出聚焦令牌（S1-04/S1-03）：PopoverController.onShow 时刷新，输入框据此获得焦点。
+    private(set) var focusToken: UUID?
 
     private let noteRepository: NoteRepository
     private let todoRepository: TodoRepository
@@ -75,6 +99,8 @@ final class PanelModel {
     /// 只为让 deinit 能停止任务；deinit 与 start/stop 不会并发发生（模型释放后不再有订阅）。
     @ObservationIgnored nonisolated(unsafe) private var noteTask: Task<Void, Never>?
     @ObservationIgnored nonisolated(unsafe) private var todoTask: Task<Void, Never>?
+    /// 新条目高亮的清除任务（S1-04）；连续创建时取消上一个（nonisolated(unsafe) 供 deinit 取消）。
+    @ObservationIgnored nonisolated(unsafe) private var highlightClearTask: Task<Void, Never>?
 
     // - MARK: 面板行为的回调（S1-01，由 App 接到 PopoverController；默认空实现供 L2 直接组装）
 
@@ -85,6 +111,10 @@ final class PanelModel {
     /// Esc 第一级"结束编辑"：返回 true 表示有编辑被结束。列表编辑在 2.6/2.7 接入。
     @ObservationIgnored var endEditingIfNeeded: () -> Bool = { false }
 
+    /// 提交的创建动作（默认走仓储；测试可替换以模拟失败/成功，与 runNotes/runTodos 同类接缝）。
+    @ObservationIgnored internal var createNote: (String) async throws -> Note
+    @ObservationIgnored internal var createTodo: (String, TodoDue?) async throws -> Todo
+
     init(noteRepository: NoteRepository, todoRepository: TodoRepository, preferences: Preferences) {
         self.noteRepository = noteRepository
         self.todoRepository = todoRepository
@@ -92,6 +122,10 @@ final class PanelModel {
         if let last = Mode(rawValue: preferences.panelLastMode) {
             mode = last
         }
+        draftNote = preferences.panelDraftNote
+        draftTodo = preferences.panelDraftTodo
+        self.createNote = { try await noteRepository.create(content: $0) }
+        self.createTodo = { try await todoRepository.create(title: $0, due: $1) }
     }
 
     /// 每次呼出面板时应用"呼出时进入"设置（S1-03）；由 PopoverController 的 didShow 触发。
@@ -100,12 +134,72 @@ final class PanelModel {
         let openMode = OpenMode(rawValue: preferences.panelOpenMode) ?? .last
         let last = Mode(rawValue: preferences.panelLastMode) ?? .note
         mode = Self.initialMode(openMode: openMode, lastMode: last)
+        focusToken = UUID()
+    }
+
+    // - MARK: 快速输入（S1-04，03 §4）
+
+    /// 提交当前输入（03 §4：↩）。trim 后为空则无反应；成功清空该模式草稿并记录新条目；
+    /// 失败保留输入，提示条的"重试"绑定当次输入（NFR19），重试成功后清除保存失败提示条。
+    func submitCurrentDraft() {
+        let text = currentDraft
+        guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        submit(text, mode: mode)
+    }
+
+    private func submit(_ text: String, mode: Mode) {
+        Task { [weak self] in
+            guard let self else { return }
+            do {
+                let createdID: String
+                switch mode {
+                case .note:
+                    createdID = try await self.createNote(text).uuid.uuidString
+                case .todo:
+                    createdID = try await self.createTodo(text, nil).uuid.uuidString
+                }
+                self.finishSubmit(text: text, mode: mode, createdID: createdID)
+            } catch let error as ShikeDataError {
+                // 输入保留（不改草稿）；重试重放同一次提交。
+                self.report(error, retry: { [weak self] in self?.submit(text, mode: mode) })
+            } catch {
+                self.report(.writeFailed(.ioError), retry: { [weak self] in self?.submit(text, mode: mode) })
+            }
+        }
+    }
+
+    private func finishSubmit(text: String, mode: Mode, createdID: String) {
+        // 只在草稿仍是提交时的文本时清空——重试期间用户若已改动，新草稿绝不能丢（不丢数据）。
+        switch mode {
+        case .note: if draftNote == text { draftNote = "" }
+        case .todo: if draftTodo == text { draftTodo = "" }
+        }
+        // 若保存失败提示条还在（重试成功的路径），按 NFR19 清除它。
+        if case .saveFailed = banner?.kind {
+            banner = nil
+            bannerRetry = nil
+        }
+        // 清空可能发生在焦点态（AC：提交后输入框清空且焦点保留）——发令牌让视图回写。
+        draftResetToken = UUID()
+        markRecentlyCreated(createdID)
+    }
+
+    /// 新条目 1 秒高亮（03 §4）：连续创建时重置计时。
+    private func markRecentlyCreated(_ id: String) {
+        highlightClearTask?.cancel()
+        recentlyCreatedItemID = id
+        highlightClearTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(1))
+            guard !Task.isCancelled else { return }
+            self?.recentlyCreatedItemID = nil
+        }
     }
 
     deinit {
         // Task.cancel 是 nonisolated 的，可在 deinit 调用；释放时停止观察。
         noteTask?.cancel()
         todoTask?.cancel()
+        highlightClearTask?.cancel()
     }
 
     /// 订阅两类观察流（app-shell.md：start() 订阅便签与待办两个观察）。

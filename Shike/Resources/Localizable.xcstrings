@@ -408,6 +408,28 @@
         }
       }
     },
+    "panel.capture.placeholder.note": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "记点什么…（⇧↩ 换行）"
+          }
+        }
+      }
+    },
+    "panel.capture.placeholder.todo": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "要做什么？"
+          }
+        }
+      }
+    },
     "panel.empty.note.title": {
       "extractionState": "manual",
       "localizations": {

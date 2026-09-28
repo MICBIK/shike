@@ -4,10 +4,11 @@
 
 import SwiftUI
 
-/// 面板内容（03 §3）：顶栏「便签｜待办」分段控件；提示条位于顶栏下方；
-/// 当前模式为空时显示空状态，非空时显示条数占位（列表在阶段 1 提供）。
+/// 面板内容（03 §3）：顶栏「便签｜待办」；其下为错误提示条（顶栏下方）；
+/// 再下为快速输入框（S1-04）；当前模式为空时显示空状态，非空时显示条数占位（列表在 2.6/2.7 提供）。
 struct PanelView: View {
     @Bindable var model: PanelModel
+    @State private var captureHeight: CGFloat = 0
 
     var body: some View {
         VStack(spacing: 0) {
@@ -17,6 +18,7 @@ struct PanelView: View {
                 Banner(state: banner) { model.retryBanner() }
                 Divider()
             }
+            captureArea
             content
         }
         .overlay(alignment: .bottomTrailing) {
@@ -40,6 +42,36 @@ struct PanelView: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
+    }
+
+    /// 快速输入框（03 §4）：高度随内容，便签最多 6 行、待办 2 行后框内滚动。
+    private var captureArea: some View {
+        CaptureTextView(
+            placeholder: placeholderText,
+            text: Binding(
+                get: { model.currentDraft },
+                set: { model.currentDraft = $0 }
+            ),
+            maximumNumberOfLines: model.mode == .note ? 6 : 2,
+            allowsLineBreaks: model.mode == .note,
+            focusTrigger: model.focusToken,
+            externalChangeTrigger: model.draftResetToken,
+            textContainerDynamicHeight: $captureHeight,
+            onSubmit: { model.submitCurrentDraft() },
+            onTab: { _ in
+                // 03 §4：Tab 切换到另一模式（Shift+Tab 同向处理）。
+                model.mode = model.mode == .note ? .todo : .note
+            }
+        )
+        .frame(height: max(captureHeight, 22))
+        .padding(.horizontal, 12)
+        .padding(.vertical, 6)
+    }
+
+    private var placeholderText: String {
+        model.mode == .note
+            ? String(localized: .panelCapturePlaceholderNote)
+            : String(localized: .panelCapturePlaceholderTodo)
     }
 
     @ViewBuilder

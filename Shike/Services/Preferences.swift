@@ -18,6 +18,8 @@ public struct Preferences {
         public static let hotkeyTogglePanelEnabled = "hotkey.togglePanel.enabled"
         public static let panelLastMode = "panel.lastMode"
         public static let panelOpenMode = "panel.openMode"
+        public static let panelDraftNote = "panel.draft.note"
+        public static let panelDraftTodo = "panel.draft.todo"
     }
 
     /// 默认值注册表：与 Key 同处维护（计算属性，避免非 Sendable 静态共享状态）。
@@ -28,6 +30,8 @@ public struct Preferences {
             Key.hotkeyTogglePanelEnabled: true,
             Key.panelLastMode: "note",
             Key.panelOpenMode: "last",
+            Key.panelDraftNote: "",
+            Key.panelDraftTodo: "",
         ]
     }
 
@@ -90,5 +94,17 @@ public struct Preferences {
     public var panelOpenMode: String {
         get { defaults.string(forKey: Key.panelOpenMode) ?? "last" }
         nonmutating set { defaults.set(newValue, forKey: Key.panelOpenMode) }
+    }
+
+    /// 便签模式的未提交草稿（S1-04，03 §4）。
+    public var panelDraftNote: String {
+        get { defaults.string(forKey: Key.panelDraftNote) ?? "" }
+        nonmutating set { defaults.set(newValue, forKey: Key.panelDraftNote) }
+    }
+
+    /// 待办模式的未提交草稿（S1-04，03 §4）。
+    public var panelDraftTodo: String {
+        get { defaults.string(forKey: Key.panelDraftTodo) ?? "" }
+        nonmutating set { defaults.set(newValue, forKey: Key.panelDraftTodo) }
     }
 }
