@@ -289,6 +289,19 @@ final class PanelModel {
     /// 定位高亮的清除任务（nonisolated(unsafe) 供 deinit 取消）。
     @ObservationIgnored nonisolated(unsafe) private var locateClearTask: Task<Void, Never>?
 
+    /// 正在"设置时间…"的待办（S2-07）；弹层经 .popover(item:) 挂载。
+    var editingTimeTarget: Todo?
+    /// 设置时间的落库路径（S2-07）；失败走保存失败提示条。
+    func setDue(_ id: Todo.ID, _ due: TodoDue?) async {
+        do {
+            try await todoRepository.setDue(id, due)
+        } catch let error as ShikeDataError {
+            report(error, retry: { [weak self] in Task { await self?.setDue(id, due) } })
+        } catch {
+            report(.writeFailed(.ioError), retry: { [weak self] in Task { await self?.setDue(id, due) } })
+        }
+    }
+
     /// 通知点本体：切到待办模式并定位该条（03 §11）；由 App 的 openPanel 回调组合。
     func locateTodo(uuid: UUID) {
         mode = .todo
@@ -342,8 +355,11 @@ final class PanelModel {
     }
 
     /// 面板收起（S1-04）：复位就绪标志；缓冲的丢弃由 App 接到 TypingBuffer.reset。
+    /// 同时关闭"设置时间"弹层（面板级 Esc/热键/点击外部直接收起宿主，弹层
+    /// 不会走 item 绑定的置 nil 回写——不清理会幽灵复活，盲审 3.7-F2）。
     func endCaptureWindow() {
         isCaptureReady = false
+        editingTimeTarget = nil
     }
 
     // - MARK: 便签列表与编辑（S1-05，03 §5）

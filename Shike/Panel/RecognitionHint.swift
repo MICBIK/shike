@@ -27,9 +27,10 @@ enum TimeDisplay {
             let month = calendar.component(.month, from: date)
             let day = calendar.component(.day, from: date)
             let nowYear = calendar.component(.year, from: now)
+            // 年月日是标识不是数量：以字符串插值，避开 %lld 的本地化千位分隔（"2,027年"）
             return year == nowYear
-                ? String(localized: .timeDayMonthDay(month, day))
-                : String(localized: .timeDayFullDate(year, month, day))
+                ? String(localized: .timeDayMonthDay("\(month)", "\(day)"))
+                : String(localized: .timeDayFullDate("\(year)", "\(month)", "\(day)"))
         }
     }
 

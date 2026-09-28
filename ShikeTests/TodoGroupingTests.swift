@@ -120,6 +120,21 @@ struct TodoGroupingTests {
         #expect(TodoGrouping.timeText(for: todayTodo, now: Self.now, timeZone: Self.timeZone) == "今天 15:00")
         #expect(TodoGrouping.timeText(for: allDay, now: Self.now, timeZone: Self.timeZone) == "今天")
         #expect(TodoGrouping.timeText(for: todo(title: "无时间"), now: Self.now, timeZone: Self.timeZone) == nil)
+        // 今年以内不带年份 / 跨年带年份（03 §6；3.6 盲审 F6③）
+        // +9 天 = 2026-10-07（超出周X窗口）
+        let thisYearLater = todo(title: "10月7日", due: TodoDue(date: date(9, hour: 0), hasTime: true))
+        #expect(TodoGrouping.timeText(for: thisYearLater, now: Self.now, timeZone: Self.timeZone) == "10月7日 00:00")
+        // 跨年：2027-03-07 15:00（按 components 构造，避免日运算歧义）
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = Self.timeZone
+        var nextYearComponents = DateComponents()
+        nextYearComponents.year = 2027
+        nextYearComponents.month = 3
+        nextYearComponents.day = 7
+        nextYearComponents.hour = 15
+        let nextYearDate = calendar.date(from: nextYearComponents)!
+        let nextYear = todo(title: "跨年", due: TodoDue(date: nextYearDate, hasTime: true))
+        #expect(TodoGrouping.timeText(for: nextYear, now: Self.now, timeZone: Self.timeZone) == "2027年3月7日 15:00")
     }
 
     @Test("snoozedUntil 不影响分组；已完成+有 due 只进已完成组（盲审 F6）")

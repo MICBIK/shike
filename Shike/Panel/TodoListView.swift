@@ -57,6 +57,11 @@ struct TodoListView: View {
                     proxy.scrollTo(newID)
                 }
             }
+            // 设置时间弹层（S2-07）：锚定列表；清除时间时弹层随 editingTimeTarget 置空关闭。
+            .popover(item: $model.editingTimeTarget) { todo in
+                TodoTimeEditorView(todo: todo, model: model)
+                    .id(todo.id) // 非 nil→非 nil 切换不复用旧状态（盲审 3.7-F2）
+            }
         }
     }
 
@@ -164,6 +169,10 @@ private struct TodoRow: View {
         .contextMenu {
             Button(String(localized: .listMenuEdit)) {
                 startEditing()
+            }
+            Button(String(localized: .todoMenuSetTime)) {
+                _ = model.endEditingIfNeeded()
+                model.editingTimeTarget = todo
             }
             Divider()
             Button(String(localized: .listMenuDelete), role: .destructive) {
