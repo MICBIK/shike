@@ -47,3 +47,12 @@ context:
 - [info] 动作闭包强捕获 popoverController（全局静态存储）——均为应用生命周期单实例，无实际泄漏。
 - [info] 包测试计数 76（此前简报写 78 有误），与 @Test 源码计数一致。
 - AC 六条在 L2/代码层面全部满足；Library 源码审计（Name/KeyboardShortcuts/HotKey/Recorder/Package）逐一对照；真机 ⌃⌥N 行为归 L3。
+
+## Post-Story Fix Log（验收期，2026-09-28）
+
+人工验收第 1 项即失败：真实按下 ⌃⌥N 面板无反应。排查结论与处置：
+
+- **根因（外部环境，非本项目代码缺陷）：** macOS 26 起 Carbon `RegisterEventHotKey` 的回调不再触发。本机 lldb 断点证实注册链完整执行（`registerIfNeeded → HotKey.init → HotKeyCenter.register → RegisterEventHotKey` 返回成功），但热键永不回调；独立 CLI 持有者（InstallEventHandler + RegisterEventHotKey + RunLoop）同样永不触发。社区有相同记录（voiceTyper 因此迁移 NSEvent 监听）。KeyboardShortcuts 3.1.0（当时最新，2026-09-11 发布）无修复。
+- **修复（ADR-021）：** 新增 `Shike/Services/HotkeyEventTap.swift`——激活机制改走 CGEventTap（`cghidEventTap` + `defaultTap`，命中即消费按键）；KeyboardShortcuts 仍负责录制（Recorder）与存储（defaults）。两条通道共用 `dispatchHotkeyAction`，150ms 内重复触发折叠为一次（未来 Carbon 若恢复不会双动作）。匹配只比较 ⌃⌥⌘⇧ 四个修饰位——实测系统会在事件上附加 SecondaryFn（0x2000_0000，无同名 CGEventFlags 成员）等额外位，`subtracting` 无法对未知位容错。
+- **权限：** `defaultTap` 需要"辅助功能"授权；未授权时 install 弹系统提示并返回 false，`HotkeyService.tapAuthorizationDenied` 置位，设置-快捷键页显示提示，onAppear / 录制变更 / 开关切换时重试安装。注意本地 ad-hoc 签名下授权与具体构建绑定，重新构建后需重新授权（正式分发的签名构建不受此影响）。
+- **测试：** HotkeyServiceTests +3（tap 通道启停生命周期、安装失败/组合清空、150ms 去重用合成时间验证）；App 83 全绿（警告即错误）、包 76 全绿、checks 通过。真机按键归 L3 人工验收。

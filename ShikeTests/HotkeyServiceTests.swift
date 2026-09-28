@@ -75,5 +75,76 @@ struct HotkeyServiceTests {
             dataDirectory: URL(fileURLWithPath: "/tmp/shike-tests-panel", isDirectory: true)
         )
         #expect(environment.hotkeyService.isEnabled == true)
+        // 未接入 tap 通道前保持惰性（ADR-021）。
+        #expect(environment.hotkeyService.isTapChannelActive == false)
+    }
+
+    // - MARK: CGEventTap 兜底通道（ADR-021）
+
+    @Test("activateTapChannel：以存储的组合安装 tap；关闭卸载、重开重装")
+    func tapChannelLifecycle() {
+        let (preferences, suiteName) = makeSuite()
+        defer { cleanup(suiteName) }
+        var installerArgs: [(keyCode: Int, carbonModifiers: Int)] = []
+        var installResults: [Bool] = []
+        var removeCalls = 0
+        let service = HotkeyService(preferences: preferences, enable: {}, disable: {})
+
+        service.activateTapChannel(
+            shortcutProvider: { (keyCode: 45, carbonModifiers: 6144) },
+            installer: { keyCode, carbonModifiers, _ in
+                installerArgs.append((keyCode, carbonModifiers))
+                installResults.append(true)
+                return true
+            },
+            remover: { removeCalls += 1 }
+        )
+        // 接入即按当前状态安装一次
+        #expect(service.isTapChannelActive == true)
+        #expect(installerArgs.count == 1)
+        #expect(installerArgs[0].keyCode == 45)
+        #expect(installerArgs[0].carbonModifiers == 6144)
+        #expect(service.tapAuthorizationDenied == false)
+
+        service.setEnabled(false)
+        #expect(removeCalls == 1)
+        service.setEnabled(true)
+        #expect(installerArgs.count == 2)
+        #expect(installerArgs[1] == (45, 6144))
+        _ = installResults
+    }
+
+    @Test("refreshTap：辅助功能未授权时标记 tapAuthorizationDenied；组合被清空时撤下 tap")
+    func tapInstallFailureAndClearing() {
+        let (preferences, suiteName) = makeSuite()
+        defer { cleanup(suiteName) }
+        var removeCalls = 0
+        var provided: (keyCode: Int, carbonModifiers: Int)? = (45, 6144)
+        let service = HotkeyService(preferences: preferences, enable: {}, disable: {})
+        service.activateTapChannel(
+            shortcutProvider: { provided },
+            installer: { _, _, _ in false },
+            remover: { removeCalls += 1 }
+        )
+        #expect(service.tapAuthorizationDenied == true)
+
+        // 用户清空快捷键：撤下 tap、清除授权标记
+        provided = nil
+        service.refreshTap()
+        #expect(removeCalls == 1)
+        #expect(service.tapAuthorizationDenied == false)
+    }
+
+    @Test("acceptFire：150ms 内重复触发折叠为一次，超过后放行")
+    func dedupesRapidFires() {
+        let (preferences, suiteName) = makeSuite()
+        defer { cleanup(suiteName) }
+        let service = HotkeyService(preferences: preferences, enable: {}, disable: {})
+        let base = Date(timeIntervalSince1970: 1_000)
+
+        #expect(service.acceptFire(now: base) == true)
+        #expect(service.acceptFire(now: base.addingTimeInterval(0.1)) == false)
+        #expect(service.acceptFire(now: base.addingTimeInterval(0.14)) == false)
+        #expect(service.acceptFire(now: base.addingTimeInterval(0.16)) == true)
     }
 }

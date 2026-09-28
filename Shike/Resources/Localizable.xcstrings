@@ -727,6 +727,17 @@
         }
       }
     },
+    "settings.shortcuts.accessDenied": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "快捷键需要「辅助功能」权限才能生效：系统设置 ＞ 隐私与安全性 ＞ 辅助功能，允许拾刻后重进此页。"
+          }
+        }
+      }
+    },
     "settings.shortcuts.enabled": {
       "extractionState": "manual",
       "localizations": {

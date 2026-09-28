@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
 import AppKit
+import KeyboardShortcuts
 import ShikeData
 import SwiftUI
 
@@ -18,6 +19,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusMenu: StatusMenu?
     private var settingsWindowController: SettingsWindowController?
     private var licenseWindowController: LicenseWindowController?
+    /// CGEventTap 兜底通道（ADR-021）；由 HotkeyService 的接缝弱引用，App 存续期间持有。
+    private var hotkeyEventTap: HotkeyEventTap?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // 测试宿主下跳过全部启动步骤：不创建数据目录、不写真实偏好、不打开库（CAP-11）。
@@ -165,6 +168,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             popoverController.toggle(from: button)
         }
 
+        // ADR-021：macOS 26 起 Carbon 回调不触发，激活走 CGEventTap 兜底通道。
+        let eventTap = HotkeyEventTap()
+        hotkeyEventTap = eventTap
+        environment.hotkeyService.activateTapChannel(
+            shortcutProvider: {
+                KeyboardShortcuts.getShortcut(for: .togglePanel).map {
+                    (keyCode: $0.carbonKeyCode, carbonModifiers: $0.carbonModifiers)
+                }
+            },
+            installer: { keyCode, carbonModifiers, onMatch in
+                eventTap.install(keyCode: keyCode, carbonModifiers: carbonModifiers, onMatch: onMatch)
+            },
+            remover: { eventTap.remove() }
+        )
+
         // 呼出即打字（S1-04）：呼出空窗期（输入框未就绪且焦点不在其它键窗）的
         // 可打印按键与回车入缓冲，输入框就绪时回放（按"裸回车=提交"）；面板收起丢弃缓冲。
         environment.typingBuffer.installMonitor { [weak environment, weak popoverController] in
@@ -196,6 +214,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         environment?.panelModel.stop()
         environment?.backupService.stop()
         environment?.typingBuffer.stopMonitor()
+        environment?.hotkeyService.stopTapChannel()
     }
 
     // - MARK: 设置窗口（主菜单与右键菜单共用；单实例）
