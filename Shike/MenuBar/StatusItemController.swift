@@ -42,6 +42,20 @@ final class StatusItemController {
         button.action = #selector(handleStatusBarButtonAction)
     }
 
+    /// 菜单栏计数（S2-08，03 §2）：图标右侧数字；nil 或 0 不显示。
+    func updateCounter(_ count: Int?) {
+        guard let button = statusBarItem.button else { return }
+        let text: String
+        switch count {
+        case .some(let value) where value > 0:
+            text = "\(value)"
+        default:
+            text = ""
+        }
+        button.title = text
+        statusBarItem.length = NSStatusItem.variableLength // 数字增减后回收宽度
+    }
+
     @objc private func handleStatusBarButtonAction() {
         guard let event = NSApp.currentEvent, let button = statusBarItem.button else { return }
         switch event.type {

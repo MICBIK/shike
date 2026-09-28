@@ -22,6 +22,15 @@ struct GeneralSettingsView: View {
             }
             .pickerStyle(.radioGroup)
 
+            Picker(String(localized: .settingsGeneralMenuBarCounter), selection: $model.menuBarCounter) {
+                Text(String(localized: .settingsGeneralCounterNone)).tag(MenuBarCounter.none)
+                Text(String(localized: .settingsGeneralCounterOverdueToday)).tag(MenuBarCounter.overdueAndToday)
+                Text(String(localized: .settingsGeneralCounterAllIncomplete)).tag(MenuBarCounter.allIncomplete)
+            }
+            .onChange(of: model.menuBarCounter) { _, _ in
+                model.onMenuBarCounterChanged()
+            }
+
             Divider()
 
             Toggle(String(localized: .settingsGeneralLaunchAtLogin), isOn: $isEnabled)

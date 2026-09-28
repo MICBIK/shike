@@ -53,18 +53,20 @@ struct ReminderSettingsTests {
         )
 
         #expect(model.menuBarCounter == .overdueAndToday)
-        preferences.menuBarCounter = "bogus"
-        #expect(model.menuBarCounter == .overdueAndToday) // 非法值回落
+        // S2-05 盲审 F2 后设置项是存储属性（didSet 写偏好）：直接写 preferences 不再回流模型
         model.menuBarCounter = .allIncomplete
         #expect(preferences.menuBarCounter == "allIncomplete")
 
-        preferences.reminderAllDayMinutes = -5
-        #expect(model.reminderAllDayMinutes == 0) // 下界钳制
+        model.reminderAllDayMinutes = -5
+        #expect(model.reminderAllDayMinutes == 0) // didSet 下界钳制
+        #expect(preferences.reminderAllDayMinutes == 0)
         model.reminderAllDayMinutes = 1500
-        #expect(model.reminderAllDayMinutes == 1439) // 上界钳制（0:00–23:59）
+        #expect(model.reminderAllDayMinutes == 1439) // didSet 上界钳制（0:00–23:59）
+        #expect(preferences.reminderAllDayMinutes == 1439)
 
-        preferences.reminderSnoozeMinutes = 7
-        #expect(model.reminderSnoozeMinutes == 10) // 非法档位回落
+        model.reminderSnoozeMinutes = 7
+        #expect(model.reminderSnoozeMinutes == 10) // 非法档位 didSet 回落
+        #expect(preferences.reminderSnoozeMinutes == 10)
         model.reminderSnoozeMinutes = 15
         #expect(preferences.reminderSnoozeMinutes == 15)
     }

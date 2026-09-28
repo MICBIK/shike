@@ -38,7 +38,8 @@ struct PanelView: View {
         HStack {
             Picker("", selection: $model.mode) {
                 Text(String(localized: .panelModeNote)).tag(PanelModel.Mode.note)
-                Text(String(localized: .panelModeTodo)).tag(PanelModel.Mode.todo)
+                // 待办数字角标（S2-08）：与菜单栏计数同口径，0 不显示
+                Text(todoSegmentLabel).tag(PanelModel.Mode.todo)
             }
             .pickerStyle(.segmented)
             .labelsHidden()
@@ -47,6 +48,13 @@ struct PanelView: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
+    }
+
+    /// 待办分段的角标文案（S2-08）：计数 0 或口径"不显示"时只显示"待办"。
+    private var todoSegmentLabel: String {
+        let base = String(localized: .panelModeTodo)
+        guard let count = model.todoBadgeCount, count > 0 else { return base } // 0 不显示（盲审 F1）
+        return "\(base) \(count)"
     }
 
     /// 快速输入框（03 §4）：高度随内容，便签最多 6 行、待办 2 行后框内滚动。

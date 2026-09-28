@@ -50,6 +50,12 @@ final class SettingsModel {
         self.hotkeyService = hotkeyService
         self.launchAtLogin = launchAtLogin
         self.preferences = preferences
+        // 初值读偏好（init 内赋值不触发 didSet；钩子由 AppDelegate 在此后接线）
+        self.menuBarCounter = MenuBarCounter.resolve(preferences.menuBarCounter)
+        self.reminderAllDayMinutes = min(1439, max(0, preferences.reminderAllDayMinutes))
+        self.reminderSnoozeMinutes = Self.snoozeOptions.contains(preferences.reminderSnoozeMinutes)
+            ? preferences.reminderSnoozeMinutes
+            : 10
     }
 
     /// "稍后提醒"的合法档位（03 §9）：5 / 10（默认）/ 15 / 30 / 60 分钟。
@@ -57,6 +63,13 @@ final class SettingsModel {
 
     /// 提醒设置变化钩子（S2-05）：调度器重对账 + 重注册类别；AppDelegate 接线。
     @ObservationIgnored var onReminderSettingsChanged: () -> Void = {}
+    /// 菜单栏计数口径变化钩子（S2-08）：立即刷新计数显示；AppDelegate 接线。
+    @ObservationIgnored var onMenuBarCounterChanged: () -> Void = {}
+
+    // - MARK: 设置项（存储属性 + didSet 写偏好并触发钩子）
+    // 经 UserDefaults 的计算属性不可被 @Observable 观测：SwiftUI 的 onChange 检测
+    // 不到变化，视图里的钩子调用是死代码（盲审 3.8-F2）。故用存储属性承载，
+    // didSet 持久化并触发钩子。
 
     /// "呼出时进入"（S1-03）；存储值非法时回落 last。
     var panelOpenMode: PanelModel.OpenMode {
@@ -65,23 +78,37 @@ final class SettingsModel {
     }
 
     /// 菜单栏计数口径（S2-08）：合法档位之外回落逾期+今天。
-    var menuBarCounter: MenuBarCounter {
-        get { MenuBarCounter(rawValue: preferences.menuBarCounter) ?? .overdueAndToday }
-        set { preferences.menuBarCounter = newValue.rawValue }
+    var menuBarCounter: MenuBarCounter = .overdueAndToday {
+        didSet {
+            guard menuBarCounter != oldValue else { return }
+            preferences.menuBarCounter = menuBarCounter.rawValue
+            onMenuBarCounterChanged()
+        }
     }
 
     /// 全天待办提醒时刻（S2-03）：分钟数，钳制到 0...1439（0:00–23:59）。
-    var reminderAllDayMinutes: Int {
-        get { min(1439, max(0, preferences.reminderAllDayMinutes)) }
-        set { preferences.reminderAllDayMinutes = min(1439, max(0, newValue)) }
+    var reminderAllDayMinutes: Int = 540 {
+        didSet {
+            let clamped = min(1439, max(0, reminderAllDayMinutes))
+            guard clamped != reminderAllDayMinutes else {
+                preferences.reminderAllDayMinutes = clamped
+                onReminderSettingsChanged()
+                return
+            }
+            reminderAllDayMinutes = clamped // 回落再进 didSet 完成持久化与钩子
+        }
     }
 
-    /// "稍后提醒"时长（S2-04）：非法值回落 10 分钟。
-    var reminderSnoozeMinutes: Int {
-        get {
-            let stored = preferences.reminderSnoozeMinutes
-            return Self.snoozeOptions.contains(stored) ? stored : 10
+    /// "稍后提醒"时长（S2-04）：非法档位回落 10 分钟。
+    var reminderSnoozeMinutes: Int = 10 {
+        didSet {
+            guard Self.snoozeOptions.contains(reminderSnoozeMinutes) else {
+                reminderSnoozeMinutes = 10 // 回落会再进 didSet 完成持久化与钩子
+                return
+            }
+            guard reminderSnoozeMinutes != oldValue else { return }
+            preferences.reminderSnoozeMinutes = reminderSnoozeMinutes
+            onReminderSettingsChanged()
         }
-        set { preferences.reminderSnoozeMinutes = newValue }
     }
 }

@@ -284,6 +284,8 @@ final class PanelModel {
     @ObservationIgnored var notificationPermissionRequester: () -> Void = {}
     /// 待办数据变化钩子（S2-05）：提醒调度器经它做 0.5 秒合并对账；L2 留空。
     @ObservationIgnored var todosChanged: () -> Void = {}
+    /// 跨天/唤醒钩子（S2-08）：菜单栏计数等时间口径的界面刷新；与 todosChanged 一样由 App 接线。
+    @ObservationIgnored var timeContextChanged: () -> Void = {}
     /// 通知点本体后的定位目标（S2-04）：TodoListView 滚动定位并高亮，1.5 秒后清除。
     private(set) var locateTodoID: String?
     /// 定位高亮的清除任务（nonisolated(unsafe) 供 deinit 取消）。
@@ -461,9 +463,17 @@ final class PanelModel {
         _ = timeContextTick
         return TodoGrouping.group(todos: todos, now: Date(), timeZone: timeZone)
     }
-    /// 跨天/唤醒：重算分组（S2-06）；由 start() 的观察者触发。
+    /// 跨天/唤醒：重算分组（S2-06）并通知时间口径的界面（S2-08）。
     func handleTimeContextChanged() {
         timeContextTick += 1
+        timeContextChanged()
+    }
+
+    /// 待办模式分段按钮的数字角标（S2-08）：与菜单栏计数同口径；nil=不显示。
+    var todoBadgeCount: Int? {
+        _ = timeContextTick // 跨天/唤醒时角标随分组口径重算（盲审 F3）
+        let mode = MenuBarCounter.resolve(preferences.menuBarCounter)
+        return MenuBarCounter.count(mode, todos: todos, now: Date(), timeZone: timeZone)
     }
 
     /// 勾选后处于"1 秒待移入"的待办（03 §6：立即划线变灰、1 秒后移组、期间可勾回）。

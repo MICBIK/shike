@@ -224,10 +224,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // 提醒调度（S2-05）：启动对账由观察流首帧触发（todosChanged 在首批数据即发射）——
         // 首帧前不拿到空快照做对账，避免清掉系统里已排的提醒（盲审 3.5-F1）；
         // 数据变化 0.5 秒合并；跨天/唤醒由调度器订阅；提醒设置变化 → 重对账 + 重注册类别。
+        // 菜单栏计数（S2-08）：数据变化、跨天/唤醒、口径变化三种时机刷新。
+        let updateCounter = { [weak self, weak environment] in
+            guard let environment else { return }
+            let mode = MenuBarCounter.resolve(environment.preferences.menuBarCounter)
+            let count = MenuBarCounter.count(
+                mode,
+                todos: environment.panelModel.todos,
+                now: Date(),
+                timeZone: environment.panelModel.timeZone
+            )
+            self?.statusItemController?.updateCounter(count)
+        }
         environment.panelModel.todosChanged = { [weak environment] in
             environment?.reminderScheduler.scheduleReconcile()
+            updateCounter()
+        }
+        environment.panelModel.timeContextChanged = {
+            updateCounter()
         }
         environment.reminderScheduler.startObservingSystemEvents()
+        settingsModel.onMenuBarCounterChanged = {
+            updateCounter()
+        }
         settingsModel.onReminderSettingsChanged = { [weak environment] in
             guard let environment else { return }
             environment.notificationCoordinator.registerCategory(
