@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 09-26-2026 01:00
-last_updated: 09-28-2026 09:20
+last_updated: 09-28-2026 11:00
 project: 拾刻 Shike
 project_key: NOKEY
 tracking_system: file-system
@@ -54,7 +54,7 @@ development_status:
   1-16-排除误识别-高亮与标题清理: done
   1-17-架构交接: done
   epic-1-retrospective: optional
-  epic-2: backlog
+  epic-2: in-progress
   2-1-面板行为: done
   2-2-全局快捷键: done
   2-3-模式切换与呼出模式: done
@@ -65,3 +65,15 @@ development_status:
   2-8-删除与撤销: done
   2-9-开机自启与完整右键菜单: done
   2-10-空状态引导: done
+  epic-2-retrospective: optional
+  epic-3: in-progress
+  3-1-时间识别与高亮: ready-for-dev
+  3-2-提交与标题清理: backlog
+  3-3-待办时间规则: backlog
+  3-4-到点通知: backlog
+  3-5-通知调度: backlog
+  3-6-待办分组: backlog
+  3-7-编辑时间: backlog
+  3-8-菜单栏计数: backlog
+  3-9-搜索: backlog
+  3-10-通知权限: backlog
