@@ -20,6 +20,7 @@ public final class AppEnvironment {
     let backupService: BackupService
     let hotkeyService: HotkeyService
     let typingBuffer = TypingBuffer()
+    let launchAtLoginService = LaunchAtLoginService()
 
     public init(database: AppDatabase, preferences: Preferences, dataDirectory: URL) {
         self.database = database

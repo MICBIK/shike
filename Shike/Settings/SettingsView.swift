@@ -28,7 +28,7 @@ struct SettingsView: View {
         case .shortcuts:
             ShortcutsSettingsView(model: model)
         case .general:
-            GeneralSettingsView(model: model)
+            GeneralSettingsView(model: model, launchAtLogin: model.launchAtLogin)
         default:
             if let stage = tab.placeholderStage {
                 PlaceholderSettingsView(stage: stage)

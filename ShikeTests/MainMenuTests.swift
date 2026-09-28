@@ -72,35 +72,62 @@ struct SettingsTabTests {
     }
 }
 
-/// Story 1.11：右键菜单的菜单项与快捷键（app-shell.md「组件契约」）。
+/// Story 1.11/2.9：右键菜单的菜单项与快捷键（app-shell.md「组件契约」、03 §2）。
 @MainActor
 struct StatusMenuTests {
-    @Test("右键菜单：设置…（⌘,）、关于拾刻、分隔线、退出拾刻（⌘Q）")
-    func menuStructure() {
-        var openedSettings = false
-        var openedAbout = false
-        // NSMenuItem.target 是弱引用：菜单实例必须在断言期间存活
+    /// 构造菜单（开机自启注入为已启用）。
+    private func makeMenu(launchAtLoginEnabled: Bool) -> StatusMenu {
         let statusMenu = StatusMenu(actions: .init(
+            openPanel: {},
+            openSettings: {},
+            toggleLaunchAtLogin: {},
+            launchAtLoginEnabled: { launchAtLoginEnabled },
+            openAbout: {}
+        ))
+        _ = statusMenu.buildMenu() // 预热
+        return statusMenu
+    }
+
+    @Test("右键菜单（S1-09）：打开拾刻、设置…（⌘,）、开机自启（勾选）、关于拾刻、退出拾刻（⌘Q）")
+    func menuStructure() {
+        // NSMenuItem.target 是弱引用：菜单实例必须在断言期间存活
+        let statusMenu = makeMenu(launchAtLoginEnabled: true)
+        let items = statusMenu.buildMenu().items
+
+        #expect(items.count == 7)
+        #expect(items[0].title == "打开拾刻")
+        #expect(items[1].isSeparatorItem)
+        #expect(items[2].title == "设置…")
+        #expect(items[2].keyEquivalent == ",")
+        #expect(items[3].title == "开机自启")
+        #expect(items[3].state == .on)
+        #expect(items[4].title == "关于拾刻")
+        #expect(items[5].isSeparatorItem)
+        #expect(items[6].title == "退出拾刻")
+        #expect(items[6].action == #selector(NSApplication.terminate(_:)))
+        #expect(items[6].keyEquivalent == "q")
+        #expect(items[6].target == nil)
+    }
+
+    @Test("右键菜单动作回调：打开拾刻、设置、切换开机自启、关于；未启用时勾选态为 off")
+    func menuActions() {
+        var openedPanel = false
+        var openedSettings = false
+        var toggledLogin = false
+        var openedAbout = false
+        let statusMenu = StatusMenu(actions: .init(
+            openPanel: { openedPanel = true },
             openSettings: { openedSettings = true },
+            toggleLaunchAtLogin: { toggledLogin = true },
+            launchAtLoginEnabled: { false },
             openAbout: { openedAbout = true }
         ))
-        let menu = statusMenu.buildMenu()
-
-        let items = menu.items
-        #expect(items.count == 4)
-        #expect(items[0].title == "设置…")
-        #expect(items[0].keyEquivalent == ",")
-        #expect(items[1].title == "关于拾刻")
-        #expect(items[2].isSeparatorItem)
-        #expect(items[3].title == "退出拾刻")
-        #expect(items[3].action == #selector(NSApplication.terminate(_:)))
-        #expect(items[3].keyEquivalent == "q")
-        #expect(items[3].target == nil)
-
-        // 设置/关于的动作经 target 回调
+        let items = statusMenu.buildMenu().items
         _ = items[0].target?.perform(items[0].action!, with: items[0])
-        #expect(openedSettings)
-        _ = items[1].target?.perform(items[1].action!, with: items[1])
-        #expect(openedAbout)
+        _ = items[2].target?.perform(items[2].action!, with: items[2])
+        _ = items[3].target?.perform(items[3].action!, with: items[3])
+        _ = items[4].target?.perform(items[4].action!, with: items[4])
+        #expect(openedPanel && openedSettings && toggledLogin && openedAbout)
+        #expect(items[3].state == .off) // 未启用形态
     }
 }

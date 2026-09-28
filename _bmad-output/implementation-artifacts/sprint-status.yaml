@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 09-26-2026 01:00
-last_updated: 09-28-2026 08:40
+last_updated: 09-28-2026 09:20
 project: 拾刻 Shike
 project_key: NOKEY
 tracking_system: file-system
@@ -63,5 +63,5 @@ development_status:
   2-6-便签列表与编辑: done
   2-7-待办列表与完成: done
   2-8-删除与撤销: done
-  2-9-开机自启与完整右键菜单: backlog
-  2-10-空状态引导: backlog
+  2-9-开机自启与完整右键菜单: done
+  2-10-空状态引导: done

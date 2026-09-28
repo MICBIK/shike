@@ -44,10 +44,12 @@ enum SettingsTab: String, CaseIterable, Identifiable {
 final class SettingsModel {
     var selectedTab: SettingsTab = .general
     let hotkeyService: HotkeyService
+    let launchAtLogin: LaunchAtLoginService
     private let preferences: Preferences
 
-    init(hotkeyService: HotkeyService, preferences: Preferences) {
+    init(hotkeyService: HotkeyService, launchAtLogin: LaunchAtLoginService, preferences: Preferences) {
         self.hotkeyService = hotkeyService
+        self.launchAtLogin = launchAtLogin
         self.preferences = preferences
     }
 

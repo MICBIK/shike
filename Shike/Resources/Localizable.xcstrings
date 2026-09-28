@@ -485,6 +485,28 @@
         }
       }
     },
+    "menu.launchAtLogin": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "开机自启"
+          }
+        }
+      }
+    },
+    "menu.open": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "打开拾刻"
+          }
+        }
+      }
+    },
     "menu.quit": {
       "extractionState": "manual",
       "localizations": {
@@ -606,6 +628,17 @@
         }
       }
     },
+    "settings.general.launchAtLogin": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "开机自启"
+          }
+        }
+      }
+    },
     "settings.general.openMode": {
       "extractionState": "manual",
       "localizations": {
@@ -646,6 +679,39 @@
           "stringUnit": {
             "state": "translated",
             "value": "总是待办"
+          }
+        }
+      }
+    },
+    "settings.launchAtLogin.failed": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "设置未生效，请稍后重试"
+          }
+        }
+      }
+    },
+    "settings.launchAtLogin.needApproval": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "需要在系统设置中批准后生效"
+          }
+        }
+      }
+    },
+    "settings.launchAtLogin.openSettings": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "打开登录项设置"
           }
         }
       }

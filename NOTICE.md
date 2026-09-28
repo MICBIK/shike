@@ -21,6 +21,7 @@
 | `Shike/Services/HotkeyService.swift` | `demo/reminders-menubar/reminders-menubar/Services/KeyboardShortcutService.swift` | 去掉单例，偏好与启用开关经注入的 Preferences 与闭包完成（L2 可用替身）；快捷键名换为 togglePanel，默认 ⌃⌥N 且默认开启 | 2026-09-28 |
 | `Shike/Panel/CaptureTextView.swift` | `demo/reminders-menubar/reminders-menubar/Views/Helpers/RmbHighlightedTextField.swift`、`Views/Helpers/PlaceholderNSTextView.swift`、`Views/Helpers/FocusDirection.swift` | 去掉自动补全与高亮（S2-01 再接入）；Tab 改为 onTab 回调切模式；回车决策提为纯函数 newlineDecision 并在输入法组合态交还输入法；行数上限改为 03 §4（便签 6、待办 2） | 2026-09-28 |
 | `Shike/Panel/TypingBuffer.swift` | `demo/reminders-menubar/reminders-menubar/Services/NewReminderTypingCoordinator.swift`、`Views/ContentView.swift`（按键监听与 isTextInputEvent 部分） | 去单例与 EventKit 条件；截获条件经注入的 shouldInterceptKeys 判定"呼出空窗"（输入框未就绪且焦点不在其它键窗）；缓冲上限 200（丢弃最早）；isTypingEvent 纯函数（裸回车入缓冲，回放按"裸回车=提交"） | 2026-09-28 |
+| `Shike/Services/LaunchAtLoginService.swift` | `demo/reminders-menubar/reminders-menubar/Services/LaunchAtLoginService.swift` | 去单例与旧辅助程序（SMLoginItemSetEnabled）迁移，只保留 SMAppService 部分；系统访问经注入闭包（L2 替身）；状态映射 enabled/requiresApproval/notRegistered | 2026-09-28 |
 
 ## 依赖库
 

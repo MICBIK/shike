@@ -5,8 +5,8 @@
 // 部分代码源自 Reminders MenuBar（https://github.com/DamascenoRafael/reminders-menubar），
 // Copyright (C) Rafael Damasceno and contributors，以 GPL-3.0 授权。
 // 修改说明：自 demo Services/RightClickMenuHelper.swift 移植；去掉单例与重载数据、
-// 检查更新等与更新相关的菜单项；菜单项换成拾刻的三项（设置…、关于拾刻、退出拾刻），
-// 动作经闭包回调 AppDelegate（2026-09-27）。
+// 检查更新等与更新相关的菜单项；S1-09 起菜单为 03 §2 的阶段 1 形态：打开拾刻、设置…、
+// 开机自启（勾选）、关于拾刻、退出拾刻；动作经闭包回调 AppDelegate（2026-09-28）。
 
 import AppKit
 
@@ -14,7 +14,10 @@ import AppKit
 @MainActor
 final class StatusMenu: NSObject {
     struct Actions {
+        let openPanel: () -> Void
         let openSettings: () -> Void
+        let toggleLaunchAtLogin: () -> Void
+        let launchAtLoginEnabled: () -> Bool
         let openAbout: () -> Void
     }
 
@@ -27,6 +30,16 @@ final class StatusMenu: NSObject {
     func buildMenu() -> NSMenu {
         let menu = NSMenu()
 
+        let open = NSMenuItem(
+            title: String(localized: .menuOpen),
+            action: #selector(openPanelAction),
+            keyEquivalent: ""
+        )
+        open.target = self
+        menu.addItem(open)
+
+        menu.addItem(.separator())
+
         let settings = NSMenuItem(
             title: String(localized: .menuSettings),
             action: #selector(openSettingsAction),
@@ -34,6 +47,15 @@ final class StatusMenu: NSObject {
         )
         settings.target = self
         menu.addItem(settings)
+
+        let launchAtLogin = NSMenuItem(
+            title: String(localized: .menuLaunchAtLogin),
+            action: #selector(toggleLaunchAtLoginAction),
+            keyEquivalent: ""
+        )
+        launchAtLogin.target = self
+        launchAtLogin.state = actions.launchAtLoginEnabled() ? .on : .off
+        menu.addItem(launchAtLogin)
 
         let about = NSMenuItem(
             title: String(localized: .menuAbout),
@@ -55,8 +77,16 @@ final class StatusMenu: NSObject {
         return menu
     }
 
+    @objc private func openPanelAction() {
+        actions.openPanel()
+    }
+
     @objc private func openSettingsAction() {
         actions.openSettings()
+    }
+
+    @objc private func toggleLaunchAtLoginAction() {
+        actions.toggleLaunchAtLogin()
     }
 
     @objc private func openAboutAction() {
