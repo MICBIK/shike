@@ -47,13 +47,14 @@ struct TodoListTests {
         _ = try await environment.todoRepository.create(title: "第二条", due: nil)
         try await waitUntilList(model) { $0.todos.count == 2 }
 
-        #expect(model.activeTodos.map { $0.title } == ["第二条", "第一条"]) // 新建的在上
-        #expect(model.completedTodos.isEmpty)
+        // S2-06 分组：无日期组保持"新建的在上"
+        #expect(model.todoGroups.noDate.map { $0.title } == ["第二条", "第一条"])
+        #expect(model.todoGroups.completed.isEmpty)
 
         try await environment.todoRepository.setCompleted(first.id, true)
-        try await waitUntilList(model) { $0.completedTodos.count == 1 }
-        #expect(model.completedTodos.map { $0.title } == ["第一条"])
-        #expect(model.activeTodos.map { $0.title } == ["第二条"])
+        try await waitUntilList(model) { $0.todoGroups.completed.count == 1 }
+        #expect(model.todoGroups.completed.map { $0.title } == ["第一条"])
+        #expect(model.todoGroups.noDate.map { $0.title } == ["第二条"])
     }
 
     @Test("勾选三态：立即进入待移入；延迟后落库；期间再点取消（延迟可注入）")
@@ -76,17 +77,17 @@ struct TodoListTests {
         model.toggleTodoCompletion(todo.id)
         #expect(!model.pendingCompletionIDs.contains(todo.id))
         try await Task.sleep(for: .milliseconds(250))
-        #expect(model.activeTodos.count == 1 && model.completedTodos.isEmpty)
+        #expect(model.todoGroups.noDate.count == 1 && model.todoGroups.completed.isEmpty)
 
         // 3) 再次点击：延迟后落库移组
         model.toggleTodoCompletion(todo.id)
         #expect(model.pendingCompletionIDs.contains(todo.id))
-        try await waitUntilList(model) { $0.completedTodos.count == 1 }
+        try await waitUntilList(model) { $0.todoGroups.completed.count == 1 }
         #expect(!model.pendingCompletionIDs.contains(todo.id))
 
         // 4) 已完成组点击：勾回
         model.toggleTodoCompletion(todo.id)
-        try await waitUntilList(model) { $0.activeTodos.count == 1 && $0.completedTodos.isEmpty }
+        try await waitUntilList(model) { $0.todoGroups.noDate.count == 1 && $0.todoGroups.completed.isEmpty }
     }
 
     @Test("标题编辑：endEditing 保存改动；空标题不保存；编辑中 Esc 消费")

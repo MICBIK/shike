@@ -437,10 +437,18 @@ final class PanelModel {
     var editingTodoID: Todo.ID?
     var editingTodoText: String = ""
 
-    /// 「待办」组（未完成，新建的在上——观察流 createdAt 降序）。
-    var activeTodos: [Todo] { todos.filter { $0.completedAt == nil } }
-    /// 「已完成（N）」组。
-    var completedTodos: [Todo] { todos.filter { $0.completedAt != nil } }
+    /// 分组时钟（S2-06）：跨天/唤醒时递增，驱动视图重算分组（不标 @ObservationIgnored——
+    /// 视图读取 todoGroups 时要建立对它的依赖）。
+    private(set) var timeContextTick = 0
+    /// 待办五分组（S2-06，03 §6）：逾期/今天/以后/无日期/已完成；纯函数注入 now/时区。
+    var todoGroups: TodoGroups {
+        _ = timeContextTick
+        return TodoGrouping.group(todos: todos, now: Date(), timeZone: timeZone)
+    }
+    /// 跨天/唤醒：重算分组（S2-06）；由 start() 的观察者触发。
+    func handleTimeContextChanged() {
+        timeContextTick += 1
+    }
 
     /// 勾选后处于"1 秒待移入"的待办（03 §6：立即划线变灰、1 秒后移组、期间可勾回）。
     private(set) var pendingCompletionIDs = Set<Todo.ID>()
@@ -648,22 +656,49 @@ final class PanelModel {
         completionTimers.values.forEach { $0.cancel() }
         deletedBarHideTask?.cancel()
         locateClearTask?.cancel()
+        timeContextObservers.forEach(NotificationCenter.default.removeObserver)
     }
 
     /// 订阅两类观察流（app-shell.md：start() 订阅便签与待办两个观察）。
     /// 读取失败提示条的"重试"会重新调用本方法，即重新订阅。
+    /// 跨天/唤醒观察者（S2-06：自动重新分组）；nonisolated(unsafe) 供 stop 移除。
+    @ObservationIgnored nonisolated(unsafe) private var timeContextObservers: [any NSObjectProtocol] = []
+
     func start() {
         noteTask?.cancel()
         todoTask?.cancel()
         pendingLoadBannerClear = true
         noteTask = Task { [weak self] in await self?.consumeNotes() }
         todoTask = Task { [weak self] in await self?.consumeTodos() }
+        startTimeContextObservers()
+    }
+
+    /// 订阅跨天与唤醒：分组时钟递增，视图重算"逾期/今天"（S2-06）。
+    private func startTimeContextObservers() {
+        stopTimeContextObservers()
+        let dayChanged = NotificationCenter.default.addObserver(
+            forName: NSNotification.Name.NSCalendarDayChanged, object: nil, queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in self?.handleTimeContextChanged() }
+        }
+        let wake = NotificationCenter.default.addObserver(
+            forName: NSWorkspace.didWakeNotification, object: nil, queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in self?.handleTimeContextChanged() }
+        }
+        timeContextObservers = [dayChanged, wake]
+    }
+
+    private func stopTimeContextObservers() {
+        timeContextObservers.forEach(NotificationCenter.default.removeObserver)
+        timeContextObservers = []
     }
 
     /// 停止消费（applicationWillTerminate 调用）。
     func stop() {
         noteTask?.cancel()
         todoTask?.cancel()
+        stopTimeContextObservers()
         noteTask = nil
         todoTask = nil
         pendingLoadBannerClear = false

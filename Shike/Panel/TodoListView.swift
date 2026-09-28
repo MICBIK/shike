@@ -5,28 +5,26 @@
 import ShikeData
 import SwiftUI
 
-/// 待办列表（S1-06，03 §6）：「待办」+「已完成（N）」（默认折叠、空组不显示）；
-/// 行 = 圆圈按钮 + 标题；勾选立即划线变灰、1 秒后移组、期间可勾回；单击标题原位单行编辑；
-/// 右键菜单：编辑、删除。
+/// 待办列表（S2-06，03 §6）：「逾期（红）」「今天」「以后」「无日期」「已完成（N）」
+/// （默认折叠、空组不显示）；行 = 圆圈按钮 + 标题 + 时间；勾选立即划线变灰、1 秒后移组、
+/// 期间可勾回；单击标题原位单行编辑；右键菜单：编辑、删除（设置时间… 随 3.7 加入）。
 struct TodoListView: View {
     @Bindable var model: PanelModel
     @State private var isCompletedSectionExpanded = false
 
     var body: some View {
-        ScrollViewReader { proxy in
+        // 一次求值（7 处引用局部值）：避免每处 access 各自重算与跨午夜单帧不一致（盲审 F2）
+        let groups = model.todoGroups
+        return ScrollViewReader { proxy in
             List {
-                if !model.activeTodos.isEmpty {
-                    Section(String(localized: .listGroupTodos)) {
-                        ForEach(model.activeTodos) { todo in
-                            TodoRow(model: model, todo: todo)
-                                .id(todo.uuid.uuidString)
-                        }
-                    }
-                }
-                if !model.completedTodos.isEmpty {
+                section(title: String(localized: .listGroupOverdue), todos: groups.overdue, isOverdue: true)
+                section(title: String(localized: .listGroupToday), todos: groups.today)
+                section(title: String(localized: .listGroupLater), todos: groups.later)
+                section(title: String(localized: .listGroupNoDate), todos: groups.noDate)
+                if !groups.completed.isEmpty {
                     Section {
                         if isCompletedSectionExpanded {
-                            ForEach(model.completedTodos) { todo in
+                            ForEach(groups.completed) { todo in
                                 TodoRow(model: model, todo: todo)
                                     .id(todo.uuid.uuidString)
                             }
@@ -38,7 +36,7 @@ struct TodoListView: View {
                             HStack {
                                 Image(systemName: isCompletedSectionExpanded ? "chevron.down" : "chevron.right")
                                     .font(.caption)
-                                Text(String(localized: .listGroupCompleted(model.completedTodos.count)))
+                                Text(String(localized: .listGroupCompleted(groups.completed.count)))
                             }
                         }
                         .buttonStyle(.plain)
@@ -61,12 +59,30 @@ struct TodoListView: View {
             }
         }
     }
+
+    /// 空组不显示（03 §6）。
+    @ViewBuilder
+    private func section(title: String, todos: [Todo], isOverdue: Bool = false) -> some View {
+        if !todos.isEmpty {
+            Section {
+                ForEach(todos) { todo in
+                    TodoRow(model: model, todo: todo, isOverdue: isOverdue)
+                        .id(todo.uuid.uuidString)
+                }
+            } header: {
+                Text(title)
+                    .foregroundStyle(isOverdue ? Color.red : Color.secondary)
+            }
+        }
+    }
 }
 
-/// 单行待办：圆圈（完成/勾回）+ 标题；编辑态为原位单行编辑框。
+/// 单行待办：圆圈（完成/勾回）+ 标题 + 时间；编辑态为原位单行编辑框。
 private struct TodoRow: View {
     @Bindable var model: PanelModel
     let todo: Todo
+    /// 所在组是否逾期组（时间红字；行内再按各自 due 判定兜底组迁移前的窗口）。
+    var isOverdue = false
 
     @FocusState private var isFocused: Bool
 
@@ -77,6 +93,18 @@ private struct TodoRow: View {
 
     private var isEditing: Bool {
         model.editingTodoID == todo.id
+    }
+
+    /// 行尾时间文案（03 §6）；注入 now/时区。读取 tick 建立跨天重算依赖（盲审 F3）。
+    private var timeText: String? {
+        _ = model.timeContextTick
+        return TodoGrouping.timeText(for: todo, now: Date(), timeZone: model.timeZone)
+    }
+
+    /// 该行是否按逾期红字显示：逾期组的行，或未完成但 due 已过。
+    private var showsOverdueTime: Bool {
+        _ = model.timeContextTick
+        return isOverdue || (!isVisuallyCompleted && TodoGrouping.isOverdue(todo, now: Date(), timeZone: model.timeZone))
     }
 
     var body: some View {
@@ -109,6 +137,11 @@ private struct TodoRow: View {
                     .onTapGesture {
                         startEditing()
                     }
+                if let timeText {
+                    Text(timeText)
+                        .font(.caption)
+                        .foregroundStyle(showsOverdueTime ? Color.red : Color.secondary)
+                }
             }
             Spacer(minLength: 0)
         }

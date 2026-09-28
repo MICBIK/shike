@@ -397,6 +397,28 @@
         }
       }
     },
+    "list.group.later": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "以后"
+          }
+        }
+      }
+    },
+    "list.group.noDate": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无日期"
+          }
+        }
+      }
+    },
     "list.group.notes": {
       "extractionState": "manual",
       "localizations": {
@@ -404,6 +426,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "便签"
+          }
+        }
+      }
+    },
+    "list.group.overdue": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "逾期"
           }
         }
       }
@@ -419,13 +452,13 @@
         }
       }
     },
-    "list.group.todos": {
+    "list.group.today": {
       "extractionState": "manual",
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "待办"
+            "value": "今天"
           }
         }
       }
@@ -700,7 +733,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "输入要做的事，回车保存"
+            "value": "输入要做的事，回车保存；可以直接写时间，比如‘明天下午三点’"
           }
         }
       }
