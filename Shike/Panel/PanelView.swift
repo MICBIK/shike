@@ -18,9 +18,13 @@ struct PanelView: View {
                 Banner(state: banner) { model.retryBanner() }
                 Divider()
             }
-            captureArea
-            recognitionHintBar
-            content
+            if model.isSearching {
+                SearchView(model: model)
+            } else {
+                captureArea
+                recognitionHintBar
+                content
+            }
             if let summary = model.deletedBarSummary {
                 Divider()
                 UndoBar(summary: summary) { model.undoLastDelete() }
@@ -45,6 +49,13 @@ struct PanelView: View {
             .labelsHidden()
             .fixedSize()
             Spacer()
+            Button {
+                model.beginSearch()
+            } label: {
+                Image(systemName: "magnifyingglass")
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(.secondary)
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)

@@ -10,7 +10,7 @@ import SwiftUI
 /// 期间可勾回；单击标题原位单行编辑；右键菜单：编辑、删除（设置时间… 随 3.7 加入）。
 struct TodoListView: View {
     @Bindable var model: PanelModel
-    @State private var isCompletedSectionExpanded = false
+    // "已完成"组展开状态在 PanelModel（S2-09 定位已完成待办时需先展开）
 
     var body: some View {
         // 一次求值（7 处引用局部值）：避免每处 access 各自重算与跨午夜单帧不一致（盲审 F2）
@@ -23,7 +23,7 @@ struct TodoListView: View {
                 section(title: String(localized: .listGroupNoDate), todos: groups.noDate)
                 if !groups.completed.isEmpty {
                     Section {
-                        if isCompletedSectionExpanded {
+                        if model.isCompletedSectionExpanded {
                             ForEach(groups.completed) { todo in
                                 TodoRow(model: model, todo: todo)
                                     .id(todo.uuid.uuidString)
@@ -31,10 +31,10 @@ struct TodoListView: View {
                         }
                     } header: {
                         Button {
-                            isCompletedSectionExpanded.toggle()
+                            model.isCompletedSectionExpanded.toggle()
                         } label: {
                             HStack {
-                                Image(systemName: isCompletedSectionExpanded ? "chevron.down" : "chevron.right")
+                                Image(systemName: model.isCompletedSectionExpanded ? "chevron.down" : "chevron.right")
                                     .font(.caption)
                                 Text(String(localized: .listGroupCompleted(groups.completed.count)))
                             }

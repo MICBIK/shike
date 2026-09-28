@@ -288,9 +288,92 @@ final class PanelModel {
     @ObservationIgnored var timeContextChanged: () -> Void = {}
     /// 通知点本体后的定位目标（S2-04）：TodoListView 滚动定位并高亮，1.5 秒后清除。
     private(set) var locateTodoID: String?
-    /// 定位高亮的清除任务（nonisolated(unsafe) 供 deinit 取消）。
-    @ObservationIgnored nonisolated(unsafe) private var locateClearTask: Task<Void, Never>?
+    /// 搜索结果点击后的便签定位目标（S2-09）：NoteListView 滚动定位并高亮。
+    private(set) var locateNoteID: String?
+    /// 定位高亮清除任务分槽（便签/待办各一，互不吞清除，盲审 3.9-F9；
+    /// nonisolated(unsafe) 供 deinit 取消）。
+    @ObservationIgnored nonisolated(unsafe) private var locateNoteClearTask: Task<Void, Never>?
+    @ObservationIgnored nonisolated(unsafe) private var locateTodoClearTask: Task<Void, Never>?
 
+    // - MARK: 搜索（S2-09，03 §8）
+
+    /// 搜索态：搜索框替换输入框位置；Esc 顺序插入"退出搜索"层。
+    var isSearching = false
+    /// 搜索关键词（0.2 秒防抖触发检索，NFR21）。
+    var searchQuery = "" {
+        didSet {
+            searchDebounceTask?.cancel()
+            guard isSearching else { return }
+            searchDebounceTask = Task { [weak self] in
+                try? await Task.sleep(for: self?.searchDebounceDelay ?? .milliseconds(200))
+                guard !Task.isCancelled else { return }
+                self?.runSearch()
+            }
+        }
+    }
+    /// 便签命中（updatedAt 降序）。
+    private(set) var searchNoteResults: [Note] = []
+    /// 待办命中（含已完成；updatedAt 降序）。
+    private(set) var searchTodoResults: [Todo] = []
+    /// 检索防抖时长（L2 注入缩短；NFR21 的 0.2 秒）。
+    @ObservationIgnored var searchDebounceDelay: Duration = .milliseconds(200)
+    @ObservationIgnored nonisolated(unsafe) private var searchDebounceTask: Task<Void, Never>?
+
+    /// 进入搜索（⌘F 或顶栏放大镜）。
+    func beginSearch() {
+        isSearching = true
+        editingTimeTarget = nil // ⌘F 穿透弹层焦点，防退出搜索后弹层复活（盲审 3.9-F3）
+        searchQuery = ""
+        searchNoteResults = []
+        searchTodoResults = []
+    }
+
+    /// 退出搜索，回到原模式（03 §8）。
+    func exitSearch() {
+        isSearching = false
+        searchQuery = ""
+        searchNoteResults = []
+        searchTodoResults = []
+    }
+
+    /// 执行检索（同步；view 的防抖任务与 L2 直调共用）。不区分大小写 contains。
+    func runSearch() {
+        guard isSearching else { return }
+        let query = searchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !query.isEmpty else {
+            searchNoteResults = []
+            searchTodoResults = []
+            return
+        }
+        searchNoteResults = notes
+            .map(\.note)
+            .filter { $0.content.range(of: query, options: .caseInsensitive) != nil }
+            .sorted { $0.updatedAt > $1.updatedAt }
+        searchTodoResults = todos
+            .filter { $0.title.range(of: query, options: .caseInsensitive) != nil }
+            .sorted { $0.updatedAt > $1.updatedAt }
+    }
+
+    /// 点击搜索结果：退出搜索、切对应模式、滚动定位并高亮（03 §8）。
+    func locateSearchResult(note: Note? = nil, todoUUID: UUID? = nil) {
+        exitSearch()
+        if let note {
+            mode = .note
+            locateNoteID = note.uuid.uuidString
+            locateNoteClearTask?.cancel()
+            locateNoteClearTask = Task { [weak self] in
+                try? await Task.sleep(for: .seconds(1.5))
+                guard !Task.isCancelled else { return }
+                self?.locateNoteID = nil
+            }
+        }
+        if let todoUUID {
+            locateTodo(uuid: todoUUID)
+        }
+    }
+
+    /// "已完成"组展开状态（S2-09）：提升到模型——定位已完成待办时需先展开。
+    var isCompletedSectionExpanded = false
     /// 正在"设置时间…"的待办（S2-07）；弹层经 .popover(item:) 挂载。
     var editingTimeTarget: Todo?
     /// 设置时间的落库路径（S2-07）；失败走保存失败提示条。
@@ -307,9 +390,13 @@ final class PanelModel {
     /// 通知点本体：切到待办模式并定位该条（03 §11）；由 App 的 openPanel 回调组合。
     func locateTodo(uuid: UUID) {
         mode = .todo
+        // 目标是已完成待办：先展开"已完成"组，否则折叠组无行可滚（盲审 3.9-F1）。
+        if let todo = todos.first(where: { $0.uuid == uuid }), todo.completedAt != nil {
+            isCompletedSectionExpanded = true
+        }
         locateTodoID = uuid.uuidString
-        locateClearTask?.cancel()
-        locateClearTask = Task { [weak self] in
+        locateTodoClearTask?.cancel()
+        locateTodoClearTask = Task { [weak self] in
             try? await Task.sleep(for: .seconds(1.5))
             guard !Task.isCancelled else { return }
             self?.locateTodoID = nil
@@ -362,6 +449,7 @@ final class PanelModel {
     func endCaptureWindow() {
         isCaptureReady = false
         editingTimeTarget = nil
+        exitSearch()
     }
 
     // - MARK: 便签列表与编辑（S1-05，03 §5）
@@ -681,7 +769,8 @@ final class PanelModel {
         highlightClearTask?.cancel()
         completionTimers.values.forEach { $0.cancel() }
         deletedBarHideTask?.cancel()
-        locateClearTask?.cancel()
+        locateNoteClearTask?.cancel()
+        locateTodoClearTask?.cancel()
         timeContextObservers.forEach(NotificationCenter.default.removeObserver)
     }
 

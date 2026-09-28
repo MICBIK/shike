@@ -36,6 +36,12 @@ struct NoteListView: View {
                     proxy.scrollTo(newID)
                 }
             }
+            // 搜索结果点击（S2-09）：滚动定位 + 1.5 秒高亮；挂载即定位（目标先于列表存在）。
+            .onChange(of: model.locateNoteID, initial: true) { _, newID in
+                if let newID {
+                    proxy.scrollTo(newID)
+                }
+            }
         }
     }
 }
@@ -81,7 +87,11 @@ private struct NoteRow: View {
                     .foregroundStyle(.secondary)
                 }
                 .contentShape(Rectangle())
-                .background(isRecentlyCreated ? Color.accentColor.opacity(0.15) : .clear)
+                .background(
+            isRecentlyCreated || model.locateNoteID == item.note.uuid.uuidString
+                ? Color.accentColor.opacity(0.15)
+                : .clear
+        )
                 .onTapGesture {
                     startEditing()
                 }

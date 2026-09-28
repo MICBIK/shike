@@ -124,7 +124,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         popoverController.escapeHandler = { [weak environment] in
             guard let environment else { return false }
-            return environment.panelModel.endEditingIfNeeded()
+            // Esc 顺序（03 §13）：结束编辑 → 退出搜索 → 收起面板（S2-09）。
+            if environment.panelModel.endEditingIfNeeded() { return true }
+            if environment.panelModel.isSearching {
+                environment.panelModel.exitSearch()
+                return true
+            }
+            return false
+        }
+        popoverController.searchKeyHandler = { [weak environment] in
+            guard let environment else { return false }
+            environment.panelModel.beginSearch()
+            return true
         }
         // 收起面板时结束编辑（03 §5：收起面板自动保存）。
         // 面板内 ⌘Z（S1-07）：非编辑态撤销最近一次删除。
@@ -189,6 +200,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         environment.typingBuffer.installMonitor { [weak environment, weak popoverController] in
             guard let environment, let popoverController,
                   !environment.panelModel.isCaptureReady else { return false }
+            // 搜索态：输入进搜索框，呼出即打字让位（S2-09）。
+            if environment.panelModel.isSearching { return false }
             // 其它键窗（设置窗口等）拥有焦点时不截获，避免吞掉它们的键盘操作。
             if let keyWindow = NSApp.keyWindow,
                keyWindow !== popoverController.popover.contentViewController?.view.window {
