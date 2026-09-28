@@ -8,6 +8,8 @@ import Testing
 @testable import Shike
 
 /// Story 1.12：关于页的资源与版本（app-shell.md「L2 测试清单」）。
+/// AboutSettingsView 因 View 一致性被推断为 @MainActor，CI 的 Xcode 26 要求在隔离上下文引用其静态成员。
+@MainActor
 struct AboutPageTests {
     @Test("App 包中有 LICENSE，内容不为空且是 GPL 原文")
     func licenseBundledAndNonEmpty() {
