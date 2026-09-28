@@ -279,6 +279,55 @@ final class PanelModel {
     /// 呼出时复位（新空窗开始），输入框就绪时置位（captureDidBecomeReady）。
     private(set) var isCaptureReady = false
 
+    /// 通知权限请求钩子（S2-10）：提交带时间待办时触发；App 接 NotificationScheduling，
+    /// L2 留空实现保持零系统调用。
+    @ObservationIgnored var notificationPermissionRequester: () -> Void = {}
+    /// 通知点本体后的定位目标（S2-04）：TodoListView 滚动定位并高亮，1.5 秒后清除。
+    private(set) var locateTodoID: String?
+    /// 定位高亮的清除任务（nonisolated(unsafe) 供 deinit 取消）。
+    @ObservationIgnored nonisolated(unsafe) private var locateClearTask: Task<Void, Never>?
+
+    /// 通知点本体：切到待办模式并定位该条（03 §11）；由 App 的 openPanel 回调组合。
+    func locateTodo(uuid: UUID) {
+        mode = .todo
+        locateTodoID = uuid.uuidString
+        locateClearTask?.cancel()
+        locateClearTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(1.5))
+            guard !Task.isCancelled else { return }
+            self?.locateTodoID = nil
+        }
+    }
+
+    /// 通知动作"完成"（03 §11）：按 uuid 直达仓储（不依赖界面快照——冷启动时
+    /// 观察流首批快照未到也能正确落库，盲审 F1）；待办已删除则忽略（返回 false）。
+    func completeTodo(uuid: UUID) async {
+        do {
+            let handled = try await todoRepository.setCompleted(uuid: uuid, true)
+            if !handled {
+                Log.data.info("通知动作：待办不存在或已删除，忽略 uuid=\(uuid.uuidString, privacy: .public)")
+            }
+        } catch let error as ShikeDataError {
+            report(error, retry: { [weak self] in Task { await self?.completeTodo(uuid: uuid) } })
+        } catch {
+            report(.writeFailed(.ioError), retry: { [weak self] in Task { await self?.completeTodo(uuid: uuid) } })
+        }
+    }
+
+    /// 通知动作"稍后提醒"（03 §11）：按 uuid 写 snoozedUntil；已完成/已删除忽略（盲审 F5）。
+    func snoozeTodo(uuid: UUID, until date: Date) async {
+        do {
+            let handled = try await todoRepository.snooze(uuid: uuid, until: date)
+            if !handled {
+                Log.data.info("通知动作：待办不存在/已删除/已完成，忽略 uuid=\(uuid.uuidString, privacy: .public)")
+            }
+        } catch let error as ShikeDataError {
+            report(error, retry: { [weak self] in Task { await self?.snoozeTodo(uuid: uuid, until: date) } })
+        } catch {
+            report(.writeFailed(.ioError), retry: { [weak self] in Task { await self?.snoozeTodo(uuid: uuid, until: date) } })
+        }
+    }
+
     /// 输入框就绪（S1-04）：置位并触发缓冲回放；由 CaptureTextView 的 onViewReady 经 App 接入。
     func captureDidBecomeReady(_ textView: NSTextView) {
         isCaptureReady = true
@@ -532,7 +581,12 @@ final class PanelModel {
         case .note:
             submit(.note(content: text))
         case .todo:
-            submit(todoSubmission(from: text))
+            let submission = todoSubmission(from: text)
+            // 第一次创建带时间的待办时请求通知权限（S2-10；系统对重复调用幂等）。
+            if case .todo(_, _, .some) = submission {
+                notificationPermissionRequester()
+            }
+            submit(submission)
         }
     }
 
@@ -591,6 +645,7 @@ final class PanelModel {
         highlightClearTask?.cancel()
         completionTimers.values.forEach { $0.cancel() }
         deletedBarHideTask?.cancel()
+        locateClearTask?.cancel()
     }
 
     /// 订阅两类观察流（app-shell.md：start() 订阅便签与待办两个观察）。

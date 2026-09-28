@@ -51,6 +51,14 @@ struct TodoListView: View {
                     proxy.scrollTo(newID)
                 }
             }
+            // 通知点本体（S2-04）：滚动定位 + 1.5 秒高亮（PanelModel 负责清除计时）。
+            // initial: true——定位目标在列表挂载前已设置（模式切换/冷启动路径）时，
+            // 挂载即定位一次（盲审 F2：onChange 默认不响应既有值）。
+            .onChange(of: model.locateTodoID, initial: true) { _, newID in
+                if let newID {
+                    proxy.scrollTo(newID)
+                }
+            }
         }
     }
 }
@@ -106,7 +114,9 @@ private struct TodoRow: View {
         }
         .padding(.vertical, 2)
         .background(
-            model.recentlyCreatedItemID == todo.uuid.uuidString ? Color.accentColor.opacity(0.15) : .clear
+            model.recentlyCreatedItemID == todo.uuid.uuidString || model.locateTodoID == todo.uuid.uuidString
+                ? Color.accentColor.opacity(0.15)
+                : .clear
         )
         .onChange(of: model.editingTodoID) { _, _ in
             if isEditing {

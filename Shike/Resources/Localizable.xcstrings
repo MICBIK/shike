@@ -617,6 +617,39 @@
         }
       }
     },
+    "notification.action.complete": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "完成"
+          }
+        }
+      }
+    },
+    "notification.action.snooze": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "稍后提醒（%lld 分钟）"
+          }
+        }
+      }
+    },
+    "notification.body.allDay": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "全天 · %@"
+          }
+        }
+      }
+    },
     "panel.capture.placeholder.note": {
       "extractionState": "manual",
       "localizations": {

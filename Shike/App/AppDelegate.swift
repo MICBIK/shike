@@ -6,6 +6,7 @@ import AppKit
 import KeyboardShortcuts
 import ShikeData
 import SwiftUI
+import UserNotifications
 
 /// 管理应用生命周期；启动流程见 architecture-diagrams.md §3。
 @MainActor
@@ -201,6 +202,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             environment.typingBuffer.replayPendingEvents(in: textView)
             (textView as? CaptureNSTextView)?.isReplayingKeys = false
         }
+
+        // 提醒通知（S2-04）：类别注册与 delegate；点本体 → 呼出面板、切待办、定位高亮。
+        // delegate 在 didFinishLaunching 末段赋值：冷启动的通知动作到达时数据库已就绪。
+        environment.notificationCoordinator.registerCategory(
+            snoozeMinutes: {
+                let stored = environment.preferences.reminderSnoozeMinutes
+                return SettingsModel.snoozeOptions.contains(stored) ? stored : 10
+            }()
+        )
+        environment.notificationCoordinator.openPanelHandler = { [weak self, weak environment] uuid in
+            guard let self, let environment,
+                  let button = self.statusItemController?.statusBarButton else { return }
+            if !popoverController.popover.isShown {
+                popoverController.toggle(from: button)
+            }
+            environment.panelModel.locateTodo(uuid: uuid)
+        }
+        UNUserNotificationCenter.current().delegate = environment.notificationCoordinator
         environment.panelModel.start()
 
         // 每日备份（§3 节点 I/J）：后台执行一次，跨天再备份；不等待完成。
