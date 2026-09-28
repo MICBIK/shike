@@ -72,6 +72,19 @@ struct ParserExclusionTitleTests {
         }
     }
 
+    @Test("越界的「X点X分」不识别（05 §3；全量盲审发现的退化缺陷回归）")
+    func outOfRangeMinuteRejected() {
+        let parser = ChineseDateParser(timeZone: Self.timeZone)
+        // 这些输入此前会被静默识别成整点或部分数字（如 9点60分 → 9:06），现在整体作废
+        for input in ["两点九十九分", "三点六十一分", "十二点六十", "9点60分", "两点一百"] {
+            #expect(parser.parse(input, now: Self.t0) == nil, "「\(input)」应不识别")
+        }
+        // 合法的"X点X分"不受影响
+        let valid = parser.parse("9点6分", now: Self.t0)
+        #expect(valid?.hasTime == true)
+        #expect(valid?.matchedRanges == [NSRange(location: 0, length: 4)])
+    }
+
     private func date(_ year: Int, _ month: Int, _ day: Int) -> Date {
         var components = DateComponents()
         components.year = year
@@ -89,7 +102,14 @@ struct ParserGuardTests {
     @Test("守护测试：05 §9 全部 125 个用例与测试数据同步")
     func specCasesMatchTests() throws {
         let specRows = try Self.extractSpecRows()
-        let specDict = Dictionary(uniqueKeysWithValues: specRows.map { ($0.id, $0.input) })
+        // 编号必须唯一：先查重并干净失败，而不是让 Dictionary 初始化 crash（全量盲审 L2）
+        var specDict = [String: String](minimumCapacity: specRows.count)
+        var duplicateIDs: [String] = []
+        for (id, input) in specRows {
+            if specDict[id] != nil { duplicateIDs.append(id) }
+            specDict[id] = input
+        }
+        #expect(duplicateIDs.isEmpty, "05 §9 编号重复：\(duplicateIDs.joined(separator: ", "))（守护测试要求编号唯一）")
         let testRows = Self.testRegistry()
 
         #expect(specRows.count == 125, "05 §9 用例数应为 125，实际 \(specRows.count)；若规格有意变更，需同一次提交更新测试")

@@ -482,9 +482,18 @@ public struct ChineseDateParser: Sendable {
             case "整", "钟": minute = 0
             case .some(let value):
                 let raw = group(4) ?? value
-                if let parsed = ChineseNumber.parse(raw.trimmingCharacters(in: .whitespaces)), (0...59).contains(parsed) {
-                    minute = parsed
+                let trimmed = raw.trimmingCharacters(in: .whitespaces)
+                // 05 §3「越界时不识别」：分钟组有匹配但解析失败或越 0…59 时，整个候选作废
+                // （冒号形式的 J09 已由正则字符类保证，"X点X分"形式在此兜底）。
+                guard let parsed = ChineseNumber.parse(trimmed), (0...59).contains(parsed) else { return nil }
+                // 数字被截断的输入（"两点一百"只吃到"一"、"9点60分"只吃到"6"）同样作废，防止残留数字被静默丢弃。
+                let end = match.range.location + match.range.length
+                if end < nsText.length {
+                    let next = nsText.substring(with: NSRange(location: end, length: 1))
+                    if "百千万".contains(next) { return nil }
+                    if "0123456789".contains(next), trimmed.contains(where: { $0.isASCII && $0.isNumber }) { return nil }
                 }
+                minute = parsed
             case .none:
                 break
             }

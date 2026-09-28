@@ -57,7 +57,7 @@ final class LicenseWindowController {
             }
             return try String(contentsOf: url, encoding: .utf8)
         } catch {
-            Log.data.error("读取打包的 LICENSE 失败：\(error.localizedDescription, privacy: .public)")
+            Log.app.error("读取打包的 LICENSE 失败：\(error.localizedDescription, privacy: .public)")
             return ""
         }
     }
