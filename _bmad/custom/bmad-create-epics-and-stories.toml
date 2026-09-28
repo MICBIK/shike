@@ -1,0 +1,7 @@
+# 拾刻的团队配置（入库）。约定见 docs/06 §8。
+[workflow]
+persistent_facts = [
+  "拾刻每个阶段对应一个史诗，史诗编号 = 阶段编号 + 1（阶段 0 为 Epic 1）。BMAD 回顾脚本只接受从 1 开始的史诗编号。",
+  "{planning_artifacts} 中的 epics-stage-*.md 是往期阶段已定稿的史诗，只读，不要修改或覆盖。",
+]
+on_complete = "把 {planning_artifacts}/epics.md 改名为 epics-stage-<阶段编号>.md，告诉用户新文件名，然后建议运行 bmad-sprint-planning。"

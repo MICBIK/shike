@@ -1,0 +1,56 @@
+# STATUS DEFINITIONS:
+# ==================
+# Epic Status:
+#   - backlog: Epic not yet started
+#   - in-progress: Epic actively being worked on
+#   - done: All stories in epic completed
+
+# Story Status:
+#   - backlog: Story only exists in epic file
+#   - ready-for-dev: Story file created, ready for development
+#   - in-progress: Developer actively working on implementation
+#   - review: Implementation complete, ready for review
+#   - done: Story completed
+
+# Retrospective Status:
+#   - optional: Can be completed but not required
+#   - done: Retrospective has been completed
+
+# Action Item Status:
+#   - open: Committed during a retrospective, not yet addressed
+#   - in-progress: Actively being worked on
+#   - done: Completed
+
+# WORKFLOW NOTES:
+# ===============
+# - Epic transitions to 'in-progress' automatically when its first story starts (via build's sprint sync)
+# - Stories can be worked in parallel if team capacity allows
+# - Developer typically creates the next story after the previous one is 'done' to incorporate learnings
+# - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
+# - Retrospective appends its action items to action_items; the status view surfaces open ones
+generated: 09-26-2026 01:00
+last_updated: 09-27-2026 23:30
+project: 拾刻 Shike
+project_key: NOKEY
+tracking_system: file-system
+story_location: _bmad-output/implementation-artifacts
+development_status:
+  epic-1: in-progress
+  1-1-搭建工程骨架: review
+  1-2-建立-ci-流水线: review
+  1-3-数据库的打开与-v1-表结构: review
+  1-4-便签的保存与观察: review
+  1-5-待办的保存与观察: review
+  1-6-桌面卡片的数据: review
+  1-7-组装点与偏好设置: review
+  1-8-数据库打不开时的提示: done
+  1-9-菜单栏图标与面板: done
+  1-10-面板的数据与错误提示: done
+  1-11-设置窗口-右键菜单与主菜单: done
+  1-12-关于页与许可证: done
+  1-13-每日自动备份: done
+  1-14-迁移前备份: done
+  1-15-识别中文日期与时刻: done
+  1-16-排除误识别-高亮与标题清理: done
+  1-17-架构交接: done
+  epic-1-retrospective: optional

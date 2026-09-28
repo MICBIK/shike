@@ -23,14 +23,28 @@ macOS 15 或更高。
 
 ## 从源码构建
 
-阶段 0 完成后可以按以下步骤构建：
+需要 macOS 15 及以上的 Mac：
+1. 安装 [Xcode 26 或更高版本](https://developer.apple.com/xcode/)，首次安装后在终端执行一次 `xcodebuild -runFirstLaunch`（否则命令行构建会报 CoreSimulator 相关错误）；
+2. 用 Homebrew 安装 XcodeGen：`brew install xcodegen`。
+
+然后：
 
 ```bash
-brew install xcodegen
 git clone https://github.com/MICBIK/shike.git
 cd shike
-xcodegen generate
-open Shike.xcodeproj
+xcodegen generate                        # 从 project.yml 生成 Shike.xcodeproj
+swift test --package-path Packages/ShikeKit   # 运行数据层与解析器包的测试
+xcodebuild -project Shike.xcodeproj -scheme Shike \
+  -destination 'platform=macOS' build test    # 构建 App 并运行 App 层测试
+open Shike.xcodeproj                     # 或直接用 Xcode 打开开发
+```
+
+生成工程后重新打开 Xcode 即可获得最新工程；生成的 `Shike.xcodeproj` 与构建产物不入库。
+
+提交前可以在本地跑一次架构合规检查（与 CI 的 `checks` 作业同一份脚本）：
+
+```bash
+bash scripts/checks.sh              # 文件头、导入边界、解析器区域、禁用项
 ```
 
 详细说明见 [开发规范](docs/06-开发规范.md)。
