@@ -11,10 +11,26 @@ import ShikeData
 @MainActor
 @Observable
 final class PanelModel {
-    /// 顶栏分段控件的模式（03 §3）；默认便签，重启回到便签，不写入偏好设置。
+    /// 顶栏分段控件的模式（03 §3）；任何切换都持久化到 `panel.lastMode`（S1-03）。
     enum Mode: String, CaseIterable, Sendable {
         case note
         case todo
+    }
+
+    /// 呼出时进入哪个模式（S1-03，03 §9 的设置项）。
+    enum OpenMode: String, CaseIterable, Sendable {
+        case last
+        case note
+        case todo
+    }
+
+    /// 呼出决策（纯函数）：`last` 用上次的模式，其余总进设定模式（S1-03）。
+    static func initialMode(openMode: OpenMode, lastMode: Mode) -> Mode {
+        switch openMode {
+        case .last: lastMode
+        case .note: .note
+        case .todo: .todo
+        }
     }
 
     /// 顶栏下方的提示条（03 §3）；重试动作单独保存（闭包不参与相等性）。
@@ -36,7 +52,13 @@ final class PanelModel {
         }
     }
 
-    var mode: Mode = .note
+    /// 模式切换（分段控件、⌘1/⌘2、Tab 均落到这里）；didSet 持久化 lastMode（S1-03）。
+    var mode: Mode = .note {
+        didSet {
+            guard mode != oldValue else { return }
+            preferences.panelLastMode = mode.rawValue
+        }
+    }
 
     private(set) var notes: [NoteListItem] = []
     private(set) var todos: [Todo] = []
@@ -44,6 +66,7 @@ final class PanelModel {
 
     private let noteRepository: NoteRepository
     private let todoRepository: TodoRepository
+    private let preferences: Preferences
     @ObservationIgnored private var bannerRetry: (() -> Void)?
     /// 只有 start()（重新订阅）之后收到的首批数据才允许清除读取失败提示条；
     /// 否则另一条仍在运行的流的任意更新会把提示条误清掉。
@@ -62,9 +85,21 @@ final class PanelModel {
     /// Esc 第一级"结束编辑"：返回 true 表示有编辑被结束。列表编辑在 2.6/2.7 接入。
     @ObservationIgnored var endEditingIfNeeded: () -> Bool = { false }
 
-    init(noteRepository: NoteRepository, todoRepository: TodoRepository) {
+    init(noteRepository: NoteRepository, todoRepository: TodoRepository, preferences: Preferences) {
         self.noteRepository = noteRepository
         self.todoRepository = todoRepository
+        self.preferences = preferences
+        if let last = Mode(rawValue: preferences.panelLastMode) {
+            mode = last
+        }
+    }
+
+    /// 每次呼出面板时应用"呼出时进入"设置（S1-03）；由 PopoverController 的 didShow 触发。
+    /// 持久化的 lastMode 先读后写：openMode 为固定模式时呼出会改写 lastMode（03 §9 语义内）。
+    func applyOpenMode() {
+        let openMode = OpenMode(rawValue: preferences.panelOpenMode) ?? .last
+        let last = Mode(rawValue: preferences.panelLastMode) ?? .note
+        mode = Self.initialMode(openMode: openMode, lastMode: last)
     }
 
     deinit {

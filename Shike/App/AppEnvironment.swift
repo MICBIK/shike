@@ -29,7 +29,7 @@ public final class AppEnvironment {
         self.noteRepository = noteRepository
         self.todoRepository = todoRepository
         self.stickyCardRepository = StickyCardRepository(database: database)
-        self.panelModel = PanelModel(noteRepository: noteRepository, todoRepository: todoRepository)
+        self.panelModel = PanelModel(noteRepository: noteRepository, todoRepository: todoRepository, preferences: preferences)
         self.backupService = BackupService(
             database: database,
             backupsDirectory: dataDirectory.appendingPathComponent("Backups", isDirectory: true),

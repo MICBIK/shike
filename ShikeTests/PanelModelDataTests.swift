@@ -11,11 +11,13 @@ import Testing
 /// Story 1.10：PanelModel 消费观察流与提示条（app-shell.md「L2 测试清单」）。
 @MainActor
 struct PanelModelDataTests {
-    private func makeModel(database: AppDatabase) -> (PanelModel, NoteRepository, TodoRepository) {
+    private func makeModel(database: AppDatabase) -> (PanelModel, NoteRepository, TodoRepository, () -> Void) {
         let noteRepository = NoteRepository(database: database)
         let todoRepository = TodoRepository(database: database)
-        let model = PanelModel(noteRepository: noteRepository, todoRepository: todoRepository)
-        return (model, noteRepository, todoRepository)
+        let suiteName = "shike-tests-\(UUID().uuidString)"
+        let preferences = Preferences(defaults: UserDefaults(suiteName: suiteName)!)
+        let model = PanelModel(noteRepository: noteRepository, todoRepository: todoRepository, preferences: preferences)
+        return (model, noteRepository, todoRepository, { UserDefaults.standard.removePersistentDomain(forName: suiteName) })
     }
 
     /// 轮询等待观察流把变化送到模型（主线程 Task.sleep 让出主执行器）。
@@ -33,7 +35,8 @@ struct PanelModelDataTests {
 
     @Test("空库：两种列表都为空（02 验收第 4 条）")
     func emptyDatabaseYieldsEmptyLists() async throws {
-        let (model, _, _) = makeModel(database: try AppDatabase.inMemory())
+        let (model, _, _, cleanup) = makeModel(database: try AppDatabase.inMemory())
+        defer { cleanup() }
         model.start()
         // 给观察流留出首轮投递时间，确认空库不产生任何条目
         try await Task.sleep(for: .milliseconds(120))
@@ -44,7 +47,8 @@ struct PanelModelDataTests {
 
     @Test("插入便签后 notes 随之更新（写入到观察链路）")
     func notesUpdateAfterInsert() async throws {
-        let (model, noteRepository, _) = makeModel(database: try AppDatabase.inMemory())
+        let (model, noteRepository, _, cleanup) = makeModel(database: try AppDatabase.inMemory())
+        defer { cleanup() }
         model.start()
 
         let note = try await noteRepository.create(content: "面板可见的便签")
@@ -54,7 +58,8 @@ struct PanelModelDataTests {
 
     @Test("writeFailed 提示条：保存失败：磁盘空间不足 + 重试调用传入闭包")
     func writeFailedBannerAndRetry() {
-        let (model, _, _) = makeModel(database: try! AppDatabase.inMemory())
+        let (model, _, _, cleanup) = makeModel(database: try! AppDatabase.inMemory())
+        defer { cleanup() }
         var retried = false
         model.report(.writeFailed(.diskFull), retry: { retried = true })
 
@@ -65,7 +70,8 @@ struct PanelModelDataTests {
 
     @Test("观察流真实以 readFailed(.ioError) 结束：提示条出现，重试重新订阅并清除")
     func realStreamFailureEndToEnd() async throws {
-        let (model, noteRepository, _) = makeModel(database: try AppDatabase.inMemory())
+        let (model, noteRepository, _, cleanup) = makeModel(database: try AppDatabase.inMemory())
+        defer { cleanup() }
 
         // 让一个真实的观察流以 readFailed 结束（走 for try await → handleStreamFailure → report 全链路）
         let failing = AsyncThrowingStream<[NoteListItem], any Error> { $0.finish(throwing: ShikeDataError.readFailed(.ioError)) }
@@ -82,7 +88,8 @@ struct PanelModelDataTests {
 
     @Test("非 ShikeDataError 的流错误按读取失败（ioError）上报")
     func unknownStreamErrorMappedToReadFailed() async {
-        let (model, _, _) = makeModel(database: try! AppDatabase.inMemory())
+        let (model, _, _, cleanup) = makeModel(database: try! AppDatabase.inMemory())
+        defer { cleanup() }
         struct ForeignError: Error {}
         let failing = AsyncThrowingStream<[NoteListItem], any Error> { $0.finish(throwing: ForeignError()) }
         await model.runNotes(failing)
@@ -91,7 +98,8 @@ struct PanelModelDataTests {
 
     @Test("另一条流的更新不会误清读取失败提示条（重订阅前）")
     func otherStreamUpdateDoesNotClearLoadBanner() async throws {
-        let (model, _, _) = makeModel(database: try AppDatabase.inMemory())
+        let (model, _, _, cleanup) = makeModel(database: try AppDatabase.inMemory())
+        defer { cleanup() }
 
         let failing = AsyncThrowingStream<[NoteListItem], any Error> { $0.finish(throwing: ShikeDataError.readFailed(.ioError)) }
         await model.runNotes(failing)
@@ -107,7 +115,8 @@ struct PanelModelDataTests {
 
     @Test("提示条文案与文案表逐字一致")
     func bannerMessageWording() {
-        let (model, _, _) = makeModel(database: try! AppDatabase.inMemory())
+        let (model, _, _, cleanup) = makeModel(database: try! AppDatabase.inMemory())
+        defer { cleanup() }
         model.report(.writeFailed(.diskFull), retry: {})
         #expect(model.banner?.message == "保存失败：磁盘空间不足")
 

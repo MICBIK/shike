@@ -16,11 +16,19 @@ public struct Preferences {
         public static let backupKeepCount = "backup.keepCount"
         public static let panelSize = "panel.size"
         public static let hotkeyTogglePanelEnabled = "hotkey.togglePanel.enabled"
+        public static let panelLastMode = "panel.lastMode"
+        public static let panelOpenMode = "panel.openMode"
     }
 
     /// 默认值注册表：与 Key 同处维护（计算属性，避免非 Sendable 静态共享状态）。
     private static var defaultValues: [String: Any] {
-        [Key.backupKeepCount: 7, Key.panelSize: "360.0x520.0", Key.hotkeyTogglePanelEnabled: true]
+        [
+            Key.backupKeepCount: 7,
+            Key.panelSize: "360.0x520.0",
+            Key.hotkeyTogglePanelEnabled: true,
+            Key.panelLastMode: "note",
+            Key.panelOpenMode: "last",
+        ]
     }
 
     private let defaults: UserDefaults
@@ -69,5 +77,18 @@ public struct Preferences {
             ? true
             : defaults.bool(forKey: Key.hotkeyTogglePanelEnabled) }
         nonmutating set { defaults.set(newValue, forKey: Key.hotkeyTogglePanelEnabled) }
+    }
+
+    /// 上次使用的面板模式（S1-03，03 §9）：值来自 PanelModel.Mode.rawValue；
+    /// 存储值非法时回落 note。
+    public var panelLastMode: String {
+        get { defaults.string(forKey: Key.panelLastMode) ?? "note" }
+        nonmutating set { defaults.set(newValue, forKey: Key.panelLastMode) }
+    }
+
+    /// 呼出时进入哪个模式（S1-03，03 §9）：last / note / todo；非法值回落 last。
+    public var panelOpenMode: String {
+        get { defaults.string(forKey: Key.panelOpenMode) ?? "last" }
+        nonmutating set { defaults.set(newValue, forKey: Key.panelOpenMode) }
     }
 }

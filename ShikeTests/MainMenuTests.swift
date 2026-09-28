@@ -61,9 +61,9 @@ struct SettingsTabTests {
         #expect(SettingsTab.allCases.map(\.title) == ["通用", "快捷键", "提醒", "卡片", "数据", "关于"])
     }
 
-    @Test("占位阶段号：通用 1，提醒 2，卡片 3，数据 4；快捷键（S1-02）与关于页没有占位")
+    @Test("占位阶段号：提醒 2、卡片 3、数据 4；通用（S1-03 起）、快捷键与关于页没有占位")
     func placeholderStages() {
-        #expect(SettingsTab.general.placeholderStage == 1)
+        #expect(SettingsTab.general.placeholderStage == nil)
         #expect(SettingsTab.shortcuts.placeholderStage == nil)
         #expect(SettingsTab.reminders.placeholderStage == 2)
         #expect(SettingsTab.cards.placeholderStage == 3)

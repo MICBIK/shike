@@ -73,11 +73,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         guard let environment else { return }
 
         // 设置窗口（单实例）与图标右键菜单。
+        let settingsModel = SettingsModel(
+            hotkeyService: environment.hotkeyService,
+            preferences: environment.preferences
+        )
         let settingsWindowController = SettingsWindowController(
             onViewLicense: { [weak self] in
                 self?.showLicenseWindow()
             },
-            hotkeyService: environment.hotkeyService
+            model: settingsModel
         )
         self.settingsWindowController = settingsWindowController
         let statusMenu = StatusMenu(actions: .init(
@@ -109,6 +113,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         environment.panelModel.resizeApply = { [weak popoverController] proposed, isFinal in
             popoverController?.applyResize(proposed, isFinal: isFinal)
+        }
+        // S1-03：每次呼出应用"呼出时进入"；⌘1/⌘2 切模式。
+        popoverController.onShow = { [weak environment] in
+            environment?.panelModel.applyOpenMode()
+        }
+        popoverController.modeKeyHandler = { [weak environment] digit in
+            guard let environment else { return false }
+            switch digit {
+            case "1": environment.panelModel.mode = .note
+            case "2": environment.panelModel.mode = .todo
+            default: return false
+            }
+            return true
         }
         let statusItemController = StatusItemController(popoverController: popoverController)
         self.statusItemController = statusItemController

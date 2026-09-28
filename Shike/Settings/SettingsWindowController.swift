@@ -13,7 +13,7 @@ final class SettingsWindowController {
     private let window: NSWindow
     private let hostingController: NSHostingController<SettingsView>
 
-    init(onViewLicense: @escaping () -> Void, hotkeyService: HotkeyService) {
+    init(onViewLicense: @escaping () -> Void, model: SettingsModel) {
         window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 460, height: 320),
             styleMask: [.titled, .closable],
@@ -21,7 +21,7 @@ final class SettingsWindowController {
             defer: false
         )
         window.title = String(localized: .settingsWindowTitle)
-        model = SettingsModel(hotkeyService: hotkeyService)
+        self.model = model
         hostingController = NSHostingController(rootView: SettingsView(model: model, onViewLicense: onViewLicense))
         window.contentViewController = hostingController
         window.center()

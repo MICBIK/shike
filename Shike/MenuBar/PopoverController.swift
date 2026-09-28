@@ -45,6 +45,10 @@ final class PopoverController {
     var escapeHandler: () -> Bool = { false }
     /// 尺寸持久化（S1-01）：applyResize 钳制后且 isFinal 时调用；由 App 接到 Preferences.panelSize。
     var persistSize: (CGSize) -> Void = { _ in }
+    /// 面板弹出（S1-03）：每次呼出应用"呼出时进入"设置；由 App 接到 PanelModel.applyOpenMode。
+    var onShow: () -> Void = {}
+    /// ⌘1/⌘2 切模式（S1-03）：参数为数字字符（"1"/"2"）；返回 true 表示已消费。
+    var modeKeyHandler: (String) -> Bool = { _ in false }
 
     init(contentViewController: NSViewController, initialSize: CGSize = PanelSizing.defaultSize) {
         popover.animates = false
@@ -143,22 +147,27 @@ final class PopoverController {
     private func startEscapeMonitor() {
         stopEscapeMonitor()
         localEscapeMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            // keyCode 53 = Esc；不带修饰键的裸 Esc 才是"结束编辑/收起面板"
-            //（⌘/⌥+Esc 不是；输入法候选窗的 Esc 在 2.6 接入编辑状态时再作处理）。
+            // 面板内按键（03 §13）：裸 Esc 与 ⌘1/⌘2 在此消费，其余放行。
             // assumeIsolated 的闭包是 @Sendable，只返回布尔，事件本身在监听闭包（非 @Sendable）中处理。
-            guard event.keyCode == 53,
-                  event.modifierFlags.intersection(.deviceIndependentFlagsMask).isEmpty else {
-                return event
-            }
             let swallow = MainActor.assumeIsolated { () -> Bool in
                 guard let self else { return false }
-                switch Self.escapeOutcome(editingHandled: self.escapeHandler()) {
-                case .consumedByEditing:
-                    return true
-                case .closesPanel:
-                    self.popover.performClose(nil)
-                    return true
+                let modifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+                if event.keyCode == 53, modifiers.isEmpty {
+                    // 裸 Esc；输入法候选窗的 Esc 在 2.6 接入编辑状态时再作处理。
+                    switch Self.escapeOutcome(editingHandled: self.escapeHandler()) {
+                    case .consumedByEditing:
+                        return true
+                    case .closesPanel:
+                        self.popover.performClose(nil)
+                        return true
+                    }
                 }
+                if modifiers.subtracting([.numericPad, .function, .capsLock]) == .command,
+                   let digit = event.charactersIgnoringModifiers,
+                   digit == "1" || digit == "2" {
+                    return self.modeKeyHandler(digit)
+                }
+                return false
             }
             return swallow ? nil : event
         }
@@ -196,6 +205,7 @@ final class PopoverController {
                 MainActor.assumeIsolated {
                     self?.startOutsideClickMonitors()
                     self?.startEscapeMonitor()
+                    self?.onShow()
                 }
             }
     }
