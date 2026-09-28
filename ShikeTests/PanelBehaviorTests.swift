@@ -96,9 +96,9 @@ struct PanelBehaviorTests {
         #expect(popoverController.popover.contentSize == expectedMid)
         #expect(persisted.isEmpty)
 
-        // 结束时持久化
+        // 结束时持久化（持久化的是钳制后的值，与即时生效的一致）
         popoverController.applyResize(CGSize(width: 500, height: 600), isFinal: true)
-        #expect(persisted == [CGSize(width: 500, height: 600)])
+        #expect(persisted == [CGSize(width: expectedMid.width, height: expectedMid.height)])
 
         // 拖太小：钳到最小尺寸
         popoverController.applyResize(CGSize(width: 10, height: 10), isFinal: true)
