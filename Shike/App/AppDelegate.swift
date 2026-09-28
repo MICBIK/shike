@@ -252,6 +252,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         environment.panelModel.todosChanged = { [weak environment] in
             environment?.reminderScheduler.scheduleReconcile()
             updateCounter()
+            Task { await environment?.panelModel.refreshNotificationAuthorization() }
         }
         environment.panelModel.timeContextChanged = {
             updateCounter()
@@ -259,6 +260,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         environment.reminderScheduler.startObservingSystemEvents()
         settingsModel.onMenuBarCounterChanged = {
             updateCounter()
+        }
+        settingsModel.notificationAuthorizationReader = { [weak environment] in
+            (await environment?.notificationScheduling.authorizationStatus()) ?? .notDetermined
+        }
+        settingsModel.openNotificationSettings = {
+            if let url = URL(string: "x-apple.systempreferences:com.apple.preference.notifications") {
+                NSWorkspace.shared.open(url)
+            }
         }
         settingsModel.onReminderSettingsChanged = { [weak environment] in
             guard let environment else { return }

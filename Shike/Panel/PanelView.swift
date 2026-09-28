@@ -23,6 +23,9 @@ struct PanelView: View {
             } else {
                 captureArea
                 recognitionHintBar
+                if model.mode == .todo, model.notificationDenied {
+                    notificationDeniedBar
+                }
                 content
             }
             if let summary = model.deletedBarSummary {
@@ -92,6 +95,26 @@ struct PanelView: View {
         .frame(height: max(captureHeight, 22))
         .padding(.horizontal, 12)
         .padding(.vertical, 6)
+    }
+
+    /// 通知权限被拒提示条（S2-10，03 §14）：仅待办模式显示。
+    private var notificationDeniedBar: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.caption)
+                .foregroundStyle(.yellow)
+            Text(String(localized: .bannerNotificationDenied))
+                .font(.caption)
+            Spacer()
+            Button(String(localized: .bannerOpenSystemSettings)) {
+                model.openNotificationSettings()
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.small)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 6)
+        .background(Color.yellow.opacity(0.12))
     }
 
     /// 时间识别提示条（S2-01，03 §4）：输入框下方一行小字；✕ 取消本次识别。

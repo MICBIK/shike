@@ -35,6 +35,17 @@ struct ReminderSettingsView: View {
                     Text(String(localized: .settingsReminderSnoozeMinutes(minutes))).tag(minutes)
                 }
             }
+            HStack {
+                Text(String(localized: .settingsReminderPermission))
+                Spacer()
+                Text(permissionText)
+                    .foregroundStyle(model.notificationPermission == .denied ? Color.red : Color.secondary)
+                Button(String(localized: .bannerOpenSystemSettings)) {
+                    model.openNotificationSettings()
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+            }
             .onChange(of: model.reminderSnoozeMinutes) { _, _ in
                 // 时长变化：重对账之外还需重注册类别（按钮括号文案随设置变化，盲审 3.4-F3）。
                 model.onReminderSettingsChanged()
@@ -42,6 +53,18 @@ struct ReminderSettingsView: View {
         }
         .padding(20)
         .formStyle(.grouped)
+        .task {
+            await model.refreshNotificationPermission()
+        }
+    }
+
+    private var permissionText: String {
+        switch model.notificationPermission {
+        case .granted: String(localized: .settingsReminderPermissionGranted)
+        case .denied: String(localized: .settingsReminderPermissionDenied)
+        case .notDetermined: String(localized: .settingsReminderPermissionNotDetermined)
+        case .unknown: "—"
+        }
     }
 
     // - MARK: 分钟数与时刻的换算（纯函数，L2 覆盖）

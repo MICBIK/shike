@@ -100,6 +100,28 @@
         }
       }
     },
+    "banner.notificationDenied": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "通知已关闭，到点不会提醒"
+          }
+        }
+      }
+    },
+    "banner.openSystemSettings": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "打开系统设置"
+          }
+        }
+      }
+    },
     "banner.retry": {
       "extractionState": "manual",
       "localizations": {
@@ -976,6 +998,50 @@
           "stringUnit": {
             "state": "translated",
             "value": "全天待办提醒时间"
+          }
+        }
+      }
+    },
+    "settings.reminder.permission": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "通知权限"
+          }
+        }
+      }
+    },
+    "settings.reminder.permission.denied": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已关闭"
+          }
+        }
+      }
+    },
+    "settings.reminder.permission.granted": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已允许"
+          }
+        }
+      }
+    },
+    "settings.reminder.permission.notDetermined": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未请求"
           }
         }
       }

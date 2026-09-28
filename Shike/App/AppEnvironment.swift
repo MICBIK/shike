@@ -2,6 +2,7 @@
 // Copyright (C) 2026 Shike contributors
 // SPDX-License-Identifier: GPL-3.0-only
 
+import AppKit
 import Foundation
 import ShikeData
 
@@ -49,9 +50,21 @@ public final class AppEnvironment {
         )
         // 只读偏好、不触碰系统热键；register(onAction:) 由 AppDelegate 在面板就绪后调用。
         self.hotkeyService = HotkeyService(preferences: preferences)
-        // 提交带时间待办时请求通知权限（S2-10；系统对重复调用幂等）。
-        panelModel.notificationPermissionRequester = { [notificationScheduling] in
-            Task { _ = await notificationScheduling.requestAuthorization() }
+        // 提交带时间待办时请求通知权限（S2-10；系统对重复调用幂等），请求后刷新状态。
+        panelModel.notificationPermissionRequester = { [weak panelModel, notificationScheduling] in
+            Task {
+                _ = await notificationScheduling.requestAuthorization()
+                await panelModel?.refreshNotificationAuthorization()
+            }
+        }
+        // 授权状态判定与系统设置跳转（S2-10）。
+        panelModel.notificationDeniedChecker = { [notificationScheduling] in
+            await notificationScheduling.authorizationStatus() == .denied
+        }
+        panelModel.openNotificationSettings = {
+            if let url = URL(string: "x-apple.systempreferences:com.apple.preference.notifications") {
+                NSWorkspace.shared.open(url)
+            }
         }
         // 通知动作协调（S2-04）。
         let notificationCoordinator = NotificationCoordinator(

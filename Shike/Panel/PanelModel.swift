@@ -282,6 +282,17 @@ final class PanelModel {
     /// 通知权限请求钩子（S2-10）：提交带时间待办时触发；App 接 NotificationScheduling，
     /// L2 留空实现保持零系统调用。
     @ObservationIgnored var notificationPermissionRequester: () -> Void = {}
+    /// 授权状态检查（S2-10）：App 注入（denied 判定）；L2 注入固定值。
+    @ObservationIgnored var notificationDeniedChecker: () async -> Bool = { false }
+    /// "打开系统设置"（S2-10）：App 注入真实跳转；L2 注入记录替身。
+    @ObservationIgnored var openNotificationSettings: () -> Void = {}
+    /// 通知被系统/用户关闭（S2-10）：待办模式顶部黄色提示条的显示条件。
+    private(set) var notificationDenied = false
+
+    /// 以注入的检查器刷新授权状态（数据变化与权限请求后调用）。
+    func refreshNotificationAuthorization() async {
+        notificationDenied = await notificationDeniedChecker()
+    }
     /// 待办数据变化钩子（S2-05）：提醒调度器经它做 0.5 秒合并对账；L2 留空。
     @ObservationIgnored var todosChanged: () -> Void = {}
     /// 跨天/唤醒钩子（S2-08）：菜单栏计数等时间口径的界面刷新；与 todosChanged 一样由 App 接线。

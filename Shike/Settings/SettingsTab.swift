@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
 import Foundation
+import UserNotifications
 
 /// 设置分页的有序注册表（app-shell.md「组件契约」）：
 /// 顺序即 03 §9 的六个分页；后续阶段只需把对应分页的占位视图换掉。
@@ -65,6 +66,28 @@ final class SettingsModel {
     @ObservationIgnored var onReminderSettingsChanged: () -> Void = {}
     /// 菜单栏计数口径变化钩子（S2-08）：立即刷新计数显示；AppDelegate 接线。
     @ObservationIgnored var onMenuBarCounterChanged: () -> Void = {}
+    /// 通知授权状态读取（S2-10）：AppDelegate 注入；nil 表示未知（未刷新）。
+    @ObservationIgnored var notificationAuthorizationReader: (() async -> UNAuthorizationStatus)?
+    /// "打开系统设置"（S2-10）：AppDelegate 注入真实跳转。
+    @ObservationIgnored var openNotificationSettings: () -> Void = {}
+    /// 通知权限的展示状态（提醒分页）。
+    enum NotificationPermissionState: Equatable {
+        case notDetermined
+        case granted
+        case denied
+        case unknown
+    }
+    private(set) var notificationPermission: NotificationPermissionState = .unknown
+
+    func refreshNotificationPermission() async {
+        guard let reader = notificationAuthorizationReader else { return }
+        switch await reader() {
+        case .notDetermined: notificationPermission = .notDetermined
+        case .denied: notificationPermission = .denied
+        case .authorized, .provisional, .ephemeral: notificationPermission = .granted
+        @unknown default: notificationPermission = .unknown
+        }
+    }
 
     // - MARK: 设置项（存储属性 + didSet 写偏好并触发钩子）
     // 经 UserDefaults 的计算属性不可被 @Observable 观测：SwiftUI 的 onChange 检测
