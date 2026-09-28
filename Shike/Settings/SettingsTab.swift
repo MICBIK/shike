@@ -27,14 +27,14 @@ enum SettingsTab: String, CaseIterable, Identifiable {
         }
     }
 
-    /// 占位分页显示的阶段号；关于页没有占位。
+    /// 占位分页显示的阶段号；真实的分页（快捷键 S1-02、关于）没有占位。
     var placeholderStage: Int? {
         switch self {
-        case .general, .shortcuts: 1
+        case .general: 1
+        case .shortcuts, .about: nil
         case .reminders: 2
         case .cards: 3
         case .data: 4
-        case .about: nil
         }
     }
 }
@@ -44,4 +44,9 @@ enum SettingsTab: String, CaseIterable, Identifiable {
 @Observable
 final class SettingsModel {
     var selectedTab: SettingsTab = .general
+    let hotkeyService: HotkeyService
+
+    init(hotkeyService: HotkeyService) {
+        self.hotkeyService = hotkeyService
+    }
 }

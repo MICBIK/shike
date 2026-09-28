@@ -18,6 +18,7 @@ public final class AppEnvironment {
     public let stickyCardRepository: StickyCardRepository
     let panelModel: PanelModel
     let backupService: BackupService
+    let hotkeyService: HotkeyService
 
     public init(database: AppDatabase, preferences: Preferences, dataDirectory: URL) {
         self.database = database
@@ -34,5 +35,7 @@ public final class AppEnvironment {
             backupsDirectory: dataDirectory.appendingPathComponent("Backups", isDirectory: true),
             keepCount: { preferences.backupKeepCount }
         )
+        // 只读偏好、不触碰系统热键；register(onAction:) 由 AppDelegate 在面板就绪后调用。
+        self.hotkeyService = HotkeyService(preferences: preferences)
     }
 }

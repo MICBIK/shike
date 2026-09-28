@@ -15,11 +15,12 @@ public struct Preferences {
     public enum Key {
         public static let backupKeepCount = "backup.keepCount"
         public static let panelSize = "panel.size"
+        public static let hotkeyTogglePanelEnabled = "hotkey.togglePanel.enabled"
     }
 
     /// 默认值注册表：与 Key 同处维护（计算属性，避免非 Sendable 静态共享状态）。
     private static var defaultValues: [String: Any] {
-        [Key.backupKeepCount: 7, Key.panelSize: "360.0x520.0"]
+        [Key.backupKeepCount: 7, Key.panelSize: "360.0x520.0", Key.hotkeyTogglePanelEnabled: true]
     }
 
     private let defaults: UserDefaults
@@ -59,5 +60,14 @@ public struct Preferences {
             return nil
         }
         return CGSize(width: width, height: height)
+    }
+
+    /// 全局快捷键是否启用（S1-02，03 §13）：默认开启；关闭状态由 KeyboardShortcuts
+    /// 的 enable/disable 与本键共同持久化。
+    public var hotkeyTogglePanelEnabled: Bool {
+        get { defaults.object(forKey: Key.hotkeyTogglePanelEnabled) == nil
+            ? true
+            : defaults.bool(forKey: Key.hotkeyTogglePanelEnabled) }
+        nonmutating set { defaults.set(newValue, forKey: Key.hotkeyTogglePanelEnabled) }
     }
 }

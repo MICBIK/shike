@@ -73,9 +73,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         guard let environment else { return }
 
         // 设置窗口（单实例）与图标右键菜单。
-        let settingsWindowController = SettingsWindowController { [weak self] in
-            self?.showLicenseWindow()
-        }
+        let settingsWindowController = SettingsWindowController(
+            onViewLicense: { [weak self] in
+                self?.showLicenseWindow()
+            },
+            hotkeyService: environment.hotkeyService
+        )
         self.settingsWindowController = settingsWindowController
         let statusMenu = StatusMenu(actions: .init(
             openSettings: { [weak self] in self?.openSettings() },
@@ -110,6 +113,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let statusItemController = StatusItemController(popoverController: popoverController)
         self.statusItemController = statusItemController
         statusItemController.menuProvider = { [weak statusMenu] in statusMenu?.buildMenu() }
+
+        // 全局快捷键（S1-02）：动作与点击图标等价——以图标按钮为锚点开关面板。
+        environment.hotkeyService.register { [weak self] in
+            guard let self,
+                  let button = self.statusItemController?.statusBarButton else { return }
+            popoverController.toggle(from: button)
+        }
         environment.panelModel.start()
 
         // 每日备份（§3 节点 I/J）：后台执行一次，跨天再备份；不等待完成。

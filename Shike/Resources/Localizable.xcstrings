@@ -474,6 +474,28 @@
         }
       }
     },
+    "settings.shortcuts.enabled": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "启用"
+          }
+        }
+      }
+    },
+    "settings.shortcuts.togglePanel": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "呼出 / 收起面板"
+          }
+        }
+      }
+    },
     "settings.tab.about": {
       "extractionState": "manual",
       "localizations": {

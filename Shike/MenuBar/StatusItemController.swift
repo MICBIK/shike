@@ -19,6 +19,9 @@ final class StatusItemController {
     /// 右键菜单的提供者（1.11 起 AppDelegate 注入 StatusMenu）；返回 nil 表示不响应。
     var menuProvider: (() -> NSMenu?)?
 
+    /// 状态栏按钮（S1-02 起供全局快捷键的 toggle 提供锚点）。
+    var statusBarButton: NSStatusBarButton? { statusBarItem.button }
+
     init(popoverController: PopoverController) {
         self.popoverController = popoverController
         self.statusBarItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
