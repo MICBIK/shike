@@ -24,6 +24,9 @@ struct CaptureTextView: NSViewRepresentable {
     /// 其"提交即关窗"的场景，拾刻的常驻输入框需要显式通道）。
     var externalChangeTrigger: UUID?
     var textContainerDynamicHeight: Binding<CGFloat>?
+    /// 时间识别高亮（S2-01）：被识别文字的 UTF-16 区间，空=无高亮。
+    /// 仅在非组合态应用（IME 安全：组合中绝不触碰文字属性）。
+    var highlightRanges: [NSRange] = []
     var onSubmit: () -> Void
     /// Tab 切换模式（03 §4）；Shift+Tab 同样切换到另一模式。
     var onTab: (_ direction: FocusDirection) -> Void
@@ -66,6 +69,11 @@ struct CaptureTextView: NSViewRepresentable {
             } else if textView.window?.firstResponder !== textView {
                 updateText(in: textView, with: updatedText)
             }
+            Self.applyHighlight(
+                ranges: highlightRanges,
+                in: textView,
+                lastApplied: &context.coordinator.lastAppliedHighlight
+            )
         }
 
         if let trigger = focusTrigger, trigger != context.coordinator.lastFocusTrigger {
@@ -101,6 +109,31 @@ struct CaptureTextView: NSViewRepresentable {
 
     private func refreshPlaceholder(for textView: NSTextView) {
         textView.needsDisplay = true
+    }
+
+    // - MARK: 时间识别高亮（S2-01）
+
+    /// 高亮的应用状态（文本+区间）：一致则跳过，避免每键全量重设属性。
+    struct HighlightKey: Equatable {
+        let text: String
+        let ranges: [NSRange]
+    }
+
+    /// 把识别区间以强调色背景应用到文本存储；先整段清除本视图使用的背景色属性再按区间补回。
+    /// 只动 `.backgroundColor`（输入框不使用其他背景），不影响其他属性。
+    static func applyHighlight(ranges: [NSRange], in textView: NSTextView, lastApplied: inout HighlightKey?) {
+        let key = HighlightKey(text: textView.string, ranges: ranges)
+        guard key != lastApplied else { return }
+        lastApplied = key
+        guard let storage = textView.textStorage else { return }
+        let length = (textView.string as NSString).length
+        if length > 0 {
+            storage.removeAttribute(.backgroundColor, range: NSRange(location: 0, length: length))
+        }
+        let color = NSColor.controlAccentColor.withAlphaComponent(0.30)
+        for range in ranges where range.location != NSNotFound && range.location >= 0 && NSMaxRange(range) <= length {
+            storage.addAttribute(.backgroundColor, value: color, range: range)
+        }
     }
 
     // - MARK: 高度（03 §4：随内容增高，达上限后框内滚动）
@@ -163,6 +196,8 @@ struct CaptureTextView: NSViewRepresentable {
         var parent: CaptureTextView
         var lastFocusTrigger: UUID?
         var lastExternalChangeTrigger: UUID?
+        /// 上次应用的高亮（文本+区间），一致时跳过重设。
+        var lastAppliedHighlight: HighlightKey?
 
         init(_ parent: CaptureTextView) {
             self.parent = parent
@@ -221,6 +256,9 @@ struct CaptureTextView: NSViewRepresentable {
 
         func textDidChange(_ obj: Notification) {
             guard let textView = obj.object as? NSTextView else { return }
+            // 组合态不解析（S2-01）：拼音候选期间不写回绑定，组合结束时 AppKit
+            // 会以最终文本再回调一次，不会丢字。
+            guard !textView.hasMarkedText() else { return }
             if parent.text.wrappedValue != textView.string {
                 parent.text.wrappedValue = textView.string
             }

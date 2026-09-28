@@ -7,6 +7,7 @@ import Foundation
 import Observation
 import os
 import ShikeData
+import ShikeDateParser
 
 /// 面板状态（app-shell.md「组件契约」）：模式、两个列表的数据与提示条。
 @MainActor
@@ -60,6 +61,7 @@ final class PanelModel {
             guard mode != oldValue else { return }
             preferences.panelLastMode = mode.rawValue
             draftResetToken = UUID()
+            refreshRecognition()
         }
     }
     /// 草稿被"输入框以外"的路径改变（模式切换、提交清空）的信号（S1-04）：
@@ -173,7 +175,10 @@ final class PanelModel {
         didSet { preferences.panelDraftNote = draftNote }
     }
     var draftTodo: String = "" {
-        didSet { preferences.panelDraftTodo = draftTodo }
+        didSet {
+            preferences.panelDraftTodo = draftTodo
+            refreshRecognition()
+        }
     }
     /// 当前模式的草稿（输入框绑定用）。
     var currentDraft: String {
@@ -181,6 +186,67 @@ final class PanelModel {
         set {
             if mode == .note { draftNote = newValue } else { draftTodo = newValue }
         }
+    }
+
+    // - MARK: 时间识别（S2-01，03 §4）
+
+    /// 识别提示状态：nil=无提示（无识别/便签模式/草稿为空）。
+    enum RecognitionHintState: Equatable {
+        case recognized(RecognitionHint.Content)
+        case dismissed
+    }
+
+    /// 当前识别结果（nil=未识别）；待办草稿每次非组合态变化时重算。
+    private(set) var recognition: DateParseResult?
+    /// ✕ 取消本次识别：不再识别，直到草稿被清空（03 §4）；模式往返保留。
+    private(set) var recognitionDismissed = false
+    /// 识别用"现在"（L2 注入固定值断言；默认系统时间）。
+    @ObservationIgnored var parseNow: () -> Date = { Date() }
+
+    /// 提交用（3.2 接线）：当前识别对应的待办时间。
+    var recognizedDue: TodoDue? {
+        guard let recognition else { return nil }
+        return TodoDue(date: recognition.date, hasTime: recognition.hasTime)
+    }
+
+    /// 提示条状态（视图渲染用）；草稿为空恒为 nil（识别提示只跟"正在输入的句子"走）。
+    var recognitionHintState: RecognitionHintState? {
+        guard mode == .todo, !draftTodo.isEmpty else { return nil }
+        if recognitionDismissed { return .dismissed }
+        guard let recognition else { return nil }
+        let nsDraft = draftTodo as NSString
+        let matchedText = recognition.matchedRanges
+            .filter { $0.location != NSNotFound && NSMaxRange($0) <= nsDraft.length }
+            .map { nsDraft.substring(with: $0) }
+            .joined()
+        let content = RecognitionHint.content(
+            matchedText: matchedText,
+            due: TodoDue(date: recognition.date, hasTime: recognition.hasTime),
+            now: parseNow(),
+            timeZone: timeZone
+        )
+        return .recognized(content)
+    }
+
+    /// ✕ 取消本次识别（03 §4）：提示变灰、高亮清除。
+    func dismissRecognition() {
+        recognitionDismissed = true
+        recognition = nil
+    }
+
+    /// 重新识别：仅待办模式、未取消时；草稿清空复位取消标记（03 §4）。
+    private func refreshRecognition() {
+        guard mode == .todo else {
+            recognition = nil
+            return
+        }
+        if draftTodo.isEmpty {
+            recognitionDismissed = false
+            recognition = nil
+            return
+        }
+        guard !recognitionDismissed else { return }
+        recognition = ChineseDateParser(timeZone: timeZone).parse(draftTodo, now: parseNow())
     }
     /// 最近创建的条目（S1-04）：列表用它做 1 秒高亮；创建任务在 1 秒后清空。
     private(set) var recentlyCreatedItemID: String?
@@ -233,7 +299,10 @@ final class PanelModel {
 
     /// 列表行的显示时区（L2 可注入；阶段 1 恒为 .current——数据库 Options.timeZone
     /// 阶段 1 只有默认值，出现非默认时区的一天候（阶段 2 全天规范化）再接线）。
-    @ObservationIgnored var timeZone: TimeZone = .current
+    /// 变化时识别随之重算（S2-01：解析器的日界/顺延都按此时区）。
+    @ObservationIgnored var timeZone: TimeZone = .current {
+        didSet { refreshRecognition() }
+    }
 
     /// 正在原位编辑的便签（空则无编辑）；编辑文字实时在模型上（供失焦/Esc/收起面板保存）。
     var editingNoteID: Note.ID?
@@ -395,10 +464,18 @@ final class PanelModel {
     @ObservationIgnored internal var createNote: (String) async throws -> Note
     @ObservationIgnored internal var createTodo: (String, TodoDue?) async throws -> Todo
 
-    init(noteRepository: NoteRepository, todoRepository: TodoRepository, preferences: Preferences) {
+    init(
+        noteRepository: NoteRepository,
+        todoRepository: TodoRepository,
+        preferences: Preferences,
+        timeZone: TimeZone = .current,
+        parseNow: @escaping () -> Date = { Date() }
+    ) {
         self.noteRepository = noteRepository
         self.todoRepository = todoRepository
         self.preferences = preferences
+        self.timeZone = timeZone
+        self.parseNow = parseNow
         if let last = Mode(rawValue: preferences.panelLastMode) {
             mode = last
         }
@@ -406,15 +483,20 @@ final class PanelModel {
         draftTodo = preferences.panelDraftTodo
         self.createNote = { try await noteRepository.create(content: $0) }
         self.createTodo = { try await todoRepository.create(title: $0, due: $1) }
+        // 恢复的草稿立即用注入的 now/时区识别一次（S2-01：呼出后提示条与高亮随草稿出现）。
+        refreshRecognition()
     }
 
     /// 每次呼出面板时应用"呼出时进入"设置（S1-03）；由 PopoverController 的 didShow 触发。
     /// 持久化的 lastMode 先读后写：openMode 为固定模式时呼出会改写 lastMode（03 §9 语义内）。
+    /// 末尾无条件重识别：openMode 与当前模式相同时 didSet 短路，隔夜呼出必须重算
+    /// "明天/今天"这类相对日（S2-01，盲审 H1）。
     func applyOpenMode() {
         let openMode = OpenMode(rawValue: preferences.panelOpenMode) ?? .last
         let last = Mode(rawValue: preferences.panelLastMode) ?? .note
         mode = Self.initialMode(openMode: openMode, lastMode: last)
         focusToken = UUID()
+        refreshRecognition()
     }
 
     // - MARK: 快速输入（S1-04，03 §4）

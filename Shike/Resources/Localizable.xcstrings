@@ -122,6 +122,94 @@
         }
       }
     },
+    "capture.recognition.allDay": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@（全天）"
+          }
+        }
+      }
+    },
+    "capture.recognition.daysLater": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld 天后"
+          }
+        }
+      }
+    },
+    "capture.recognition.dismiss": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "取消识别"
+          }
+        }
+      }
+    },
+    "capture.recognition.dismissed": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "不识别时间"
+          }
+        }
+      }
+    },
+    "capture.recognition.hoursLater": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld 小时后"
+          }
+        }
+      }
+    },
+    "capture.recognition.minutesLater": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld 分钟后"
+          }
+        }
+      }
+    },
+    "capture.recognition.past": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@（已过）"
+          }
+        }
+      }
+    },
+    "capture.recognition.remind": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ 提醒"
+          }
+        }
+      }
+    },
     "dbAlert.openFolder": {
       "extractionState": "manual",
       "localizations": {
@@ -546,7 +634,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "要做什么？"
+            "value": "要做什么？比如：周五下午三点交报告"
           }
         }
       }
@@ -844,6 +932,72 @@
           "stringUnit": {
             "state": "translated",
             "value": "%lld月%lld日"
+          }
+        }
+      }
+    },
+    "time.day.fullDate": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld年%lld月%lld日"
+          }
+        }
+      }
+    },
+    "time.day.monthDay": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld月%lld日"
+          }
+        }
+      }
+    },
+    "time.day.today": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "今天"
+          }
+        }
+      }
+    },
+    "time.day.tomorrow": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "明天"
+          }
+        }
+      }
+    },
+    "time.day.weekday": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "周%@"
+          }
+        }
+      }
+    },
+    "time.day.yesterday": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "昨天"
           }
         }
       }

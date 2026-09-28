@@ -19,6 +19,7 @@ struct PanelView: View {
                 Divider()
             }
             captureArea
+            recognitionHintBar
             content
             if let summary = model.deletedBarSummary {
                 Divider()
@@ -61,6 +62,7 @@ struct PanelView: View {
             focusTrigger: model.focusToken,
             externalChangeTrigger: model.draftResetToken,
             textContainerDynamicHeight: $captureHeight,
+            highlightRanges: model.mode == .todo ? (model.recognition?.matchedRanges ?? []) : [],
             onSubmit: { model.submitCurrentDraft() },
             onTab: { _ in
                 // 03 §4：Tab 切换到另一模式（Shift+Tab 同向处理）。
@@ -71,6 +73,44 @@ struct PanelView: View {
         .frame(height: max(captureHeight, 22))
         .padding(.horizontal, 12)
         .padding(.vertical, 6)
+    }
+
+    /// 时间识别提示条（S2-01，03 §4）：输入框下方一行小字；✕ 取消本次识别。
+    @ViewBuilder
+    private var recognitionHintBar: some View {
+        switch model.recognitionHintState {
+        case .recognized(let content):
+            HStack(spacing: 6) {
+                Text("🕒").font(.caption)
+                Text(content.headline)
+                    .font(.caption)
+                    .foregroundStyle(content.isPast ? Color.red : Color.primary)
+                if let suffix = content.durationSuffix {
+                    Text("（\(suffix)）").font(.caption).foregroundStyle(.secondary)
+                }
+                Spacer()
+                Button {
+                    model.dismissRecognition()
+                } label: {
+                    Image(systemName: "xmark").font(.caption2).foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(String(localized: .captureRecognitionDismiss))
+            }
+            .padding(.horizontal, 12)
+            .padding(.bottom, 6)
+        case .dismissed:
+            HStack {
+                Text(String(localized: .captureRecognitionDismissed))
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+                Spacer()
+            }
+            .padding(.horizontal, 12)
+            .padding(.bottom, 6)
+        case nil:
+            EmptyView()
+        }
     }
 
     private var placeholderText: String {
