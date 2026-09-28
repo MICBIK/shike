@@ -82,7 +82,7 @@ struct PanelView: View {
             if model.notes.isEmpty {
                 EmptyStateView(mode: .note)
             } else {
-                countPlaceholder(model.notes.count)
+                NoteListView(model: model)
             }
         case .todo:
             if model.todos.isEmpty {

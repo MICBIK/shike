@@ -104,7 +104,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             environment.preferences.panelSize = size
         }
         popoverController.escapeHandler = { [weak environment] in
-            environment?.panelModel.endEditingIfNeeded() ?? false
+            guard let environment else { return false }
+            return environment.panelModel.endEditingIfNeeded()
+        }
+        // 收起面板时结束编辑（03 §5：收起面板自动保存）。
+        popoverController.onClose = { [weak environment] in
+            environment?.typingBuffer.reset()
+            _ = environment?.panelModel.endEditingIfNeeded()
+            environment?.panelModel.endCaptureWindow()
         }
         environment.panelModel.resizeCurrentSize = { [weak popoverController] in
             popoverController.map {
@@ -156,10 +163,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             (textView as? CaptureNSTextView)?.isReplayingKeys = true
             environment.typingBuffer.replayPendingEvents(in: textView)
             (textView as? CaptureNSTextView)?.isReplayingKeys = false
-        }
-        popoverController.onClose = { [weak environment] in
-            environment?.typingBuffer.reset()
-            environment?.panelModel.endCaptureWindow()
         }
         environment.panelModel.start()
 

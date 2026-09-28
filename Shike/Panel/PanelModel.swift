@@ -109,8 +109,6 @@ final class PanelModel {
     @ObservationIgnored var resizeCurrentSize: () -> CGSize = { CGSize(width: 360, height: 520) }
     /// 尺寸把手的拖动回调：proposed 为建议尺寸，isFinal 表示拖动结束（应持久化）。
     @ObservationIgnored var resizeApply: (_ proposed: CGSize, _ isFinal: Bool) -> Void = { _, _ in }
-    /// Esc 第一级"结束编辑"：返回 true 表示有编辑被结束。列表编辑在 2.6/2.7 接入。
-    @ObservationIgnored var endEditingIfNeeded: () -> Bool = { false }
     /// 呼出即打字（S1-04）：输入框就绪时回放呼出期间缓冲的按键；由 App 接到 TypingBuffer。
     @ObservationIgnored var replayBufferedKeys: (NSTextView) -> Void = { _ in }
     /// 输入框是否已就绪可接收输入（S1-04）：呼出即打字的截获判定依据。
@@ -131,6 +129,76 @@ final class PanelModel {
     /// 面板收起（S1-04）：复位就绪标志；缓冲的丢弃由 App 接到 TypingBuffer.reset。
     func endCaptureWindow() {
         isCaptureReady = false
+    }
+
+    // - MARK: 便签列表与编辑（S1-05，03 §5）
+
+    /// 列表行的显示时区（L2 可注入；阶段 1 恒为 .current——数据库 Options.timeZone
+    /// 阶段 1 只有默认值，出现非默认时区的一天候（阶段 2 全天规范化）再接线）。
+    @ObservationIgnored var timeZone: TimeZone = .current
+
+    /// 正在原位编辑的便签（空则无编辑）；编辑文字实时在模型上（供失焦/Esc/收起面板保存）。
+    var editingNoteID: Note.ID?
+    var editingNoteText: String = ""
+
+    /// 「置顶」组：按置顶时间降序（03 §5；pinnedAt 为空的行不会出现在本组）。
+    var pinnedNotes: [NoteListItem] {
+        notes
+            .filter { $0.note.pinnedAt != nil }
+            .sorted { ($0.note.pinnedAt ?? .distantPast) > ($1.note.pinnedAt ?? .distantPast) }
+    }
+    /// 「便签」组（未置顶，按最近修改）。
+    var unpinnedNotes: [NoteListItem] { notes.filter { $0.note.pinnedAt == nil } }
+
+    /// 原位编辑的自动保存（0.5 秒防抖/失焦/结束编辑三个时机共用）：
+    /// 内容未变不写库；清空内容视为删除（03 §5/§7，撤销提示条在 Story 2.8 接入）。
+    func saveNoteContent(_ id: Note.ID, _ text: String) async {
+        guard let item = notes.first(where: { $0.note.id == id }) else { return }
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        do {
+            if trimmed.isEmpty {
+                try await noteRepository.softDelete(id)
+            } else if item.note.content != text {
+                try await noteRepository.updateContent(id, to: text)
+            }
+        } catch let error as ShikeDataError {
+            report(error, retry: { [weak self] in Task { await self?.saveNoteContent(id, text) } })
+        } catch {
+            report(.writeFailed(.ioError), retry: { [weak self] in Task { await self?.saveNoteContent(id, text) } })
+        }
+    }
+
+    /// 置顶/取消置顶（03 §5 右键菜单）；失败走提示条。
+    func setNotePinned(_ id: Note.ID, _ pinned: Bool) async {
+        do {
+            try await noteRepository.setPinned(id, pinned)
+        } catch let error as ShikeDataError {
+            report(error, retry: { [weak self] in Task { await self?.setNotePinned(id, pinned) } })
+        } catch {
+            report(.writeFailed(.ioError), retry: { [weak self] in Task { await self?.setNotePinned(id, pinned) } })
+        }
+    }
+
+    /// 删除便签（软删除）；撤销提示条与 ⌘Z 撤销在 Story 2.8 接入。
+    func deleteNote(_ id: Note.ID) async {
+        do {
+            try await noteRepository.softDelete(id)
+        } catch let error as ShikeDataError {
+            report(error, retry: { [weak self] in Task { await self?.deleteNote(id) } })
+        } catch {
+            report(.writeFailed(.ioError), retry: { [weak self] in Task { await self?.deleteNote(id) } })
+        }
+    }
+
+    /// Esc 第一级"结束编辑"（S1-01/S1-05）：非编辑态返回 false（本次 Esc 继续收起面板）；
+    /// 编辑态结束编辑并立即保存（无防抖），返回 true。
+    func endEditingIfNeeded() -> Bool {
+        guard let id = editingNoteID else { return false }
+        editingNoteID = nil
+        let text = editingNoteText
+        editingNoteText = ""
+        Task { await saveNoteContent(id, text) }
+        return true
     }
 
     /// 提交的创建动作（默认走仓储；测试可替换以模拟失败/成功，与 runNotes/runTodos 同类接缝）。

@@ -131,27 +131,33 @@ struct PanelBehaviorTests {
 
     // - MARK: PanelModel 的把手与 Esc 回调（默认空实现，供 L2 组装）
 
-    @Test("PanelModel 默认回调：Esc 不消费编辑、尺寸回调可注入替身")
-    func panelModelCallbacksDefaultAndInjectable() throws {
+    @Test("PanelModel 默认回调：无编辑时 Esc 落到收起；有编辑时结束并返回 true（S1-05 接入）")
+    func panelModelCallbacksDefaultAndInjectable() async throws {
+        let suiteName = "shike-tests-\(UUID().uuidString)"
+        defer { UserDefaults.standard.removePersistentDomain(forName: suiteName) }
         let environment = try AppEnvironment(
             database: AppDatabase.inMemory(),
-            preferences: Preferences(defaults: UserDefaults(suiteName: "shike-tests-\(UUID().uuidString)")!),
+            preferences: Preferences(defaults: UserDefaults(suiteName: suiteName)!),
             dataDirectory: URL(fileURLWithPath: "/tmp/shike-tests-panel", isDirectory: true)
         )
         // 默认：无编辑状态，Esc 落到"收起面板"
         #expect(environment.panelModel.endEditingIfNeeded() == false)
         #expect(environment.panelModel.resizeCurrentSize() == CGSize(width: 360, height: 520))
 
-        // 注入替身后行为跟随
-        var applied: [(CGSize, Bool)] = []
+        // 注入替身后尺寸回调跟随
+        var applied: [CGSize] = []
         environment.panelModel.resizeCurrentSize = { CGSize(width: 400, height: 500) }
-        environment.panelModel.resizeApply = { applied.append(($0, $1)) }
-        environment.panelModel.endEditingIfNeeded = { true }
+        environment.panelModel.resizeApply = { size, _ in applied.append(size) }
         #expect(environment.panelModel.resizeCurrentSize() == CGSize(width: 400, height: 500))
         environment.panelModel.resizeApply(CGSize(width: 1, height: 2), true)
-        #expect(applied.count == 1)
-        #expect(applied[0].0 == CGSize(width: 1, height: 2))
-        #expect(applied[0].1 == true)
+        #expect(applied == [CGSize(width: 1, height: 2)])
+
+        // 编辑态（S1-05）：有编辑时 Esc 结束编辑并返回 true
+        let note = try await environment.noteRepository.create(content: "x")
+        environment.panelModel.editingNoteID = note.id
+        environment.panelModel.editingNoteText = "y"
         #expect(environment.panelModel.endEditingIfNeeded() == true)
+        #expect(environment.panelModel.editingNoteID == nil)
+        #expect(environment.panelModel.editingNoteText == "")
     }
 }

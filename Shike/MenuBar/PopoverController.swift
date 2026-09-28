@@ -155,7 +155,11 @@ final class PopoverController {
                 guard let self else { return false }
                 let modifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
                 if event.keyCode == 53, modifiers.isEmpty {
-                    // 裸 Esc；输入法候选窗的 Esc 在 2.6 接入编辑状态时再作处理。
+                    // 输入法组合态（候选窗/下划线）：Esc 交还输入法，不结束编辑也不收起面板（03 §4/S1-05）。
+                    if let textView = NSApp.keyWindow?.firstResponder as? NSTextView,
+                       textView.hasMarkedText() {
+                        return false
+                    }
                     switch Self.escapeOutcome(editingHandled: self.escapeHandler()) {
                     case .consumedByEditing:
                         return true
