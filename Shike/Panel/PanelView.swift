@@ -88,18 +88,8 @@ struct PanelView: View {
             if model.todos.isEmpty {
                 EmptyStateView(mode: .todo)
             } else {
-                countPlaceholder(model.todos.count)
+                TodoListView(model: model)
             }
         }
-    }
-
-    private func countPlaceholder(_ count: Int) -> some View {
-        VStack {
-            Text(String(localized: .panelPlaceholderCount(count)))
-                .foregroundStyle(.secondary)
-            Spacer()
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.top, 24)
     }
 }

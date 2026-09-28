@@ -298,6 +298,17 @@
         }
       }
     },
+    "list.group.completed": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已完成（%lld）"
+          }
+        }
+      }
+    },
     "list.group.notes": {
       "extractionState": "manual",
       "localizations": {
@@ -316,6 +327,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "置顶"
+          }
+        }
+      }
+    },
+    "list.group.todos": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "待办"
           }
         }
       }

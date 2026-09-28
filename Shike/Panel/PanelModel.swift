@@ -191,14 +191,101 @@ final class PanelModel {
     }
 
     /// Esc 第一级"结束编辑"（S1-01/S1-05）：非编辑态返回 false（本次 Esc 继续收起面板）；
-    /// 编辑态结束编辑并立即保存（无防抖），返回 true。
+    /// 编辑态（便签或待办标题）结束编辑并立即保存（无防抖），返回 true。
     func endEditingIfNeeded() -> Bool {
-        guard let id = editingNoteID else { return false }
-        editingNoteID = nil
-        let text = editingNoteText
-        editingNoteText = ""
-        Task { await saveNoteContent(id, text) }
-        return true
+        if let id = editingNoteID {
+            editingNoteID = nil
+            let text = editingNoteText
+            editingNoteText = ""
+            Task { await saveNoteContent(id, text) }
+            return true
+        }
+        if let id = editingTodoID {
+            editingTodoID = nil
+            let text = editingTodoText
+            editingTodoText = ""
+            Task { await saveTodoTitle(id, text) }
+            return true
+        }
+        return false
+    }
+
+    // - MARK: 待办列表与完成（S1-06，03 §6）
+
+    /// 正在原位编辑的待办标题（空则无编辑）。
+    var editingTodoID: Todo.ID?
+    var editingTodoText: String = ""
+
+    /// 「待办」组（未完成，新建的在上——观察流 createdAt 降序）。
+    var activeTodos: [Todo] { todos.filter { $0.completedAt == nil } }
+    /// 「已完成（N）」组。
+    var completedTodos: [Todo] { todos.filter { $0.completedAt != nil } }
+
+    /// 勾选后处于"1 秒待移入"的待办（03 §6：立即划线变灰、1 秒后移组、期间可勾回）。
+    private(set) var pendingCompletionIDs = Set<Todo.ID>()
+    /// 完成延迟（L2 测试注入缩短；默认 1 秒）。
+    @ObservationIgnored var completionDelay: Duration = .seconds(1)
+    /// nonisolated(unsafe) 供 deinit 取消（Task 字典自身只在主线程访问）。
+    @ObservationIgnored nonisolated(unsafe) private var completionTimers: [Todo.ID: Task<Void, Never>] = [:]
+
+    /// 圆圈点击的三态：未完成→待移入（可勾回）；待移入→取消；已完成→勾回。
+    func toggleTodoCompletion(_ id: Todo.ID) {
+        if let timer = completionTimers[id] {
+            timer.cancel()
+            completionTimers[id] = nil
+            pendingCompletionIDs.remove(id)
+            return
+        }
+        let todo = todos.first { $0.id == id }
+        if todo?.completedAt != nil {
+            Task { await setTodoCompleted(id, false) }
+            return
+        }
+        pendingCompletionIDs.insert(id)
+        completionTimers[id] = Task { [weak self] in
+            try? await Task.sleep(for: self?.completionDelay ?? .seconds(1))
+            guard !Task.isCancelled else { return }
+            self?.completionTimers[id] = nil
+            await self?.setTodoCompleted(id, true)
+            // 落库成功后再移除待移入标记，避免"数据已写、视觉已回退"的闪烁帧。
+            self?.pendingCompletionIDs.remove(id)
+        }
+    }
+
+    /// 设置完成状态（数据层清空 snoozedUntil 等 ADR-017 语义）；失败走提示条。
+    func setTodoCompleted(_ id: Todo.ID, _ completed: Bool) async {
+        do {
+            try await todoRepository.setCompleted(id, completed)
+        } catch let error as ShikeDataError {
+            report(error, retry: { [weak self] in Task { await self?.setTodoCompleted(id, completed) } })
+        } catch {
+            report(.writeFailed(.ioError), retry: { [weak self] in Task { await self?.setTodoCompleted(id, completed) } })
+        }
+    }
+
+    /// 待办标题编辑的保存（内容未变不写库；空标题不保存——回退到原标题）。
+    func saveTodoTitle(_ id: Todo.ID, _ text: String) async {
+        guard let todo = todos.first(where: { $0.id == id }) else { return }
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, todo.title != text else { return }
+        do {
+            try await todoRepository.updateTitle(id, to: text)
+        } catch let error as ShikeDataError {
+            report(error, retry: { [weak self] in Task { await self?.saveTodoTitle(id, text) } })
+        } catch {
+            report(.writeFailed(.ioError), retry: { [weak self] in Task { await self?.saveTodoTitle(id, text) } })
+        }
+    }
+
+    /// 删除待办（软删除）；撤销提示条与 ⌘Z 撤销在 Story 2.8 接入。
+    func deleteTodo(_ id: Todo.ID) async {
+        do {
+            try await todoRepository.softDelete(id)
+        } catch let error as ShikeDataError {
+            report(error, retry: { [weak self] in Task { await self?.deleteTodo(id) } })
+        } catch {
+            report(.writeFailed(.ioError), retry: { [weak self] in Task { await self?.deleteTodo(id) } })
+        }
     }
 
     /// 提交的创建动作（默认走仓储；测试可替换以模拟失败/成功，与 runNotes/runTodos 同类接缝）。
@@ -286,10 +373,11 @@ final class PanelModel {
     }
 
     deinit {
-        // Task.cancel 是 nonisolated 的，可在 deinit 调用；释放时停止观察。
+        // Task.cancel 是 nonisolated 的，可在 deinit 调用；释放时停止观察与计时。
         noteTask?.cancel()
         todoTask?.cancel()
         highlightClearTask?.cancel()
+        completionTimers.values.forEach { $0.cancel() }
     }
 
     /// 订阅两类观察流（app-shell.md：start() 订阅便签与待办两个观察）。
