@@ -110,8 +110,9 @@ final class PanelModel {
     @ObservationIgnored nonisolated(unsafe) private var deletedBarHideTask: Task<Void, Never>?
 
     /// 面板内 ⌘Z（非编辑态）：逐条撤销最近一次删除；无可撤销时无反应（返回 false 交回默认链）。
+    /// 快速输入框持有焦点时同样放行（打磨 R5：草稿文字撤销优先于删除撤销，deferred-work 2.8）。
     func undoLastDeleteIfNeeded() -> Bool {
-        guard !isEditingAny else { return false }
+        guard !isEditingAny, !isCaptureFocused else { return false }
         guard let last = deletedStack.popLast() else { return false }
         Task {
             let restored = await restore(last)
@@ -136,6 +137,10 @@ final class PanelModel {
     var isEditingAny: Bool {
         editingNoteID != nil || editingTodoID != nil
     }
+
+    /// 快速输入框持有焦点（打磨 R5）：⌘Z 应交回文字撤销，不做删除撤销。
+    /// 由 PanelView 的输入框焦点回调维护。
+    @ObservationIgnored var isCaptureFocused = false
 
     /// 恢复一条删除（restore 走数据层；失败把条目放回栈顶并上报——撤销入口不能丢）。
     /// 返回是否恢复成功（undoLastDeleteIfNeeded 用来切换反馈条视角）。

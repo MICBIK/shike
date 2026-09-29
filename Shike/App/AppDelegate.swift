@@ -312,6 +312,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        // 打磨 R6：退出前把在编辑的列表行立即冲进保存管线（原实现要等 0.5 秒防抖，
+        // 立即退出有丢失窗口；deferred-work 2.8/阶段 1 收尾评估项）。
+        _ = environment?.panelModel.endEditingIfNeeded()
         popoverController?.stop()
         environment?.panelModel.stop()
         environment?.cardManager.stop()

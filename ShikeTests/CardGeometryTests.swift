@@ -2,6 +2,7 @@
 // Copyright (C) 2026 Shike contributors
 // SPDX-License-Identifier: GPL-3.0-only
 
+import AppKit
 import Foundation
 import ShikeData
 import Testing
@@ -80,8 +81,7 @@ struct CardGeometryTests {
     }
 
     @Test("对账：新增/更新/关闭/无变化")
-    func diff() {
-        let note = Note(
+    func diff() {        let note = Note(
             id: Note.ID(rawValue: 1), uuid: UUID(), content: "甲",
             pinnedAt: nil, createdAt: Date(), updatedAt: Date(), deletedAt: nil
         )
@@ -103,5 +103,13 @@ struct CardGeometryTests {
         editedNote.content = "甲改"
         #expect(CardDiff.operations(old: [item], new: [VisibleCard(card: card, note: editedNote)]) == [.update(note.id)])
         #expect(CardDiff.operations(old: [item], new: []) == [.close(note.id)])
+    }
+
+    @Test("外观判定（打磨 R4）：darkAqua 为深色、aqua 为浅色、高层级回退浅色")
+    func appearanceResolution() {
+        #expect(CardManager.isDarkAppearance(NSAppearance(named: .darkAqua)!))
+        #expect(!CardManager.isDarkAppearance(NSAppearance(named: .aqua)!))
+        // 未知/复合外观（如 highContrastAqua）按 bestMatch 规则回落浅色
+        #expect(!CardManager.isDarkAppearance(NSAppearance(named: .vibrantLight)!))
     }
 }

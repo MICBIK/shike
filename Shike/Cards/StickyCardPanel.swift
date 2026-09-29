@@ -12,10 +12,13 @@ final class CardModel {
     var content: String
     var options: StickyCardOptions
     var isHovered = false
+    /// 系统深色模式（打磨 R4：CardManager 经 KVO 推送，切换深浅色卡片即时换色）。
+    var isDark: Bool
 
-    init(content: String, options: StickyCardOptions) {
+    init(content: String, options: StickyCardOptions, isDark: Bool) {
         self.content = content
         self.options = options
+        self.isDark = isDark
     }
 }
 
@@ -67,7 +70,7 @@ struct CardContentView: View {
             RoundedRectangle(cornerRadius: 10)
                 .fill(Color(nsColor: CardTheme.background(
                     for: model.options.color,
-                    dark: NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+                    dark: model.isDark
                 )))
                 .shadow(color: .black.opacity(0.18), radius: 6, y: 2)
 

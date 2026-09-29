@@ -37,6 +37,13 @@ final class CardManager {
     private var controllers: [Note.ID: CardController] = [:]
     /// 上一帧快照（CardDiff 的 old 输入；首帧为空 = 启动恢复全部 create）。
     private var previousSnapshot: [VisibleCard] = []
+    /// 系统外观观察（打磨 R4）：深浅色切换即时推送全部卡片。
+    private var appearanceObservation: NSKeyValueObservation?
+
+    /// 外观判定的纯函数（便于 L2）：darkAqua 视为深色。
+    nonisolated static func isDarkAppearance(_ appearance: NSAppearance) -> Bool {
+        appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+    }
 
     init(cardRepository: StickyCardRepository) {
         self.cardRepository = cardRepository
@@ -44,6 +51,17 @@ final class CardManager {
 
     func start(actions: Actions) {
         self.actions = actions
+        // 外观观察（R4）：初始 + 变化时推送全部卡片（KVO 回调线程不定，转主 actor）。
+        appearanceObservation = NSApp.observe(\.effectiveAppearance, options: [.initial, .new]) {
+            [weak self] _, _ in
+            Task { @MainActor in
+                guard let self else { return }
+                let isDark = Self.isDarkAppearance(NSApp.effectiveAppearance)
+                for controller in self.controllers.values {
+                    controller.apply(appearance: isDark)
+                }
+            }
+        }
         guard task == nil else { return }
         task = Task { [cardRepository] in
             do {
@@ -62,6 +80,8 @@ final class CardManager {
     func stop() {
         task?.cancel()
         task = nil
+        appearanceObservation?.invalidate()
+        appearanceObservation = nil
         for controller in controllers.values {
             controller.close()
         }
@@ -101,6 +121,7 @@ final class CardManager {
             card: item.card,
             note: item.note,
             screenVisibleFrame: actions?.screenProvider().visibleFrame ?? NSScreen.main!.visibleFrame,
+            isDark: Self.isDarkAppearance(NSApp.effectiveAppearance),
             onMove: { [weak self] noteID, frame in
                 self?.actions?.moveCard(noteID, frame)
             },
@@ -130,6 +151,7 @@ final class CardController {
         card: StickyCard,
         note: Note,
         screenVisibleFrame: NSRect,
+        isDark: Bool,
         onMove: @escaping (Note.ID, CardFrame) -> Void,
         onUnpin: @escaping (Note.ID) -> Void,
         onLevelCycle: @escaping (Note.ID, StickyCardOptions) -> Void
@@ -143,7 +165,7 @@ final class CardController {
             width: card.frame.width, height: card.frame.height
         )
         panel = StickyCardPanel(noteID: card.noteID, contentRect: frame)
-        model = CardModel(content: note.content, options: card.options)
+        model = CardModel(content: note.content, options: card.options, isDark: isDark)
         panel.apply(options: card.options)
         panel.contentView = NSHostingView(
             rootView: CardContentView(
@@ -153,6 +175,11 @@ final class CardController {
                 onDragEnded: { [weak self] in self?.dragEnded() }
             )
         )
+    }
+
+    /// 系统深浅色切换（打磨 R4）。
+    func apply(appearance isDark: Bool) {
+        model.isDark = isDark
     }
 
     func show() {

@@ -158,7 +158,10 @@ struct PanelView: View {
                 externalChangeTrigger: model.draftResetToken,
                 textContainerDynamicHeight: $captureHeight,
                 highlightRanges: model.mode == .todo ? (model.recognition?.matchedRanges ?? []) : [],
-                onFocusChange: { captureFocused = $0 },
+                onFocusChange: {
+                captureFocused = $0
+                model.isCaptureFocused = $0 // 打磨 R5：⌘Z 在输入框聚焦时交回文字撤销
+            },
                 onSubmit: { model.submitCurrentDraft() },
                 onTab: { _ in
                     // 03 §4：Tab 切换到另一模式（Shift+Tab 同向处理）。
