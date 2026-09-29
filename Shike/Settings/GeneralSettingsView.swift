@@ -31,6 +31,11 @@ struct GeneralSettingsView: View {
                 model.onMenuBarCounterChanged()
             }
 
+            // 主窗口（S3.5-01，03 §16.1）：设置-通用打开入口。
+            Button(String(localized: .menuOpenMainWindow)) {
+                model.openMainWindow()
+            }
+
             Divider()
 
             Toggle(String(localized: .settingsGeneralLaunchAtLogin), isOn: $isEnabled)

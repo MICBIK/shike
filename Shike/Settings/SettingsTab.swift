@@ -79,6 +79,8 @@ final class SettingsModel {
     @ObservationIgnored var onReminderSettingsChanged: () -> Void = {}
     /// 菜单栏计数口径变化钩子（S2-08）：立即刷新计数显示；AppDelegate 接线。
     @ObservationIgnored var onMenuBarCounterChanged: () -> Void = {}
+    /// 打开主窗口（S3.5-01，03 §16.1）：AppDelegate 注入 MainWindowController.show()。
+    @ObservationIgnored var openMainWindow: () -> Void = {}
     /// 通知授权状态读取（S2-10）：AppDelegate 注入；nil 表示未知（未刷新）。
     @ObservationIgnored var notificationAuthorizationReader: (() async -> UNAuthorizationStatus)?
     /// "打开系统设置"（S2-10）：AppDelegate 注入真实跳转。

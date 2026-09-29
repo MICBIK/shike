@@ -15,6 +15,7 @@ import AppKit
 final class StatusMenu: NSObject {
     struct Actions {
         let openPanel: () -> Void
+        let openMainWindow: () -> Void
         let openSettings: () -> Void
         let toggleLaunchAtLogin: () -> Void
         let launchAtLoginEnabled: () -> Bool
@@ -41,6 +42,15 @@ final class StatusMenu: NSObject {
         )
         open.target = self
         menu.addItem(open)
+
+        // 主窗口（S3.5-01，03 §16.1）：紧跟"打开拾刻"。
+        let mainWindow = NSMenuItem(
+            title: String(localized: .menuOpenMainWindow),
+            action: #selector(openMainWindowAction),
+            keyEquivalent: ""
+        )
+        mainWindow.target = self
+        menu.addItem(mainWindow)
 
         menu.addItem(.separator())
 
@@ -95,6 +105,10 @@ final class StatusMenu: NSObject {
 
     @objc private func openPanelAction() {
         actions.openPanel()
+    }
+
+    @objc private func openMainWindowAction() {
+        actions.openMainWindow()
     }
 
     @objc private func openSettingsAction() {

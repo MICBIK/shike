@@ -19,6 +19,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItemController: StatusItemController?
     private var statusMenu: StatusMenu?
     private var settingsWindowController: SettingsWindowController?
+    /// 主窗口单例（S3.5-01，03 §16.1）。
+    private var mainWindowController: MainWindowController?
     private var licenseWindowController: LicenseWindowController?
     /// CGEventTap 兜底通道（ADR-021）；由 HotkeyService 的接缝弱引用，App 存续期间持有。
     private var hotkeyEventTap: HotkeyEventTap?
@@ -100,11 +102,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             model: settingsModel
         )
         self.settingsWindowController = settingsWindowController
+        // 主窗口（S3.5-01）：菜单栏右键与设置-通用都能打开。
+        let mainWindowController = MainWindowController()
+        self.mainWindowController = mainWindowController
+        settingsModel.openMainWindow = { [weak mainWindowController] in mainWindowController?.show() }
         let statusMenu = StatusMenu(actions: .init(
             openPanel: { [weak self] in
                 guard let self, let button = self.statusItemController?.statusBarButton else { return }
                 self.popoverController?.toggle(from: button)
             },
+            openMainWindow: { [weak self] in self?.mainWindowController?.show() },
             openSettings: { [weak self] in self?.openSettings() },
             toggleLaunchAtLogin: { [weak environment] in
                 guard let environment else { return }
