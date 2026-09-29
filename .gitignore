@@ -19,3 +19,6 @@ dist/
 *.dmg
 *.zip
 *sparkle*private*
+
+# 原型二进制
+Prototypes/CardPrototype/CardPrototype
