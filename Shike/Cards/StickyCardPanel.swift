@@ -63,7 +63,11 @@ struct CardContentView: View {
     @Bindable var model: CardModel
     var onClose: () -> Void
     var onLevelCycle: () -> Void
+    /// 拖动开始（控制器置 busy：拖动中不自动隐藏，03 §10.4）。
+    var onDragStarted: () -> Void = {}
     var onDragEnded: () -> Void
+    /// 卡片菜单改动选项（自动隐藏开关/延迟/不透明度，S3-03）。
+    var onOptionsChange: (StickyCardOptions) -> Void = { _ in }
 
     var body: some View {
         ZStack(alignment: .top) {
@@ -98,21 +102,17 @@ struct CardContentView: View {
     /// 右侧三个按钮要接住点击不吃拖动。
     private var topBar: some View {
         HStack(spacing: 6) {
-            CardDragBar(onDragEnded: onDragEnded)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            CardDragBar(
+                onDragStarted: { model.isHovered = true }, // 拖动中保持操作条可见（busy 由控制器接管）
+                onDragEnded: onDragEnded
+            )
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
             Button(action: onLevelCycle) {
                 Image(systemName: "square.stack.3d.up")
             }
             .buttonStyle(.plain)
             .help(String(localized: .cardBarLevel))
-            Button {
-                // 卡片菜单（⋯）随 S3-08 接入；占位保持 03 §10.1 的结构。
-            } label: {
-                Image(systemName: "ellipsis")
-                    .foregroundStyle(.tertiary)
-            }
-            .buttonStyle(.plain)
-            .disabled(true)
+            optionsMenu
             Button(action: onClose) {
                 Image(systemName: "xmark")
             }
@@ -132,27 +132,91 @@ struct CardContentView: View {
         .padding(.horizontal, 6)
         .padding(.top, 6)
     }
+
+    /// ⋯ 菜单（03 §10.5 的自动隐藏分支先随 S3-03 上线；颜色/层级等随 S3-08 并入）。
+    private var optionsMenu: some View {
+        Menu {
+            Toggle(
+                String(localized: .cardMenuAutoHide),
+                isOn: Binding(
+                    get: { model.options.autoHide },
+                    set: { newValue in
+                        var options = model.options
+                        options.autoHide = newValue
+                        onOptionsChange(options)
+                    }
+                )
+            )
+            if model.options.autoHide {
+                Menu(String(localized: .cardMenuAutoHideDelay)) {
+                    Picker("", selection: Binding(
+                        get: { model.options.hideDelay },
+                        set: { newValue in
+                            var options = model.options
+                            options.hideDelay = newValue
+                            onOptionsChange(options)
+                        }
+                    )) {
+                        ForEach([1.0, 3.0, 5.0, 10.0], id: \.self) { seconds in
+                            Text(String(localized: .settingsCardHideDelaySeconds(Int(seconds))))
+                                .tag(seconds)
+                        }
+                    }
+                    .pickerStyle(.inline)
+                    .labelsHidden()
+                }
+                Menu(String(localized: .settingsCardHiddenOpacity)) {
+                    Picker("", selection: Binding(
+                        get: { model.options.hiddenOpacity },
+                        set: { newValue in
+                            var options = model.options
+                            options.hiddenOpacity = newValue
+                            onOptionsChange(options)
+                        }
+                    )) {
+                        ForEach([0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6], id: \.self) { opacity in
+                            Text(String(localized: .settingsCardHiddenOpacityPercent(Int((opacity * 100).rounded()))))
+                                .tag(opacity)
+                        }
+                    }
+                    .pickerStyle(.inline)
+                    .labelsHidden()
+                }
+            }
+        } label: {
+            Image(systemName: "ellipsis")
+        }
+        .menuStyle(.button)
+        .menuIndicator(.visible)
+        .fixedSize()
+        .help(String(localized: .cardMenuOptions))
+    }
 }
 
 /// 拖动区：mouseDown 交给窗口 performDrag（阻塞到松手），结束后回调持久化新位置。
 private struct CardDragBar: NSViewRepresentable {
+    var onDragStarted: () -> Void
     var onDragEnded: () -> Void
 
     func makeNSView(context: Context) -> DragBarView {
         let view = DragBarView()
+        view.onDragStarted = onDragStarted
         view.onDragEnded = onDragEnded
         return view
     }
 
     func updateNSView(_ view: DragBarView, context: Context) {
+        view.onDragStarted = onDragStarted
         view.onDragEnded = onDragEnded
     }
 
     final class DragBarView: NSView {
+        var onDragStarted: () -> Void = {}
         var onDragEnded: () -> Void = {}
 
         override func mouseDown(with event: NSEvent) {
             guard let window else { return }
+            onDragStarted()
             window.performDrag(with: event)
             // performDrag 返回即松手：交给 CardController 换算并持久化（03 §10.2 移动）。
             onDragEnded()

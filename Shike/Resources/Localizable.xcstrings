@@ -342,6 +342,39 @@
         }
       }
     },
+    "card.menu.autoHide": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "自动隐藏"
+          }
+        }
+      }
+    },
+    "card.menu.autoHideDelay": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "开始隐藏前等待"
+          }
+        }
+      }
+    },
+    "card.menu.options": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "卡片选项"
+          }
+        }
+      }
+    },
     "card.menu.unpin": {
       "extractionState": "manual",
       "localizations": {

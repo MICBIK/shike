@@ -24,6 +24,8 @@ final class CardManager {
         var unpin: (Note.ID) -> Void
         /// 层级按钮循环（携带完整当前选项，写回时只换层级）。
         var cycleLevel: (Note.ID, StickyCardOptions) -> Void
+        /// 卡片菜单改动选项（自动隐藏开关/延迟/不透明度，S3-03）。
+        var updateOptions: (Note.ID, StickyCardOptions) -> Void
     }
 
     /// 钉出定位与拖动钳制用的屏幕（面板所在屏；AppDelegate 在状态项就绪后设置）。
@@ -39,6 +41,8 @@ final class CardManager {
     private var previousSnapshot: [VisibleCard] = []
     /// 系统外观观察（打磨 R4）：深浅色切换即时推送全部卡片。
     private var appearanceObservation: NSKeyValueObservation?
+    /// 自动隐藏共享轮询（S3-03，ADR-025 结论 1）：30Hz，仅当存在开启自动隐藏的卡片时运行。
+    private var autoHideTimer: Timer?
 
     /// 外观判定的纯函数（便于 L2）：darkAqua 视为深色。
     nonisolated static func isDarkAppearance(_ appearance: NSAppearance) -> Bool {
@@ -82,6 +86,8 @@ final class CardManager {
         task = nil
         appearanceObservation?.invalidate()
         appearanceObservation = nil
+        autoHideTimer?.invalidate()
+        autoHideTimer = nil
         for controller in controllers.values {
             controller.close()
         }
@@ -112,6 +118,36 @@ final class CardManager {
             }
         }
         previousSnapshot = visible
+        syncAutoHideTimer()
+    }
+
+    /// 有开自动隐藏的卡片才跑共享 30Hz 轮询（NFR24：全局一个监听器）。
+    private func syncAutoHideTimer() {
+        let needed = controllers.values.contains { $0.model.options.autoHide }
+        if needed, autoHideTimer == nil {
+            let timer = Timer(timeInterval: 1.0 / 30.0, repeats: true) { [weak self] _ in
+                MainActor.assumeIsolated {
+                    self?.tickAutoHide()
+                }
+            }
+            RunLoop.main.add(timer, forMode: .common) // .common：菜单跟踪期间也继续 tick
+            autoHideTimer = timer
+        } else if !needed, let timer = autoHideTimer {
+            timer.invalidate()
+            autoHideTimer = nil
+        }
+    }
+
+    private func tickAutoHide() {
+        let now = ProcessInfo.processInfo.systemUptime
+        let mouse = NSEvent.mouseLocation
+        for controller in controllers.values {
+            let enabled = controller.model.options.autoHide
+            let inside = enabled && controller.panel.frame.contains(mouse)
+            if let state = controller.tickAutoHide(now: now, mouseInside: inside, enabled: enabled) {
+                controller.applyAutoHideState(alpha: state.alpha, ignoresMouseEvents: state.ignoresMouseEvents)
+            }
+        }
     }
 
     private func createController(for item: VisibleCard) {
@@ -130,6 +166,9 @@ final class CardManager {
             },
             onLevelCycle: { [weak self] noteID, options in
                 self?.actions?.cycleLevel(noteID, options)
+            },
+            onOptionsChange: { [weak self] noteID, options in
+                self?.actions?.updateOptions(noteID, options)
             }
         )
         controllers[item.card.noteID] = controller
@@ -137,15 +176,19 @@ final class CardManager {
     }
 }
 
-/// 一张卡片 = 一个控制器：窗口 + 界面模型 + 动作回调。
+/// 一张卡片 = 一个控制器：窗口 + 界面模型 + 动作回调 + 自动隐藏状态机（S3-03）。
 @MainActor
 final class CardController {
     let panel: StickyCardPanel
     let model: CardModel
+    var autoHide = AutoHideStateMachine(parameters: .init(hideDelay: 3))
     private let screenVisibleFrame: NSRect
     private let onMove: (Note.ID, CardFrame) -> Void
     private let onUnpin: (Note.ID) -> Void
     private let onLevelCycle: (Note.ID, StickyCardOptions) -> Void
+    private let onOptionsChange: (Note.ID, StickyCardOptions) -> Void
+    /// 最近一次已应用到窗口的自动隐藏状态（tick 未变化时不重复做动画）。
+    private var appliedAutoHide: (alpha: Double, ignoresMouseEvents: Bool)?
 
     init(
         card: StickyCard,
@@ -154,25 +197,36 @@ final class CardController {
         isDark: Bool,
         onMove: @escaping (Note.ID, CardFrame) -> Void,
         onUnpin: @escaping (Note.ID) -> Void,
-        onLevelCycle: @escaping (Note.ID, StickyCardOptions) -> Void
+        onLevelCycle: @escaping (Note.ID, StickyCardOptions) -> Void,
+        onOptionsChange: @escaping (Note.ID, StickyCardOptions) -> Void
     ) {
         self.screenVisibleFrame = screenVisibleFrame
         self.onMove = onMove
         self.onUnpin = onUnpin
         self.onLevelCycle = onLevelCycle
+        self.onOptionsChange = onOptionsChange
         let frame = NSRect(
             x: card.frame.x, y: card.frame.y,
             width: card.frame.width, height: card.frame.height
         )
         panel = StickyCardPanel(noteID: card.noteID, contentRect: frame)
         model = CardModel(content: note.content, options: card.options, isDark: isDark)
+        autoHide = AutoHideStateMachine(parameters: .init(hideDelay: card.options.hideDelay))
+        autoHide.hiddenAlpha = card.options.hiddenOpacity
         panel.apply(options: card.options)
         panel.contentView = NSHostingView(
             rootView: CardContentView(
                 model: model,
                 onClose: { [weak self] in self?.closeRequested() },
                 onLevelCycle: { [weak self] in self?.levelCycleRequested() },
-                onDragEnded: { [weak self] in self?.dragEnded() }
+                onDragStarted: { [weak self] in self?.setDragging(true) },
+                onDragEnded: { [weak self] in self?.dragEnded() },
+                onOptionsChange: { [weak self] options in
+                    guard let self else { return }
+                    self.model.options = options
+                    self.syncAutoHideParameters()
+                    self.onOptionsChange(self.panel.noteID, options)
+                }
             )
         )
     }
@@ -180,6 +234,13 @@ final class CardController {
     /// 系统深浅色切换（打磨 R4）。
     func apply(appearance isDark: Bool) {
         model.isDark = isDark
+    }
+
+    /// 选项变化后同步状态机参数（延迟/隐藏不透明度/开关）；
+    /// 共享轮询的启停经写库→观察流回环（apply → syncAutoHideTimer），不在这里直呼。
+    private func syncAutoHideParameters() {
+        autoHide.parameters.hideDelay = model.options.hideDelay
+        autoHide.hiddenAlpha = model.options.hiddenOpacity
     }
 
     func show() {
@@ -191,6 +252,8 @@ final class CardController {
     func apply(card: StickyCard, note: Note) {
         model.content = note.content
         model.options = card.options
+        autoHide.parameters.hideDelay = card.options.hideDelay
+        autoHide.hiddenAlpha = card.options.hiddenOpacity
         panel.apply(options: card.options)
         let newFrame = NSRect(
             x: card.frame.x, y: card.frame.y,
@@ -212,6 +275,59 @@ final class CardController {
         panel.orderOut(nil)
     }
 
+    // - MARK: 自动隐藏（S3-03）
+
+    /// 轮询 tick：推进状态机；返回需要应用到窗口的新状态（与上次相同则返回 nil）。
+    /// 关闭自动隐藏的卡片若停在隐藏态，强制回显一次。
+    func tickAutoHide(now: TimeInterval, mouseInside: Bool, enabled: Bool) -> (alpha: Double, ignoresMouseEvents: Bool)? {
+        if !enabled {
+            if autoHide.phase != .visible {
+                autoHide.setBusy(true, now: now) // busy 强制回显
+                autoHide.setBusy(false, now: now)
+            } else if appliedAutoHide != nil {
+                appliedAutoHide = nil
+                return (1, false)
+            } else {
+                return nil
+            }
+        } else {
+            autoHide.update(now: now, mouseInside: mouseInside)
+        }
+        let state = (alpha: autoHide.targetAlpha, ignoresMouseEvents: autoHide.ignoresMouseEvents)
+        if let applied = appliedAutoHide,
+           applied.alpha == state.alpha, applied.ignoresMouseEvents == state.ignoresMouseEvents
+        {
+            return nil
+        }
+        return state
+    }
+
+    /// 把状态应用到窗口（淡入淡出时长随相位；减弱动态效果直切）。
+    func applyAutoHideState(alpha: Double, ignoresMouseEvents: Bool) {
+        appliedAutoHide = (alpha, ignoresMouseEvents)
+        panel.ignoresMouseEvents = ignoresMouseEvents
+        let duration: TimeInterval
+        switch autoHide.phase {
+        case .fadingOut: duration = autoHide.parameters.fadeOutDuration
+        case .fadingIn: duration = autoHide.parameters.fadeInDuration
+        default: duration = 0
+        }
+        if Motion.reduce || duration == 0 {
+            panel.alphaValue = alpha
+        } else {
+            NSAnimationContext.runAnimationGroup { context in
+                context.duration = duration
+                context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+                panel.animator().alphaValue = alpha
+            }
+        }
+    }
+
+    /// 拖动期间不隐藏（03 §10.4）；结束时重置离开计时。
+    func setDragging(_ dragging: Bool) {
+        autoHide.setBusy(dragging, now: ProcessInfo.processInfo.systemUptime)
+    }
+
     /// ✕ / 菜单取消钉住（便签保留）。
     private func closeRequested() {
         onUnpin(panel.noteID)
@@ -224,6 +340,7 @@ final class CardController {
 
     /// 拖动结束：钳制进所在可见区域后持久化（03 §10.2 移动）。
     private func dragEnded() {
+        setDragging(false)
         let clamped = CardGeometry.clampedFrame(panel.frame, in: panel.screen?.visibleFrame ?? screenVisibleFrame)
         panel.setFrame(
             NSRect(x: clamped.x, y: clamped.y, width: clamped.width, height: clamped.height),

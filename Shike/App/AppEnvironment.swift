@@ -136,6 +136,9 @@ public final class AppEnvironment {
                 var next = options
                 next.level = CardTheme.nextLevel(after: options.level)
                 Task { await self?.updateCardOptions(noteID, next) }
+            },
+            updateOptions: { [weak self] noteID, options in
+                Task { await self?.updateCardOptions(noteID, options) }
             }
         ))
     }
