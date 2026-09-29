@@ -15,7 +15,7 @@ struct PanelView: View {
             topBar
             Divider()
             if let banner = model.banner {
-                Banner(state: banner) { model.retryBanner() }
+                Banner(state: banner, onRetry: { model.retryBanner() }, onDismiss: { model.dismissBanner() })
                 Divider()
             }
             if model.isSearching {

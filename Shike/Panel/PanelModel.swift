@@ -40,6 +40,8 @@ final class PanelModel {
         enum Kind: Equatable {
             case saveFailed(DataFailureReason)
             case loadFailed(DataFailureReason)
+            /// 操作目标不存在（如钉出已删除的便签）：重试大概率无意义，展示"知道了"。
+            case notFound
         }
 
         let kind: Kind
@@ -50,6 +52,8 @@ final class PanelModel {
                 String(localized: .bannerSaveFailed(ErrorText.reason(reason)))
             case .loadFailed(let reason):
                 String(localized: .bannerLoadFailed(ErrorText.reason(reason)))
+            case .notFound:
+                String(localized: .bannerNotFound)
             }
         }
     }
@@ -83,10 +87,13 @@ final class PanelModel {
 
         let kind: Kind
         let summary: String
+        /// 全局递增的删除序号（打磨 R3）：失败回栈按序插回，晚于它的删除仍先出栈。
+        let order: Int
     }
 
     /// 删除撤销栈：按删除先后入栈，⌘Z 逐条弹出（最近删的先恢复）。
     private(set) var deletedStack: [DeletedItem] = []
+    @ObservationIgnored private var deletionOrderCounter = 0
 
     /// 底部反馈条状态（S1-07，视觉批次 2026-09-29）：删除与恢复两个视角；
     /// 恢复成功必须给出"已恢复"反馈，替代原先"撤销后提示条默默消失"的缺口。
@@ -141,13 +148,13 @@ final class PanelModel {
             return true
         } catch let error as ShikeDataError {
             await MainActor.run {
-                self.deletedStack.append(item) // 失败回栈：重试成功前撤销入口保持可达
+                self.reinsertForRetry(item) // 失败回栈：重试成功前撤销入口保持可达（按序插回，R3）
                 self.report(error, retry: { [weak self] in Task { await self?.retryRestore(item) } })
             }
             return false
         } catch {
             await MainActor.run {
-                self.deletedStack.append(item)
+                self.reinsertForRetry(item)
                 self.report(.writeFailed(.ioError), retry: { [weak self] in Task { await self?.retryRestore(item) } })
             }
             return false
@@ -172,8 +179,16 @@ final class PanelModel {
     fileprivate func recordDeletion(kind: DeletedItem.Kind, summary: String) {
         let truncated = String(summary.prefix(12))
         let display = summary.count > 12 ? truncated + "…" : truncated
-        deletedStack.append(DeletedItem(kind: kind, summary: display))
+        deletionOrderCounter += 1
+        deletedStack.append(DeletedItem(kind: kind, summary: display, order: deletionOrderCounter))
         showBar(.deleted(display))
+    }
+
+    /// 失败回栈（打磨 R3）：按删除序号插回原层——弹出到回插之间新入栈的删除仍排在它之上、
+    /// 先被撤销；append 会把更早删除的条目顶到栈顶，违反"最近删的先恢复"。
+    func reinsertForRetry(_ item: DeletedItem) {
+        let index = deletedStack.firstIndex { $0.order > item.order } ?? deletedStack.endIndex
+        deletedStack.insert(item, at: index)
     }
 
     /// 显示反馈条并排 5 秒隐藏任务（连续删除/撤销切换视角时同样重启计时）。
@@ -957,7 +972,8 @@ final class PanelModel {
             banner = BannerState(kind: .saveFailed(reason))
             bannerRetry = retry
         case .notFound:
-            banner = BannerState(kind: .saveFailed(.unknown(code: 0)))
+            // 打磨 R2：notFound 曾显示"未知错误（0）"——给它诚实的文案与"知道了"出口。
+            banner = BannerState(kind: .notFound)
             bannerRetry = retry
         }
     }
@@ -965,5 +981,11 @@ final class PanelModel {
     /// 提示条上的"重试"按钮。
     func retryBanner() {
         bannerRetry?()
+    }
+
+    /// 提示条的"知道了"（notFound 等重试无意义的形态）：只清条。
+    func dismissBanner() {
+        banner = nil
+        bannerRetry = nil
     }
 }

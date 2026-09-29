@@ -92,12 +92,15 @@ struct PinCardFlowTests {
         #expect(visible.first?.card.noteID == note.id)
     }
 
-    @Test("钉出不存在的便签：notFound 上面板提示条（不吞错误）")
+    @Test("钉出不存在的便签：notFound 提示条（诚实文案 + 知道了可清）")
     func pinMissingNoteReportsBanner() async throws {
         let (environment, suiteName) = try makeEnvironment()
         defer { UserDefaults.standard.removePersistentDomain(forName: suiteName) }
         let model = environment.panelModel
         await model.pinNoteToDesktop(Note.ID(rawValue: 999))
-        #expect(model.banner != nil)
+        // 打磨 R2：notFound 不再显示"未知错误（0）"
+        #expect(model.banner?.kind == .notFound)
+        model.dismissBanner()
+        #expect(model.banner == nil)
     }
 }
