@@ -25,15 +25,27 @@ final class HotkeyEventTap {
     var isInstalled: Bool { machPort != nil }
 
     /// 安装 tap（已安装则先卸载）。返回是否成功。
-    /// 未授权"辅助功能"时弹出系统提示并返回 false，待授权后经 refreshTap 重试。
+    /// 未授权"辅助功能"时返回 false；prompt 为 true 时弹一次系统提示——
+    /// 重试路径必须传 false（否则每 3 秒弹一次，盲审教训）。
     @discardableResult
-    func install(keyCode: Int, carbonModifiers: Int, onMatch: @escaping () -> Void) -> Bool {
+    func install(
+        keyCode: Int,
+        carbonModifiers: Int,
+        onMatch: @escaping () -> Void,
+        promptOnMissingTrust: Bool = true
+    ) -> Bool {
         remove()
-        let trusted = AXIsProcessTrustedWithOptions([
-            "AXTrustedCheckOptionPrompt" as String: true, // kAXTrustedCheckOptionPrompt 的常量值（全局 var 过不了严格并发检查）
-        ] as CFDictionary)
-        Log.app.info("快捷键 tap：辅助功能授权=\(trusted, privacy: .public)")
-        guard trusted else { return false }
+        if promptOnMissingTrust {
+            let trusted = AXIsProcessTrustedWithOptions([
+                "AXTrustedCheckOptionPrompt" as String: true, // kAXTrustedCheckOptionPrompt 的常量值（全局 var 过不了严格并发检查）
+            ] as CFDictionary)
+            Log.app.info("快捷键 tap：辅助功能授权=\(trusted, privacy: .public)（含提示）")
+            guard trusted else { return false }
+        } else {
+            let trusted = AXIsProcessTrusted()
+            Log.app.info("快捷键 tap：辅助功能授权=\(trusted, privacy: .public)（静默重试）")
+            guard trusted else { return false }
+        }
         return installAfterAuthorization(keyCode: keyCode, carbonModifiers: carbonModifiers, onMatch: onMatch)
     }
 

@@ -92,7 +92,7 @@ struct HotkeyServiceTests {
 
         service.activateTapChannel(
             shortcutProvider: { (keyCode: 45, carbonModifiers: 6144) },
-            installer: { keyCode, carbonModifiers, _ in
+            installer: { keyCode, carbonModifiers, _, _ in
                 installerArgs.append((keyCode, carbonModifiers))
                 installResults.append(true)
                 return true
@@ -123,7 +123,7 @@ struct HotkeyServiceTests {
         let service = HotkeyService(preferences: preferences, enable: {}, disable: {})
         service.activateTapChannel(
             shortcutProvider: { provided },
-            installer: { _, _, _ in false },
+            installer: { _, _, _, _ in false },
             remover: { removeCalls += 1 }
         )
         #expect(service.tapAuthorizationDenied == true)

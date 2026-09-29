@@ -189,8 +189,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     (keyCode: $0.carbonKeyCode, carbonModifiers: $0.carbonModifiers)
                 }
             },
-            installer: { keyCode, carbonModifiers, onMatch in
-                eventTap.install(keyCode: keyCode, carbonModifiers: carbonModifiers, onMatch: onMatch)
+            installer: { keyCode, carbonModifiers, onMatch, promptOnMissingTrust in
+                eventTap.install(
+                    keyCode: keyCode,
+                    carbonModifiers: carbonModifiers,
+                    onMatch: onMatch,
+                    promptOnMissingTrust: promptOnMissingTrust
+                )
             },
             remover: { eventTap.remove() }
         )

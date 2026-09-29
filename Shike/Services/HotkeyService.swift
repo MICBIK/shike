@@ -39,7 +39,7 @@ final class HotkeyService {
     // - MARK: CGEventTap 兜底通道（ADR-021）
 
     /// tap 通道接缝：默认全为惰性空实现（L2 不触碰系统），App 启动时经 activateTapChannel 接入。
-    @ObservationIgnored private var tapInstaller: (_ keyCode: Int, _ carbonModifiers: Int, _ onMatch: @escaping () -> Void) -> Bool = { _, _, _ in false }
+    @ObservationIgnored private var tapInstaller: (_ keyCode: Int, _ carbonModifiers: Int, _ onMatch: @escaping () -> Void, _ promptOnMissingTrust: Bool) -> Bool = { _, _, _, _ in false }
     @ObservationIgnored private var tapRemover: () -> Void = {}
     @ObservationIgnored private var shortcutProvider: () -> (keyCode: Int, carbonModifiers: Int)? = { nil }
     @ObservationIgnored private(set) var isTapChannelActive = false
@@ -48,6 +48,8 @@ final class HotkeyService {
     @ObservationIgnored private var lastFireAt = Date.distantPast
     /// 辅助功能授权被拒时的重试任务（装上即停）。
     @ObservationIgnored private var retryTask: Task<Void, Never>?
+    /// 是否已做过首次带提示的安装尝试（后续重试静默）。
+    @ObservationIgnored private var hasPromptedForTrust = false
 
     init(
         preferences: Preferences,
@@ -81,7 +83,7 @@ final class HotkeyService {
     /// 接入真实 CGEventTap 通道（ADR-021）。仅 App 调用一次；接入后立即按当前状态安装。
     func activateTapChannel(
         shortcutProvider: @escaping () -> (keyCode: Int, carbonModifiers: Int)?,
-        installer: @escaping (_ keyCode: Int, _ carbonModifiers: Int, _ onMatch: @escaping () -> Void) -> Bool,
+        installer: @escaping (_ keyCode: Int, _ carbonModifiers: Int, _ onMatch: @escaping () -> Void, _ promptOnMissingTrust: Bool) -> Bool,
         remover: @escaping () -> Void
     ) {
         self.shortcutProvider = shortcutProvider
@@ -92,20 +94,26 @@ final class HotkeyService {
     }
 
     /// 以当前存储的组合键重装 tap：启动、辅助功能授权后、录制新组合（Recorder onChange）时调用。
+    /// 首次尝试带系统提示；授权重试（3 秒循环）静默进行。循环不在本方法内取消——
+    /// 它由 denied=false / 停用 / 停止 三个出口自然终止（在途自取消会终止循环自身，盲审）。
     func refreshTap() {
         guard isTapChannelActive, isEnabled else { return }
         guard let shortcut = shortcutProvider() else {
             // 用户清空了快捷键：撤下 tap（无键可生效），授权标记一并清除。
+            retryTask?.cancel()
             tapRemover()
             tapAuthorizationDenied = false
             return
         }
-        let installed = tapInstaller(shortcut.keyCode, shortcut.carbonModifiers) { [weak self] in
-            self?.dispatchHotkeyAction()
-        }
+        let prompt = !hasPromptedForTrust
+        hasPromptedForTrust = true
+        let installed = tapInstaller(
+            shortcut.keyCode,
+            shortcut.carbonModifiers,
+            { [weak self] in self?.dispatchHotkeyAction() },
+            prompt
+        )
         tapAuthorizationDenied = !installed
-        // 辅助功能未授权：每 3 秒自动重试——用户在系统设置打开开关后数秒内快捷键
-        // 即生效，无需重启或回设置页（装上即停）。
         retryTask?.cancel()
         if !installed {
             retryTask = Task { [weak self] in
@@ -155,6 +163,7 @@ final class HotkeyService {
             refreshTap()
         } else {
             disableAction()
+            retryTask?.cancel()
             tapRemover()
             tapAuthorizationDenied = false
         }
