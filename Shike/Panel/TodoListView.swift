@@ -33,11 +33,14 @@ struct TodoListView: View {
                         Button {
                             model.isCompletedSectionExpanded.toggle()
                         } label: {
-                            HStack {
+                            HStack(spacing: 4) {
                                 Image(systemName: model.isCompletedSectionExpanded ? "chevron.down" : "chevron.right")
-                                    .font(.caption)
+                                    .font(.system(size: 9, weight: .semibold))
                                 Text(String(localized: .listGroupCompleted(groups.completed.count)))
+                                    .font(.system(size: 11, weight: .semibold))
+                                    .tracking(0.6)
                             }
+                            .foregroundStyle(Color.secondary)
                         }
                         .buttonStyle(.plain)
                     }
@@ -77,18 +80,18 @@ struct TodoListView: View {
                         .id(todo.uuid.uuidString)
                 }
             } header: {
-                Text(title)
-                    .foregroundStyle(isOverdue ? Color.red : Color.secondary)
+                GroupHeader(title: title, count: todos.count, isOverdue: isOverdue)
             }
         }
     }
 }
 
-/// 单行待办：圆圈（完成/勾回）+ 标题 + 时间；编辑态为原位单行编辑框。
+/// 单行待办：纸感卡片（左色边 = 青绿/逾期红/完成灰）+ 圆圈（完成/勾回）+ 标题 + 时间；
+/// 编辑态为卡片上的原位单行编辑框。
 private struct TodoRow: View {
     @Bindable var model: PanelModel
     let todo: Todo
-    /// 所在组是否逾期组（时间红字；行内再按各自 due 判定兜底组迁移前的窗口）。
+    /// 所在组是否逾期组（时间红字与左色边；行内再按各自 due 判定兜底组迁移前的窗口）。
     var isOverdue = false
 
     @FocusState private var isFocused: Bool
@@ -108,7 +111,7 @@ private struct TodoRow: View {
         return TodoGrouping.timeText(for: todo, now: Date(), timeZone: model.timeZone)
     }
 
-    /// 视觉批次：hover 底色（提示可点可右键）。
+    /// hover 抬描边与投影。
     @State private var isHovered = false
 
     /// 该行是否按逾期红字显示：逾期组的行，或未完成但 due 已过。
@@ -117,8 +120,20 @@ private struct TodoRow: View {
         return isOverdue || (!isVisuallyCompleted && TodoGrouping.isOverdue(todo, now: Date(), timeZone: model.timeZone))
     }
 
+    /// 左色边颜色：完成灰 / 逾期红 / 其余青绿（纸感批次）。
+    private var edgeColor: Color {
+        if isVisuallyCompleted { return Color.secondary.opacity(0.35) }
+        if showsOverdueTime { return Color.red.opacity(0.85) }
+        return Color.accentColor
+    }
+
+    private var isHighlighted: Bool {
+        model.recentlyCreatedItemID == todo.uuid.uuidString
+            || model.locateTodoID == todo.uuid.uuidString
+    }
+
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 9) {
             Button {
                 model.toggleTodoCompletion(todo.id)
             } label: {
@@ -140,7 +155,7 @@ private struct TodoRow: View {
                     }
             } else {
                 Text(todo.title)
-                    .font(.system(size: 13))
+                    .font(.system(size: 13, weight: .medium))
                     .strikethrough(isVisuallyCompleted)
                     .foregroundStyle(isVisuallyCompleted ? Color.secondary : Color.primary)
                     .contentShape(Rectangle())
@@ -149,28 +164,28 @@ private struct TodoRow: View {
                     }
                 if let timeText {
                     Text(timeText)
-                        .font(.caption)
-                        .foregroundStyle(showsOverdueTime ? Color.red : Color.secondary)
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(timeColor)
                 }
             }
             Spacer(minLength: 0)
         }
-        .padding(.vertical, 2)
+        .padding(.leading, 13)
+        .padding(.trailing, 12)
+        .padding(.vertical, 8)
         .background(
-            Group {
-                if model.recentlyCreatedItemID == todo.uuid.uuidString
-                    || model.locateTodoID == todo.uuid.uuidString {
-                    RoundedRectangle(cornerRadius: 6)
-                        .fill(Color.accentColor.opacity(0.15))
-                } else if isHovered {
-                    RoundedRectangle(cornerRadius: 6)
-                        .fill(Color.primary.opacity(0.05))
-                }
-            }
+            PaperCard(
+                isHighlighted: isHighlighted,
+                isHovered: isHovered && !isEditing,
+                isActive: isEditing,
+                edge: .leftEdge(edgeColor)
+            )
         )
+        .listRowInsets(EdgeInsets(top: 3, leading: 12, bottom: 3, trailing: 12))
+        .listRowSeparator(.hidden)
+        .listRowBackground(Color.clear)
         .animation(Motion.gentle(0.2), value: isVisuallyCompleted)
-        .animation(Motion.gentle(0.2), value: model.recentlyCreatedItemID == todo.uuid.uuidString)
-        .animation(Motion.gentle(0.2), value: model.locateTodoID == todo.uuid.uuidString)
+        .animation(Motion.gentle(0.2), value: isHighlighted)
         .animation(Motion.gentle(0.1), value: isHovered)
         .onHover { isHovered = $0 }
         .onChange(of: model.editingTodoID) { _, _ in
@@ -196,6 +211,13 @@ private struct TodoRow: View {
                 Task { await model.deleteTodo(todo.id) }
             }
         }
+    }
+
+    /// 行尾时间颜色：逾期红；带时间未逾期为青绿加重；完成态回灰。
+    private var timeColor: Color {
+        if isVisuallyCompleted { return Color("CardMeta") }
+        if showsOverdueTime { return Color.red }
+        return Color.accentColor.opacity(0.9)
     }
 
     private func startEditing() {

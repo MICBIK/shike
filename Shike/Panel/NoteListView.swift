@@ -5,8 +5,9 @@
 import ShikeData
 import SwiftUI
 
-/// 便签列表（S1-05，03 §5）：「置顶」+「便签」两组（空组不显示）；行显示内容前 3 行与相对修改时间；
-/// 单击原位编辑（光标就位），停止输入 0.5 秒/失焦/收起面板时自动保存；右键菜单：编辑、置顶、复制、删除。
+/// 便签列表（S1-05，03 §5）：「置顶」+「便签」两组（空组不显示）；纸感卡片行
+/// （白卡片 + 左侧装订色条，时间在卡片角落）；单击原位编辑（光标就位），停止输入
+/// 0.5 秒/失焦/收起面板时自动保存；右键菜单：编辑、置顶、复制、删除。
 struct NoteListView: View {
     @Bindable var model: PanelModel
 
@@ -14,24 +15,28 @@ struct NoteListView: View {
         ScrollViewReader { proxy in
             List {
                 if !model.pinnedNotes.isEmpty {
-                    Section(String(localized: .listGroupPinned)) {
+                    Section {
                         ForEach(model.pinnedNotes) { item in
                             NoteRow(model: model, item: item)
                                 .id(item.note.uuid.uuidString)
                         }
+                    } header: {
+                        GroupHeader(title: String(localized: .listGroupPinned), count: model.pinnedNotes.count)
                     }
                 }
                 if !model.unpinnedNotes.isEmpty {
-                    Section(String(localized: .listGroupNotes)) {
+                    Section {
                         ForEach(model.unpinnedNotes) { item in
                             NoteRow(model: model, item: item)
                                 .id(item.note.uuid.uuidString)
                         }
+                    } header: {
+                        GroupHeader(title: String(localized: .listGroupNotes), count: model.unpinnedNotes.count)
                     }
                 }
             }
             .listStyle(.sidebar)
-            // 可读性修复：去掉 List 自带的半透明底，露出面板实心底（2026-09-29）。
+            // 去掉 List 自带的半透明底，露出纸感渐变（2026-09-29）。
             .scrollContentBackground(.hidden)
             .onChange(of: model.recentlyCreatedItemID) { _, newID in
                 if let newID {
@@ -48,7 +53,8 @@ struct NoteListView: View {
     }
 }
 
-/// 单行便签：展示态（前 3 行 + 修改时间）与编辑态（原位编辑框，进入即聚焦）。
+/// 单行便签：纸感卡片（PaperCard 装订色条），展示态（前 3 行 + 角落修改时间）
+/// 与编辑态（卡片上的原位编辑框，进入即聚焦）。
 /// 编辑文字直接绑定模型（单一编辑通道），Esc/失焦/收起面板的保存读得到真实内容。
 private struct NoteRow: View {
     @Bindable var model: PanelModel
@@ -64,7 +70,7 @@ private struct NoteRow: View {
         model.recentlyCreatedItemID == item.note.uuid.uuidString
     }
 
-    /// 视觉批次：新建/定位高亮与 hover 底色（hover 提示可点可右键），高亮消失走淡出。
+    /// 新建/定位高亮与 hover（hover 提示可点可右键）。
     @State private var isHovered = false
 
     private var isHighlighted: Bool {
@@ -78,43 +84,52 @@ private struct NoteRow: View {
                     .scrollContentBackground(.hidden)
                     .font(.system(size: 13))
                     .frame(minHeight: 44)
+                    .padding(.leading, 15)
+                    .padding(.trailing, 12)
+                    .padding(.vertical, 6)
                     .focused($isFocused)
                     .onChange(of: editingTextDebounceSeed) { _, _ in
                         scheduleAutosave()
                     }
             } else {
-                VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading, spacing: 3) {
                     Text(item.note.content)
                         .font(.system(size: 13))
                         .lineLimit(3)
-                    Text(RelativeTimeFormatter.format(
-                        item.note.updatedAt,
-                        now: Date(),
-                        timeZone: model.timeZone
-                    ))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                }
-                .contentShape(Rectangle())
-                .background(
-                    Group {
-                        if isHighlighted {
-                            RoundedRectangle(cornerRadius: 6)
-                                .fill(Color.accentColor.opacity(0.15))
-                        } else if isHovered {
-                            RoundedRectangle(cornerRadius: 6)
-                                .fill(Color.primary.opacity(0.05))
-                        }
+                    HStack {
+                        Spacer(minLength: 0)
+                        Text(RelativeTimeFormatter.format(
+                            item.note.updatedAt,
+                            now: Date(),
+                            timeZone: model.timeZone
+                        ))
+                        .font(.system(size: 10.5))
+                        .foregroundStyle(Color("CardMeta"))
                     }
-                )
-                .animation(Motion.gentle(0.2), value: isHighlighted)
-                .animation(Motion.gentle(0.1), value: isHovered)
+                }
+                .padding(.leading, 15)
+                .padding(.trailing, 12)
+                .padding(.top, 9)
+                .padding(.bottom, 8)
+                .contentShape(Rectangle())
                 .onHover { isHovered = $0 }
                 .onTapGesture {
                     startEditing()
                 }
             }
         }
+        .background(
+            PaperCard(
+                isHighlighted: isHighlighted,
+                isHovered: isHovered && !isEditing,
+                isActive: isEditing,
+                edge: .binding
+            )
+        )
+        .listRowInsets(EdgeInsets(top: 3, leading: 12, bottom: 3, trailing: 12))
+        .listRowSeparator(.hidden)
+        .listRowBackground(Color.clear)
+        .animation(Motion.gentle(0.2), value: isHighlighted)
         .onChange(of: model.editingNoteID) { _, _ in
             if isEditing {
                 isFocused = true // 进入编辑：光标就位（03 §5）

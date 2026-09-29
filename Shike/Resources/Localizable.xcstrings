@@ -232,6 +232,50 @@
         }
       }
     },
+    "greeting.afternoon": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "下午好"
+          }
+        }
+      }
+    },
+    "greeting.evening": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "晚上好"
+          }
+        }
+      }
+    },
+    "greeting.morning": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "早上好"
+          }
+        }
+      }
+    },
+    "greeting.noon": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "中午好"
+          }
+        }
+      }
+    },
     "dbAlert.openFolder": {
       "extractionState": "manual",
       "localizations": {
@@ -811,6 +855,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "共 %lld 条（列表将在阶段 1 提供）"
+          }
+        }
+      }
+    },
+    "panel.stats.today": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "今天记了 **%lld** 条 · 待办完成 **%lld** 条"
           }
         }
       }

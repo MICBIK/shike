@@ -601,6 +601,19 @@ final class PanelModel {
         return MenuBarCounter.count(mode, todos: todos, now: Date(), timeZone: timeZone)
     }
 
+    /// 底部统计条（纸感批次，03 §3）："今天记了 N 条"（今天创建的便签）
+    /// + "待办完成 N 条"（今天完成的待办）。读取 tick 建立跨天重算依赖（同上）。
+    var todayActivity: (notesCreated: Int, todosCompleted: Int) {
+        _ = timeContextTick
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = timeZone
+        let notesCreated = notes.count { calendar.isDateInToday($0.note.createdAt) }
+        let todosCompleted = todos.count { todo in
+            todo.completedAt.map(calendar.isDateInToday) == true
+        }
+        return (notesCreated, todosCompleted)
+    }
+
     /// 勾选后处于"1 秒待移入"的待办（03 §6：立即划线变灰、1 秒后移组、期间可勾回）。
     private(set) var pendingCompletionIDs = Set<Todo.ID>()
     /// 完成延迟（L2 测试注入缩短；默认 1 秒）。
