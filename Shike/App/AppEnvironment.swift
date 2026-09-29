@@ -139,6 +139,10 @@ public final class AppEnvironment {
             },
             updateOptions: { [weak self] noteID, options in
                 Task { await self?.updateCardOptions(noteID, options) }
+            },
+            updateNoteContent: { [weak self] noteID, text in
+                // 面板同语义（清空=删除入撤销栈、未变跳过、失败提示条）
+                Task { await self?.panelModel.saveNoteContent(noteID, text) }
             }
         ))
     }

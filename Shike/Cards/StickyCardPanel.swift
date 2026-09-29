@@ -14,6 +14,9 @@ final class CardModel {
     var isHovered = false
     /// 系统深色模式（打磨 R4：CardManager 经 KVO 推送，切换深浅色卡片即时换色）。
     var isDark: Bool
+    /// 卡片上编辑（S3-06，03 §10.2）：双击进入，点击外部/Esc 结束，0.5 秒防抖自动保存。
+    var isEditing = false
+    var editingText = ""
 
     init(content: String, options: StickyCardOptions, isDark: Bool) {
         self.content = content
@@ -68,6 +71,14 @@ struct CardContentView: View {
     var onDragEnded: () -> Void
     /// 卡片菜单改动选项（自动隐藏开关/延迟/不透明度，S3-03）。
     var onOptionsChange: (StickyCardOptions) -> Void = { _ in }
+    /// 双击进入编辑（S3-06）。
+    var onEditRequest: () -> Void = {}
+    /// 编辑文字变化（控制器做 0.5 秒防抖自动保存，03 §10.2）。
+    var onEditingTextChange: (String) -> Void = { _ in }
+    /// 结束编辑（Esc/点击外部），保存交给控制器。
+    var onEditEnd: () -> Void = {}
+
+    @FocusState private var editorFocused: Bool
 
     var body: some View {
         ZStack(alignment: .top) {
@@ -78,23 +89,51 @@ struct CardContentView: View {
                 )))
                 .shadow(color: .black.opacity(0.18), radius: 6, y: 2)
 
-            ScrollView(.vertical) {
-                Text(model.content)
+            if model.isEditing {
+                TextEditor(text: $model.editingText)
+                    .scrollContentBackground(.hidden)
                     .font(.system(size: CardTheme.contentFontSize(for: model.options.fontSize)))
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 12)
-                    .padding(.bottom, 10)
-                    .textSelection(.enabled)
+                    .padding(.horizontal, 8)
+                    .padding(.bottom, 8)
+                    .padding(.top, model.isHovered ? 26 : 10)
+                    .focused($editorFocused)
+                    .onAppear {
+                        // 窗口已在控制器置 allowsKey 并 makeKey，下一拍聚焦文本视图
+                        Task { @MainActor in
+                            try? await Task.sleep(for: .milliseconds(50))
+                            editorFocused = true
+                        }
+                    }
+                    .onChange(of: model.editingText) { _, newText in
+                        onEditingTextChange(newText)
+                    }
+                    .onExitCommand {
+                        // Esc：结束编辑（03 §10.2）；保存由控制器收尾
+                        onEditEnd()
+                    }
+            } else {
+                ScrollView(.vertical) {
+                    Text(model.content)
+                        .font(.system(size: CardTheme.contentFontSize(for: model.options.fontSize)))
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 12)
+                        .padding(.bottom, 10)
+                        .textSelection(.enabled)
+                }
+                .scrollContentBackground(.hidden)
+                .padding(.top, model.isHovered ? 26 : 10)
+                .onTapGesture(count: 2) {
+                    onEditRequest()
+                }
             }
-            .scrollContentBackground(.hidden)
-            .padding(.top, model.isHovered ? 26 : 10)
-            .animation(Motion.standard(0.15), value: model.isHovered)
-
-            topBar
-                .opacity(model.isHovered ? 1 : 0)
-                .allowsHitTesting(model.isHovered)
-                .animation(Motion.standard(0.15), value: model.isHovered)
+            if model.isHovered || model.isEditing {
+                topBar
+                    .opacity(model.isHovered ? 1 : 0)
+                    .allowsHitTesting(model.isHovered)
+                    .animation(Motion.standard(0.15), value: model.isHovered)
+            }
         }
+        .animation(Motion.standard(0.15), value: model.isEditing)
         .onHover { model.isHovered = $0 }
     }
 

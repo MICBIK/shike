@@ -24,9 +24,11 @@ final class CardManager {
         var unpin: (Note.ID) -> Void
         /// 层级按钮循环（携带完整当前选项，写回时只换层级）。
         var cycleLevel: (Note.ID, StickyCardOptions) -> Void
-        /// 卡片菜单改动选项（自动隐藏开关/延迟/不透明度，S3-03）。
-        var updateOptions: (Note.ID, StickyCardOptions) -> Void
-    }
+    /// 卡片菜单改动选项（自动隐藏开关/延迟/不透明度，S3-03）。
+    var updateOptions: (Note.ID, StickyCardOptions) -> Void
+    /// 卡片上编辑保存（S3-06）：防抖自动保存与收尾保存共用。
+    var updateNoteContent: (Note.ID, String) -> Void
+}
 
     /// 钉出定位与拖动钳制用的屏幕（面板所在屏；AppDelegate 在状态项就绪后设置）。
     nonisolated(unsafe) var screenProvider: () -> NSScreen = {
@@ -169,6 +171,9 @@ final class CardManager {
             },
             onOptionsChange: { [weak self] noteID, options in
                 self?.actions?.updateOptions(noteID, options)
+            },
+            onContentChange: { [weak self] noteID, text in
+                self?.actions?.updateNoteContent(noteID, text)
             }
         )
         controllers[item.card.noteID] = controller
@@ -178,7 +183,7 @@ final class CardManager {
 
 /// 一张卡片 = 一个控制器：窗口 + 界面模型 + 动作回调 + 自动隐藏状态机（S3-03）。
 @MainActor
-final class CardController {
+final class CardController: NSObject, NSWindowDelegate {
     let panel: StickyCardPanel
     let model: CardModel
     var autoHide = AutoHideStateMachine(parameters: .init(hideDelay: 3))
@@ -187,8 +192,11 @@ final class CardController {
     private let onUnpin: (Note.ID) -> Void
     private let onLevelCycle: (Note.ID, StickyCardOptions) -> Void
     private let onOptionsChange: (Note.ID, StickyCardOptions) -> Void
+    private let onContentChange: (Note.ID, String) -> Void
     /// 最近一次已应用到窗口的自动隐藏状态（tick 未变化时不重复做动画）。
     private var appliedAutoHide: (alpha: Double, ignoresMouseEvents: Bool)?
+    /// 编辑防抖任务（0.5 秒，03 §10.2）。
+    private var autosaveTask: Task<Void, Never>?
 
     init(
         card: StickyCard,
@@ -198,13 +206,16 @@ final class CardController {
         onMove: @escaping (Note.ID, CardFrame) -> Void,
         onUnpin: @escaping (Note.ID) -> Void,
         onLevelCycle: @escaping (Note.ID, StickyCardOptions) -> Void,
-        onOptionsChange: @escaping (Note.ID, StickyCardOptions) -> Void
+        onOptionsChange: @escaping (Note.ID, StickyCardOptions) -> Void,
+        onContentChange: @escaping (Note.ID, String) -> Void
     ) {
+        // NSObject 子类：先初始化全部存储属性 → super.init() → 才能使用 self（闭包捕获）
         self.screenVisibleFrame = screenVisibleFrame
         self.onMove = onMove
         self.onUnpin = onUnpin
         self.onLevelCycle = onLevelCycle
         self.onOptionsChange = onOptionsChange
+        self.onContentChange = onContentChange
         let frame = NSRect(
             x: card.frame.x, y: card.frame.y,
             width: card.frame.width, height: card.frame.height
@@ -214,6 +225,8 @@ final class CardController {
         autoHide = AutoHideStateMachine(parameters: .init(hideDelay: card.options.hideDelay))
         autoHide.hiddenAlpha = card.options.hiddenOpacity
         panel.apply(options: card.options)
+        super.init()
+        panel.delegate = self // 失去 key（点击外部）即结束编辑（03 §10.2）
         panel.contentView = NSHostingView(
             rootView: CardContentView(
                 model: model,
@@ -226,7 +239,10 @@ final class CardController {
                     self.model.options = options
                     self.syncAutoHideParameters()
                     self.onOptionsChange(self.panel.noteID, options)
-                }
+                },
+                onEditRequest: { [weak self] in self?.beginEditing() },
+                onEditingTextChange: { [weak self] text in self?.scheduleAutosave(text: text) },
+                onEditEnd: { [weak self] in self?.endEditing(save: true) }
             )
         )
     }
@@ -250,7 +266,10 @@ final class CardController {
     }
 
     func apply(card: StickyCard, note: Note) {
-        model.content = note.content
+        // 编辑中不改写正文（本地编辑是唯一真相，保存经观察流回流）
+        if !model.isEditing {
+            model.content = note.content
+        }
         model.options = card.options
         autoHide.parameters.hideDelay = card.options.hideDelay
         autoHide.hiddenAlpha = card.options.hiddenOpacity
@@ -328,8 +347,54 @@ final class CardController {
         autoHide.setBusy(dragging, now: ProcessInfo.processInfo.systemUptime)
     }
 
+    // - MARK: 卡片上编辑（S3-06，03 §10.2）
+
+    /// 双击进入编辑：窗口允许成为 key（ADR-025 结论 4）并聚焦文本视图；编辑中不自动隐藏。
+    func beginEditing() {
+        guard !model.isEditing else { return }
+        autosaveTask?.cancel()
+        model.editingText = model.content
+        model.isEditing = true
+        panel.allowsKey = true
+        panel.makeKey()
+        panel.makeFirstResponder(nil) // 让 SwiftUI 的 FocusState 接管第一响应者
+        autoHide.setBusy(true, now: ProcessInfo.processInfo.systemUptime)
+    }
+
+    /// 结束编辑（Esc/点击外部/关闭卡片）。save=false 仅用于卡片即将销毁的路径。
+    func endEditing(save: Bool) {
+        guard model.isEditing else { return }
+        autosaveTask?.cancel()
+        autosaveTask = nil
+        let text = model.editingText
+        model.isEditing = false
+        model.editingText = ""
+        panel.allowsKey = false
+        autoHide.setBusy(false, now: ProcessInfo.processInfo.systemUptime)
+        if save, text != model.content {
+            // 面板同语义：内容未变跳过、清空=删除入撤销栈、失败上面板提示条
+            onContentChange(panel.noteID, text)
+        }
+    }
+
+    /// 停止输入 0.5 秒自动保存（03 §10.2；FR44 防抖同面板）。
+    private func scheduleAutosave(text: String) {
+        autosaveTask?.cancel()
+        autosaveTask = Task { [weak self] in
+            try? await Task.sleep(for: .milliseconds(500))
+            guard !Task.isCancelled else { return }
+            await MainActor.run {
+                guard let self, self.model.isEditing else { return }
+                if text != self.model.content {
+                    self.onContentChange(self.panel.noteID, text)
+                }
+            }
+        }
+    }
+
     /// ✕ / 菜单取消钉住（便签保留）。
     private func closeRequested() {
+        endEditing(save: true) // 关闭前把未保存的编辑冲出去
         onUnpin(panel.noteID)
     }
 
@@ -347,5 +412,14 @@ final class CardController {
             display: true
         )
         onMove(panel.noteID, clamped)
+    }
+}
+
+/// 点击卡片外部（窗口失去 key）即结束编辑并保存（03 §10.2）。
+extension CardController {
+    func windowDidResignKey(_ notification: Notification) {
+        if model.isEditing {
+            endEditing(save: true)
+        }
     }
 }
