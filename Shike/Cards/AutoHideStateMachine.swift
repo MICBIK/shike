@@ -44,6 +44,13 @@ struct AutoHideStateMachine {
     private var mouseOutsideSince: TimeInterval?
     private var mouseInsideSince: TimeInterval?
 
+    /// 显式 init：私有存储属性会把合成的 memberwise init 降为 private，
+    /// CI（Xcode 26.6）编译不过而本地 27 掩盖（2026-09-30 晨修复）。
+    init(parameters: Parameters, hiddenAlpha: Double = 0.2) {
+        self.parameters = parameters
+        self.hiddenAlpha = hiddenAlpha
+    }
+
     /// 每个轮询 tick 调用（30Hz）。
     mutating func update(now: TimeInterval, mouseInside: Bool) {
         switch phase {
