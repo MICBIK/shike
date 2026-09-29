@@ -17,6 +17,8 @@ final class CardModel {
     /// 卡片上编辑（S3-06，03 §10.2）：双击进入，点击外部/Esc 结束，0.5 秒防抖自动保存。
     var isEditing = false
     var editingText = ""
+    /// 拖动进行中（打磨 R11）：指针会离开窗口，操作条保持可见。
+    var isDragging = false
 
     init(content: String, options: StickyCardOptions, isDark: Bool) {
         self.content = content
@@ -97,7 +99,7 @@ struct CardContentView: View {
                     .font(.system(size: CardTheme.contentFontSize(for: model.options.fontSize)))
                     .padding(.horizontal, 8)
                     .padding(.bottom, 8)
-                    .padding(.top, model.isHovered ? 26 : 10)
+                    .padding(.top, 26) // R10：编辑态固定留白，hover 进出不跳动
                     .focused($editorFocused)
                     .onAppear {
                         // 窗口已在控制器置 allowsKey 并 makeKey，下一拍聚焦文本视图
@@ -128,11 +130,11 @@ struct CardContentView: View {
                     onEditRequest()
                 }
             }
-            if model.isHovered || model.isEditing {
+            if model.isHovered || model.isDragging {
                 topBar
-                    .opacity(model.isHovered ? 1 : 0)
+                    .opacity(model.isHovered || model.isDragging ? 1 : 0)
                     .allowsHitTesting(model.isHovered)
-                    .animation(Motion.standard(0.15), value: model.isHovered)
+                    .animation(Motion.standard(0.15), value: model.isHovered || model.isDragging)
             }
         }
         .animation(Motion.standard(0.15), value: model.isEditing)
@@ -144,8 +146,11 @@ struct CardContentView: View {
     private var topBar: some View {
         HStack(spacing: 6) {
             CardDragBar(
-                onDragStarted: { model.isHovered = true }, // 拖动中保持操作条可见（busy 由控制器接管）
-                onDragEnded: onDragEnded
+                onDragStarted: { model.isDragging = true }, // R11：拖动中操作条常驻（指针会离开卡片）
+                onDragEnded: {
+                    model.isDragging = false
+                    onDragEnded()
+                }
             )
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             Button(action: onLevelCycle) {
