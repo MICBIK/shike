@@ -46,6 +46,8 @@ final class HotkeyService {
     /// 辅助功能未授权导致 tap 安装失败（设置页据此提示）。
     private(set) var tapAuthorizationDenied = false
     @ObservationIgnored private var lastFireAt = Date.distantPast
+    /// 辅助功能授权被拒时的重试任务（装上即停）。
+    @ObservationIgnored private var retryTask: Task<Void, Never>?
 
     init(
         preferences: Preferences,
@@ -102,10 +104,24 @@ final class HotkeyService {
             self?.dispatchHotkeyAction()
         }
         tapAuthorizationDenied = !installed
+        // 辅助功能未授权：每 3 秒自动重试——用户在系统设置打开开关后数秒内快捷键
+        // 即生效，无需重启或回设置页（装上即停）。
+        retryTask?.cancel()
+        if !installed {
+            retryTask = Task { [weak self] in
+                while let self, self.isTapChannelActive, self.isEnabled, self.tapAuthorizationDenied,
+                      !Task.isCancelled {
+                    try? await Task.sleep(for: .seconds(3))
+                    guard !Task.isCancelled else { return }
+                    self.refreshTap()
+                }
+            }
+        }
     }
 
-    /// App 退出：卸载 tap（KeyboardShortcuts 的 Carbon 注册随进程终止释放）。
+    /// App 退出：卸载 tap 与重试任务（KeyboardShortcuts 的 Carbon 注册随进程终止释放）。
     func stopTapChannel() {
+        retryTask?.cancel()
         tapRemover()
         isTapChannelActive = false
     }

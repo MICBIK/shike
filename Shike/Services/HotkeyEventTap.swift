@@ -5,6 +5,7 @@
 import ApplicationServices
 import Carbon.HIToolbox
 import CoreGraphics
+import os
 
 /// CGEventTap 全局快捷键激活（ADR-021）。
 /// macOS 26 起 Carbon `RegisterEventHotKey` 的回调不再触发（本机实测，社区亦有记录，
@@ -31,6 +32,7 @@ final class HotkeyEventTap {
         let trusted = AXIsProcessTrustedWithOptions([
             "AXTrustedCheckOptionPrompt" as String: true, // kAXTrustedCheckOptionPrompt 的常量值（全局 var 过不了严格并发检查）
         ] as CFDictionary)
+        Log.app.info("快捷键 tap：辅助功能授权=\(trusted, privacy: .public)")
         guard trusted else { return false }
         return installAfterAuthorization(keyCode: keyCode, carbonModifiers: carbonModifiers, onMatch: onMatch)
     }
@@ -66,8 +68,10 @@ final class HotkeyEventTap {
             callback: Self.callback,
             userInfo: Unmanaged.passUnretained(self).toOpaque()
         ) else {
+            Log.app.error("快捷键 tap：tapCreate 失败（已授权但仍失败）")
             return false
         }
+        Log.app.info("快捷键 tap：已安装（CGEventTap）")
         let runLoopSource = CFMachPortCreateRunLoopSource(nil, machPort, 0)
         CFRunLoopAddSource(CFRunLoopGetMain(), runLoopSource, .commonModes)
         CGEvent.tapEnable(tap: machPort, enable: true)
