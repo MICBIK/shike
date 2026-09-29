@@ -88,6 +88,8 @@ final class MainWindowController {
             defer: false
         )
         window.title = "拾刻" // 应用名不翻译
+        // 控制器强持有窗口：关掉默认的 close-即-release，避免 ARC 下过释放（打磨 P1）
+        window.isReleasedWhenClosed = false
         window.contentView = NSHostingView(rootView: MainRootView())
         // 记住尺寸与位置：返回 false 表示没有已存 frame，居中放置
         if !window.setFrameAutosaveName("Main Window") {
