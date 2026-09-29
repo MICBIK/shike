@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
 import Foundation
+import ShikeData
 import UserNotifications
 
 /// 设置分页的有序注册表（app-shell.md「组件契约」）：
@@ -28,11 +29,11 @@ enum SettingsTab: String, CaseIterable, Identifiable {
         }
     }
 
-    /// 占位分页显示的阶段号；真实的分页（通用 S1-03 起、快捷键 S1-02、关于）没有占位。
+    /// 占位分页显示的阶段号；真实的分页（通用 S1-03 起、快捷键 S1-02、提醒 S2-03 起、
+    /// 卡片 S3-02 起、关于）没有占位。
     var placeholderStage: Int? {
         switch self {
-        case .general, .shortcuts, .reminders, .about: nil
-        case .cards: 3
+        case .general, .shortcuts, .reminders, .cards, .about: nil
         case .data: 4
         }
     }
@@ -57,6 +58,18 @@ final class SettingsModel {
         self.reminderSnoozeMinutes = Self.snoozeOptions.contains(preferences.reminderSnoozeMinutes)
             ? preferences.reminderSnoozeMinutes
             : 10
+        // 卡片默认值（S3-02，03 §9）：非法存储值回落文档默认
+        self.cardLevel = CardLevel(rawValue: preferences.cardDefaultLevel) ?? .floating
+        self.cardColor = CardColor(rawValue: preferences.cardDefaultColor) ?? .yellow
+        self.cardFontSize = CardFontSize(rawValue: preferences.cardDefaultFontSize) ?? .medium
+        self.cardAutoHide = preferences.cardDefaultAutoHide
+        self.cardHideDelay = Self.hideDelayOptions.contains(preferences.cardDefaultHideDelay)
+            ? preferences.cardDefaultHideDelay
+            : 3
+        let storedOpacity = (preferences.cardDefaultHiddenOpacity * 10).rounded() / 10
+        self.cardHiddenOpacity = min(0.6, max(0.0, storedOpacity))
+        self.cardAllSpaces = preferences.cardDefaultAllSpaces
+        self.cardShowOverFullScreen = preferences.cardDefaultShowOverFullScreen
     }
 
     /// "稍后提醒"的合法档位（03 §9）：5 / 10（默认）/ 15 / 30 / 60 分钟。
@@ -133,5 +146,52 @@ final class SettingsModel {
             preferences.reminderSnoozeMinutes = reminderSnoozeMinutes
             onReminderSettingsChanged()
         }
+    }
+
+    // - MARK: 卡片默认值（S3-02，03 §9；S3-04/S3-05 消费同一偏好）
+
+    /// 自动隐藏延迟的合法档位（03 §10.4）：1 / 3（默认）/ 5 / 10 秒。
+    static let hideDelayOptions: [Double] = [1, 3, 5, 10]
+    /// 隐藏后不透明度档位（03 §10.4）：0%～60%，步进 10%。
+    static let hiddenOpacityOptions: [Double] = [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6]
+
+    var cardLevel: CardLevel = .floating {
+        didSet { preferences.cardDefaultLevel = cardLevel.rawValue }
+    }
+    var cardColor: CardColor = .yellow {
+        didSet { preferences.cardDefaultColor = cardColor.rawValue }
+    }
+    var cardFontSize: CardFontSize = .medium {
+        didSet { preferences.cardDefaultFontSize = cardFontSize.rawValue }
+    }
+    var cardAutoHide: Bool = false {
+        didSet { preferences.cardDefaultAutoHide = cardAutoHide }
+    }
+    /// 非法档位回落 3 秒。
+    var cardHideDelay: Double = 3 {
+        didSet {
+            guard Self.hideDelayOptions.contains(cardHideDelay) else {
+                cardHideDelay = 3 // 回落会再进 didSet 完成持久化
+                return
+            }
+            preferences.cardDefaultHideDelay = cardHideDelay
+        }
+    }
+    /// 钳制到 0...0.6（超出回落再进 didSet）。
+    var cardHiddenOpacity: Double = 0.2 {
+        didSet {
+            let clamped = min(0.6, max(0.0, cardHiddenOpacity))
+            guard clamped == cardHiddenOpacity else {
+                cardHiddenOpacity = clamped
+                return
+            }
+            preferences.cardDefaultHiddenOpacity = clamped
+        }
+    }
+    var cardAllSpaces: Bool = true {
+        didSet { preferences.cardDefaultAllSpaces = cardAllSpaces }
+    }
+    var cardShowOverFullScreen: Bool = false {
+        didSet { preferences.cardDefaultShowOverFullScreen = cardShowOverFullScreen }
     }
 }

@@ -31,6 +31,8 @@ struct SettingsView: View {
             GeneralSettingsView(model: model, launchAtLogin: model.launchAtLogin)
         case .reminders:
             ReminderSettingsView(model: model)
+        case .cards:
+            CardsSettingsView(model: model)
         default:
             if let stage = tab.placeholderStage {
                 PlaceholderSettingsView(stage: stage)
