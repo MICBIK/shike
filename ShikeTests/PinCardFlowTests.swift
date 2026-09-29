@@ -103,4 +103,30 @@ struct PinCardFlowTests {
         model.dismissBanner()
         #expect(model.banner == nil)
     }
+
+    @Test("移动与改选项互不覆盖：先移后改、先改后移 frame 都保持（回归 2026-09-29 弹回初始位置）")
+    func optionsAndFrameWritesAreIndependent() async throws {
+        let (environment, suiteName) = try makeEnvironment()
+        defer { UserDefaults.standard.removePersistentDomain(forName: suiteName) }
+        let note = try await environment.noteRepository.create(content: "拖动回归")
+        let model = environment.panelModel
+        await model.pinNoteToDesktop(note.id)
+        // 先移动再改选项：位置不被选项写路径覆盖
+        let dragged = CardFrame(x: 620, y: 300, width: 260, height: 200)
+        try await environment.stickyCardRepository.updateFrame(note.id, frame: dragged)
+        var options = environment.preferences.cardDefaultOptions
+        options.color = .blue
+        try await environment.stickyCardRepository.updateOptions(note.id, options: options)
+        var visible = try await snapshot(environment)
+        #expect(visible.first?.card.frame == dragged)
+        #expect(visible.first?.card.options.color == .blue)
+        // 反向顺序：再改一次选项后再移动，两者同样各自生效
+        options.fontSize = .large
+        try await environment.stickyCardRepository.updateOptions(note.id, options: options)
+        let moved = CardFrame(x: 100, y: 80, width: 240, height: 180)
+        try await environment.stickyCardRepository.updateFrame(note.id, frame: moved)
+        visible = try await snapshot(environment)
+        #expect(visible.first?.card.frame == moved)
+        #expect(visible.first?.card.options.fontSize == .large)
+    }
 }

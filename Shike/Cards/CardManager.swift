@@ -264,6 +264,8 @@ final class CardController: NSObject, NSWindowDelegate {
     let noteUUID: UUID
     /// 最近一次已应用到窗口的自动隐藏状态（tick 未变化时不重复做动画）。
     private var appliedAutoHide: (alpha: Double, ignoresMouseEvents: Bool)?
+    /// 最近一次已持久化（或正持久化）的窗口位置：windowDidMove 兜底落库的去重基准（ADR-027）。
+    private var lastPersistedFrame: CardFrame?
     /// 编辑防抖任务（0.5 秒，03 §10.2）。
     private var autosaveTask: Task<Void, Never>?
 
@@ -348,13 +350,10 @@ final class CardController: NSObject, NSWindowDelegate {
         autoHide.parameters.hideDelay = card.options.hideDelay
         autoHide.hiddenAlpha = card.options.hiddenOpacity
         panel.apply(options: card.options)
-        let newFrame = NSRect(
-            x: card.frame.x, y: card.frame.y,
-            width: card.frame.width, height: card.frame.height
-        )
-        if panel.frame != newFrame {
-            panel.setFrame(newFrame, display: true)
-        }
+        // frame 不在这里回写窗口（ADR-027）：拖动落库是异步写，完成前的观察流回流
+        // 带着旧位置，回写会把刚拖的卡片弹回初始位置（2026-09-29 用户真机反馈）。
+        // 窗口层是 frame 的唯一作者：位移经 dragEnded/resizeEnded/windowDidMove
+        // 持久化；DB 里的 frame 只在创建控制器时消费。
     }
 
     func currentFrame() -> CardFrame? {
@@ -490,7 +489,7 @@ final class CardController: NSObject, NSWindowDelegate {
             NSRect(x: clamped.x, y: clamped.y, width: clamped.width, height: clamped.height),
             display: true
         )
-        onMove(panel.noteID, clamped)
+        persistFrame(clamped)
     }
 
     /// 调整大小结束（03 §10.2，ADR-026）：把手跟踪期间已实时钳制最小尺寸，
@@ -502,7 +501,13 @@ final class CardController: NSObject, NSWindowDelegate {
             NSRect(x: clamped.x, y: clamped.y, width: clamped.width, height: clamped.height),
             display: true
         )
-        onMove(panel.noteID, clamped)
+        persistFrame(clamped)
+    }
+
+    /// 位置持久化（去重基准在 lastPersistedFrame）：写失败走面板提示条与重试（NFR19）。
+    private func persistFrame(_ frame: CardFrame) {
+        lastPersistedFrame = frame
+        onMove(panel.noteID, frame)
     }
 }
 
@@ -511,6 +516,16 @@ extension CardController {
     func windowDidResignKey(_ notification: Notification) {
         if model.isEditing {
             endEditing(save: true)
+        }
+    }
+
+    /// 位移兜底持久化（ADR-027）：手势收尾（dragEnded/resizeEnded）之外的任何窗口
+    /// 移动（含收尾丢失的极端情况）也把最终位置落库；与已持久化值一致时跳过。
+    func windowDidMove(_ notification: Notification) {
+        guard panel.isVisible else { return }
+        let clamped = CardGeometry.clampedFrame(panel.frame, in: panel.screen?.visibleFrame ?? screenVisibleFrame)
+        if clamped != lastPersistedFrame {
+            persistFrame(clamped)
         }
     }
 }
