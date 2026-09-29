@@ -29,20 +29,20 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 09-26-2026 01:00
-last_updated: 09-28-2026 11:00
+last_updated: 09-29-2026 21:45
 project: 拾刻 Shike
 project_key: NOKEY
 tracking_system: file-system
 story_location: _bmad-output/implementation-artifacts
 development_status:
-  epic-1: in-progress
-  1-1-搭建工程骨架: review
-  1-2-建立-ci-流水线: review
-  1-3-数据库的打开与-v1-表结构: review
-  1-4-便签的保存与观察: review
-  1-5-待办的保存与观察: review
-  1-6-桌面卡片的数据: review
-  1-7-组装点与偏好设置: review
+  epic-1: done
+  1-1-搭建工程骨架: done
+  1-2-建立-ci-流水线: done
+  1-3-数据库的打开与-v1-表结构: done
+  1-4-便签的保存与观察: done
+  1-5-待办的保存与观察: done
+  1-6-桌面卡片的数据: done
+  1-7-组装点与偏好设置: done
   1-8-数据库打不开时的提示: done
   1-9-菜单栏图标与面板: done
   1-10-面板的数据与错误提示: done
@@ -53,8 +53,8 @@ development_status:
   1-15-识别中文日期与时刻: done
   1-16-排除误识别-高亮与标题清理: done
   1-17-架构交接: done
-  epic-1-retrospective: optional
-  epic-2: in-progress
+  epic-1-retrospective: done
+  epic-2: done
   2-1-面板行为: done
   2-2-全局快捷键: done
   2-3-模式切换与呼出模式: done
@@ -65,8 +65,8 @@ development_status:
   2-8-删除与撤销: done
   2-9-开机自启与完整右键菜单: done
   2-10-空状态引导: done
-  epic-2-retrospective: optional
-  epic-3: in-progress
+  epic-2-retrospective: done
+  epic-3: done
   3-1-时间识别与高亮: done
   3-2-提交与标题清理: done
   3-3-待办时间规则: done
@@ -77,3 +77,16 @@ development_status:
   3-8-菜单栏计数: done
   3-9-搜索: done
   3-10-通知权限: done
+  epic-3-retrospective: done
+  epic-4: backlog
+  4-1-技术验证-卡片窗口与唤回: backlog
+  4-2-钉出与收回: backlog
+  4-3-显示层级: backlog
+  4-4-自动隐藏: backlog
+  4-5-卡片外观: backlog
+  4-6-空间与全屏: backlog
+  4-7-卡片上编辑: backlog
+  4-8-恢复与屏幕变化: backlog
+  4-9-卡片菜单: backlog
+  4-10-全部显示与隐藏: backlog
+  epic-4-retrospective: optional
