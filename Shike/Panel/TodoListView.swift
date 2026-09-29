@@ -106,6 +106,9 @@ private struct TodoRow: View {
         return TodoGrouping.timeText(for: todo, now: Date(), timeZone: model.timeZone)
     }
 
+    /// 视觉批次：hover 底色（提示可点可右键）。
+    @State private var isHovered = false
+
     /// 该行是否按逾期红字显示：逾期组的行，或未完成但 due 已过。
     private var showsOverdueTime: Bool {
         _ = model.timeContextTick
@@ -152,10 +155,22 @@ private struct TodoRow: View {
         }
         .padding(.vertical, 2)
         .background(
-            model.recentlyCreatedItemID == todo.uuid.uuidString || model.locateTodoID == todo.uuid.uuidString
-                ? Color.accentColor.opacity(0.15)
-                : .clear
+            Group {
+                if model.recentlyCreatedItemID == todo.uuid.uuidString
+                    || model.locateTodoID == todo.uuid.uuidString {
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(Color.accentColor.opacity(0.15))
+                } else if isHovered {
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(Color.primary.opacity(0.05))
+                }
+            }
         )
+        .animation(Motion.gentle(0.2), value: isVisuallyCompleted)
+        .animation(Motion.gentle(0.2), value: model.recentlyCreatedItemID == todo.uuid.uuidString)
+        .animation(Motion.gentle(0.2), value: model.locateTodoID == todo.uuid.uuidString)
+        .animation(Motion.gentle(0.1), value: isHovered)
+        .onHover { isHovered = $0 }
         .onChange(of: model.editingTodoID) { _, _ in
             if isEditing {
                 isFocused = true

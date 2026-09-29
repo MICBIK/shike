@@ -52,6 +52,7 @@ targets:
         INFOPLIST_KEY_CFBundleDisplayName: 拾刻
         INFOPLIST_KEY_NSHumanReadableCopyright: "Copyright (C) 2026 Shike contributors"
         INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.productivity
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
 
   ShikeTests:
     type: bundle.unit-test

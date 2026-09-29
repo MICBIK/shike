@@ -62,6 +62,13 @@ private struct NoteRow: View {
         model.recentlyCreatedItemID == item.note.uuid.uuidString
     }
 
+    /// 视觉批次：新建/定位高亮与 hover 底色（hover 提示可点可右键），高亮消失走淡出。
+    @State private var isHovered = false
+
+    private var isHighlighted: Bool {
+        isRecentlyCreated || model.locateNoteID == item.note.uuid.uuidString
+    }
+
     var body: some View {
         Group {
             if isEditing {
@@ -88,10 +95,19 @@ private struct NoteRow: View {
                 }
                 .contentShape(Rectangle())
                 .background(
-            isRecentlyCreated || model.locateNoteID == item.note.uuid.uuidString
-                ? Color.accentColor.opacity(0.15)
-                : .clear
-        )
+                    Group {
+                        if isHighlighted {
+                            RoundedRectangle(cornerRadius: 6)
+                                .fill(Color.accentColor.opacity(0.15))
+                        } else if isHovered {
+                            RoundedRectangle(cornerRadius: 6)
+                                .fill(Color.primary.opacity(0.05))
+                        }
+                    }
+                )
+                .animation(Motion.gentle(0.2), value: isHighlighted)
+                .animation(Motion.gentle(0.1), value: isHovered)
+                .onHover { isHovered = $0 }
                 .onTapGesture {
                     startEditing()
                 }

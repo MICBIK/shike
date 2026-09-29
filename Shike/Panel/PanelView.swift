@@ -28,17 +28,22 @@ struct PanelView: View {
                 }
                 content
             }
-            if let summary = model.deletedBarSummary {
-                Divider()
-                UndoBar(summary: summary) { model.undoLastDelete() }
+            if let bar = model.deletedBar {
+                UndoBar(state: bar) { model.undoLastDelete() }
+                    .id(bar == nil ? "none" : String(describing: bar)) // 视角切换即重建：倒计时与出入场重启
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
+        .animation(Motion.standard(), value: model.deletedBar)
         .overlay(alignment: .bottomTrailing) {
             PopoverResizeHandle(
                 currentSize: { model.resizeCurrentSize() },
                 onResize: { proposed, isFinal in model.resizeApply(proposed, isFinal) }
             )
         }
+        // 视觉批次：识别 chip 的弹入/淡出（减弱动态效果时直切）。
+        .animation(Motion.standard(), value: model.recognitionHintState)
+        .animation(Motion.standard(), value: model.isSearching)
     }
 
     private var topBar: some View {
@@ -72,6 +77,7 @@ struct PanelView: View {
     }
 
     /// 快速输入框（03 §4）：高度随内容，便签最多 6 行、待办 2 行后框内滚动。
+    /// 视觉批次：圆角容器实体化 + 聚焦青绿描边。
     private var captureArea: some View {
         CaptureTextView(
             placeholder: placeholderText,
@@ -85,6 +91,7 @@ struct PanelView: View {
             externalChangeTrigger: model.draftResetToken,
             textContainerDynamicHeight: $captureHeight,
             highlightRanges: model.mode == .todo ? (model.recognition?.matchedRanges ?? []) : [],
+            onFocusChange: { captureFocused = $0 },
             onSubmit: { model.submitCurrentDraft() },
             onTab: { _ in
                 // 03 §4：Tab 切换到另一模式（Shift+Tab 同向处理）。
@@ -93,9 +100,26 @@ struct PanelView: View {
             onViewReady: { textView in model.captureDidBecomeReady(textView) }
         )
         .frame(height: max(captureHeight, 22))
+        .padding(.horizontal, 9)
+        .padding(.vertical, 5)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 8)
+                .fill(Color.primary.opacity(0.055))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .strokeBorder(
+                    captureFocused ? Color.accentColor.opacity(0.85) : Color.primary.opacity(0.08),
+                    lineWidth: captureFocused ? 1.5 : 1
+                )
+        )
+        .animation(Motion.standard(0.15), value: captureFocused)
         .padding(.horizontal, 12)
         .padding(.vertical, 6)
     }
+
+    @State private var captureFocused = false
 
     /// 通知权限被拒提示条（S2-10，03 §14）：仅待办模式显示。
     private var notificationDeniedBar: some View {
@@ -117,30 +141,54 @@ struct PanelView: View {
         .background(Color.yellow.opacity(0.12))
     }
 
-    /// 时间识别提示条（S2-01，03 §4）：输入框下方一行小字；✕ 取消本次识别。
+    /// 时间识别提示（S2-01，03 §4；视觉批次 chip 化）：输入框下方圆角 chip，
+    /// 时钟图标 + 结果（青绿加重，已过为红）；✕ 取消本次识别。
     @ViewBuilder
     private var recognitionHintBar: some View {
         switch model.recognitionHintState {
         case .recognized(let content):
             HStack(spacing: 6) {
-                Text("🕒").font(.caption)
-                Text(content.headline)
-                    .font(.caption)
-                    .foregroundStyle(content.isPast ? Color.red : Color.primary)
-                if let suffix = content.durationSuffix {
-                    Text("（\(suffix)）").font(.caption).foregroundStyle(.secondary)
+                HStack(spacing: 5) {
+                    Image(systemName: "clock")
+                        .font(.caption2)
+                        .foregroundStyle(content.isPast ? Color.red : Color.accentColor)
+                    Text(content.headline)
+                        .font(.caption)
+                        .fontWeight(.medium)
+                        .foregroundStyle(content.isPast ? Color.red : Color.accentColor)
+                    if let suffix = content.durationSuffix {
+                        Text("（\(suffix)）")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    Button {
+                        model.dismissRecognition()
+                    } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 8, weight: .semibold))
+                            .foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(String(localized: .captureRecognitionDismiss))
                 }
-                Spacer()
-                Button {
-                    model.dismissRecognition()
-                } label: {
-                    Image(systemName: "xmark").font(.caption2).foregroundStyle(.secondary)
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(String(localized: .captureRecognitionDismiss))
+                .padding(.horizontal, 9)
+                .padding(.vertical, 3.5)
+                .background(
+                    Capsule().fill(
+                        content.isPast ? Color.red.opacity(0.10) : Color.accentColor.opacity(0.10)
+                    )
+                )
+                .overlay(
+                    Capsule().strokeBorder(
+                        content.isPast ? Color.red.opacity(0.45) : Color.accentColor.opacity(0.55),
+                        lineWidth: 1
+                    )
+                )
+                Spacer(minLength: 0)
             }
             .padding(.horizontal, 12)
             .padding(.bottom, 6)
+            .transition(.scale(scale: 0.94, anchor: .leading).combined(with: .opacity))
         case .dismissed:
             HStack {
                 Text(String(localized: .captureRecognitionDismissed))
@@ -150,6 +198,7 @@ struct PanelView: View {
             }
             .padding(.horizontal, 12)
             .padding(.bottom, 6)
+            .transition(.opacity)
         case nil:
             EmptyView()
         }

@@ -87,8 +87,16 @@ final class PanelModel {
 
     /// 删除撤销栈：按删除先后入栈，⌘Z 逐条弹出（最近删的先恢复）。
     private(set) var deletedStack: [DeletedItem] = []
-    /// 底部撤销提示条（03 §7）：显示删除摘要 + "撤销"，5 秒自动消失。
-    private(set) var deletedBarSummary: String?
+
+    /// 底部反馈条状态（S1-07，视觉批次 2026-09-29）：删除与恢复两个视角；
+    /// 恢复成功必须给出"已恢复"反馈，替代原先"撤销后提示条默默消失"的缺口。
+    enum DeletedBarState: Equatable {
+        case deleted(String)
+        case recovered(String, remaining: Int)
+    }
+
+    /// 底部反馈条（03 §7）：5 秒自动消失；连续操作重启计时。
+    private(set) var deletedBar: DeletedBarState?
     /// 隐藏延迟（L2 测试注入缩短；默认 5 秒）。
     @ObservationIgnored var deletedBarHideDelay: Duration = .seconds(5)
     /// nonisolated(unsafe) 供 deinit 取消。
@@ -99,8 +107,15 @@ final class PanelModel {
         guard !isEditingAny else { return false }
         guard let last = deletedStack.popLast() else { return false }
         Task {
-            await restore(last)
-            await MainActor.run { self.refreshDeletedBar() }
+            let restored = await restore(last)
+            await MainActor.run {
+                if restored {
+                    self.showBar(.recovered(last.summary, remaining: self.deletedStack.count))
+                } else {
+                    // 失败路径：restore 已把条目放回栈顶并上报错误；反馈条回到"已删除"视角。
+                    self.refreshDeletedBar()
+                }
+            }
         }
         return true
     }
@@ -115,58 +130,69 @@ final class PanelModel {
         editingNoteID != nil || editingTodoID != nil
     }
 
-    /// 恢复一条删除（restore 走数据层；失败走提示条并把条目放回栈顶——撤销入口不能丢）。
-    private func restore(_ item: DeletedItem) async {
+    /// 恢复一条删除（restore 走数据层；失败把条目放回栈顶并上报——撤销入口不能丢）。
+    /// 返回是否恢复成功（undoLastDeleteIfNeeded 用来切换反馈条视角）。
+    private func restore(_ item: DeletedItem) async -> Bool {
         do {
             switch item.kind {
             case .note(let id): try await noteRepository.restore(id)
             case .todo(let id): try await todoRepository.restore(id)
             }
+            return true
         } catch let error as ShikeDataError {
             await MainActor.run {
                 self.deletedStack.append(item) // 失败回栈：重试成功前撤销入口保持可达
                 self.report(error, retry: { [weak self] in Task { await self?.retryRestore(item) } })
             }
+            return false
         } catch {
             await MainActor.run {
                 self.deletedStack.append(item)
                 self.report(.writeFailed(.ioError), retry: { [weak self] in Task { await self?.retryRestore(item) } })
             }
+            return false
         }
     }
 
-    /// 撤销重试：先从栈顶取回条目（与 undoLastDeleteIfNeeded 的弹出对称），成功则刷新提示条。
+    /// 撤销重试：先从栈顶取回条目（与 undoLastDeleteIfNeeded 的弹出对称），
+    /// 成功切换"已恢复"视角，失败仍由 restore 上报并回栈。
     private func retryRestore(_ item: DeletedItem) async {
         deletedStack.removeAll { $0.kind == item.kind }
-        await restore(item)
-        await MainActor.run { self.refreshDeletedBar() }
+        let restored = await restore(item)
+        await MainActor.run {
+            if restored {
+                self.showBar(.recovered(item.summary, remaining: self.deletedStack.count))
+            } else {
+                self.refreshDeletedBar()
+            }
+        }
     }
 
-    /// 删除入栈并显示撤销提示条（5 秒；连续删除重置计时与内容；超长摘要加省略号）。
+    /// 删除入栈并显示反馈条（5 秒；连续删除重置计时与内容；超长摘要加省略号）。
     fileprivate func recordDeletion(kind: DeletedItem.Kind, summary: String) {
         let truncated = String(summary.prefix(12))
         let display = summary.count > 12 ? truncated + "…" : truncated
         deletedStack.append(DeletedItem(kind: kind, summary: display))
-        showDeletedBar(display)
+        showBar(.deleted(display))
     }
 
-    /// 显示提示条并排 5 秒隐藏任务（连续删除/撤销显示下一条时同样重启计时）。
-    private func showDeletedBar(_ summary: String) {
-        deletedBarSummary = summary
+    /// 显示反馈条并排 5 秒隐藏任务（连续删除/撤销切换视角时同样重启计时）。
+    private func showBar(_ state: DeletedBarState) {
+        deletedBar = state
         deletedBarHideTask?.cancel()
         deletedBarHideTask = Task { [weak self] in
             try? await Task.sleep(for: self?.deletedBarHideDelay ?? .seconds(5))
             guard !Task.isCancelled else { return }
-            self?.deletedBarSummary = nil
+            self?.deletedBar = nil
         }
     }
 
-    /// 撤销后刷新提示条：栈空则收起，否则显示下一条并重启计时（03 §7）。
+    /// 恢复失败等场景回退到"已删除"视角：栈空则收起，否则显示下一条并重启计时（03 §7）。
     private func refreshDeletedBar() {
         if let last = deletedStack.last {
-            showDeletedBar(last.summary)
+            showBar(.deleted(last.summary))
         } else {
-            deletedBarSummary = nil
+            deletedBar = nil
         }
     }
 

@@ -9,6 +9,8 @@ import Testing
 @testable import Shike
 
 /// Story 2.8：删除与撤销（app-shell.md「组件契约」、03 §7、NFR18/19）。
+/// 视觉批次（2026-09-29）：反馈条改为删除/恢复双视角（PanelModel.DeletedBarState），
+/// 撤销成功必须给出"已恢复「…」"并附剩余可撤销数。
 @MainActor
 struct DeleteUndoTests {
     private func makeEnvironment() throws -> (AppEnvironment, String) {
@@ -24,6 +26,7 @@ struct DeleteUndoTests {
     private func waitUntilList(
         _ model: PanelModel,
         timeoutSeconds: Double = 2,
+        _ label: String = "",
         _ condition: (PanelModel) -> Bool
     ) async throws {
         let deadline = Date().addingTimeInterval(timeoutSeconds)
@@ -32,10 +35,10 @@ struct DeleteUndoTests {
             try await Task.sleep(for: .milliseconds(20))
         }
         if condition(model) { return }
-        Issue.record("等待列表条件超时")
+        Issue.record("等待超时：\(label)")
     }
 
-    @Test("删除入栈并显示撤销条（摘要前 12 字）；撤销恢复且排序位置不变")
+    @Test("删除入栈并显示「已删除」反馈条（摘要前 12 字）；撤销后切换为「已恢复」并清点剩余")
     func deleteShowsBarAndUndoRestores() async throws {
         let (environment, suiteName) = try makeEnvironment()
         defer { UserDefaults.standard.removePersistentDomain(forName: suiteName) }
@@ -44,23 +47,26 @@ struct DeleteUndoTests {
 
         let long = try await environment.noteRepository.create(content: "这是一条超过十二个字的便签内容用来验证摘要截断")
         _ = try await environment.noteRepository.create(content: "占位便签保证删除后列表非空")
-        try await waitUntilList(model) { $0.notes.count == 2 }
+        try await waitUntilList(model, "两条便签") { $0.notes.count == 2 }
 
         let orderBefore = model.unpinnedNotes.map { $0.note.content }
         await model.deleteNote(long.id)
         #expect(model.deletedStack.count == 1)
-        #expect(model.deletedBarSummary == "这是一条超过十二个字的便…") // 前 12 字 + 省略号
-        try await waitUntilList(model) { $0.notes.count == 1 }
+        #expect(model.deletedBar == .deleted("这是一条超过十二个字的便…")) // 前 12 字 + 省略号
+        try await waitUntilList(model, "恢复便签") { $0.notes.count == 1 }
 
-        // 撤销：恢复且按 updatedAt 回到原排序位（restore 只清 deletedAt，ADR-017）
+        // 撤销：恢复且按 updatedAt 回到原排序位（restore 只清 deletedAt，ADR-017）；
+        // 反馈条切换为"已恢复"视角（剩余 0 条不显示附注）
         model.undoLastDelete()
-        try await waitUntilList(model) { $0.notes.count == 2 }
+        try await waitUntilList(model, "两条便签") { $0.notes.count == 2 }
         #expect(model.deletedStack.isEmpty)
-        try await waitUntilList(model) { $0.deletedBarSummary == nil } // 撤销刷新是异步的：栈空收起
+        try await waitUntilList(model) {
+            $0.deletedBar == .recovered("这是一条超过十二个字的便…", remaining: 0)
+        }
         #expect(model.unpinnedNotes.map { $0.note.content } == orderBefore) // 顺序不变
     }
 
-    @Test("连续删除：提示条显示最近一条；⌘Z 按删除先后逆序逐条撤销")
+    @Test("连续删除：反馈条显示最近一条；⌘Z 按删除先后逆序逐条撤销并报剩余数")
     func consecutiveDeletesAndZUndoOrder() async throws {
         let (environment, suiteName) = try makeEnvironment()
         defer { UserDefaults.standard.removePersistentDomain(forName: suiteName) }
@@ -69,19 +75,21 @@ struct DeleteUndoTests {
 
         let a = try await environment.noteRepository.create(content: "甲")
         let b = try await environment.todoRepository.create(title: "乙待办", due: nil)
-        try await waitUntilList(model) { !$0.notes.isEmpty && !$0.todos.isEmpty }
+        try await waitUntilList(model, "两组非空") { !$0.notes.isEmpty && !$0.todos.isEmpty }
 
         await model.deleteNote(a.id)
         await model.deleteTodo(b.id)
         #expect(model.deletedStack.count == 2)
-        #expect(model.deletedBarSummary == "乙待办") // 最近一条
+        #expect(model.deletedBar == .deleted("乙待办")) // 最近一条
 
-        // ⌘Z 第一下：恢复待办（最近删的先恢复）
+        // ⌘Z 第一下：恢复待办（最近删的先恢复），反馈条报"还可撤销 1 条"
         #expect(model.undoLastDeleteIfNeeded() == true)
-        try await waitUntilList(model) { $0.todos.count == 1 }
-        // ⌘Z 第二下：恢复便签
+        try await waitUntilList(model, "恢复待办") { $0.todos.count == 1 }
+        try await waitUntilList(model) { $0.deletedBar == .recovered("乙待办", remaining: 1) }
+        // ⌘Z 第二下：恢复便签，剩余 0
         #expect(model.undoLastDeleteIfNeeded() == true)
-        try await waitUntilList(model) { $0.notes.count == 1 }
+        try await waitUntilList(model, "恢复便签") { $0.notes.count == 1 }
+        try await waitUntilList(model) { $0.deletedBar == .recovered("甲", remaining: 0) }
         // 栈空：⌘Z 无反应
         #expect(model.undoLastDeleteIfNeeded() == false)
         _ = a
@@ -95,7 +103,7 @@ struct DeleteUndoTests {
         model.start()
 
         let note = try await environment.noteRepository.create(content: "在编辑")
-        try await waitUntilList(model) { !$0.notes.isEmpty }
+        try await waitUntilList(model, "便签非空") { !$0.notes.isEmpty }
         await model.deleteNote(note.id)
         #expect(model.deletedStack.count == 1)
 
@@ -107,7 +115,7 @@ struct DeleteUndoTests {
         // Esc：先结束编辑（再按一次才是撤销删除）
         #expect(model.endEditingIfNeeded() == true)
         #expect(model.undoLastDeleteIfNeeded() == true)
-        try await waitUntilList(model) { !$0.notes.isEmpty }
+        try await waitUntilList(model, "便签非空") { !$0.notes.isEmpty }
     }
 
     @Test("编辑清空=删除并入撤销栈（2.6 交接）；撤销后内容不变")
@@ -118,19 +126,19 @@ struct DeleteUndoTests {
         model.start()
 
         let note = try await environment.noteRepository.create(content: "将被清空的便签")
-        try await waitUntilList(model) { !$0.notes.isEmpty }
+        try await waitUntilList(model, "便签非空") { !$0.notes.isEmpty }
 
         await model.saveNoteContent(note.id, "  ")
         try await waitUntilList(model) { $0.notes.isEmpty }
         #expect(model.deletedStack.count == 1)
-        #expect(model.deletedBarSummary == "将被清空的便签")
+        #expect(model.deletedBar == .deleted("将被清空的便签"))
 
         model.undoLastDelete()
-        try await waitUntilList(model) { !$0.notes.isEmpty }
+        try await waitUntilList(model, "便签非空") { !$0.notes.isEmpty }
         #expect(model.notes[0].note.content == "将被清空的便签") // 内容不变
     }
 
-    @Test("提示条计时：延迟注入后到时消失；连续删除重置；撤销显示下一条")
+    @Test("反馈条计时：延迟注入后到时消失；连续删除重置；撤销先切「已恢复」视角再重启计时")
     func deletedBarTimer() async throws {
         let (environment, suiteName) = try makeEnvironment()
         defer { UserDefaults.standard.removePersistentDomain(forName: suiteName) }
@@ -139,26 +147,26 @@ struct DeleteUndoTests {
         model.deletedBarHideDelay = .milliseconds(150)
 
         let note = try await environment.noteRepository.create(content: "计时验证")
-        try await waitUntilList(model) { !$0.notes.isEmpty }
+        try await waitUntilList(model, "便签非空") { !$0.notes.isEmpty }
 
         // 删除显示；约 150ms 后自动消失
         await model.deleteNote(note.id)
-        #expect(model.deletedBarSummary != nil)
+        #expect(model.deletedBar != nil)
         try await Task.sleep(for: .milliseconds(400))
-        #expect(model.deletedBarSummary == nil)
+        #expect(model.deletedBar == nil)
 
-        // 连续删除：显示最近一条；撤销后显示下一条并重启计时
+        // 连续删除：显示最近一条；撤销切"已恢复"，随后重启的计时到点消失
         let a = try await environment.noteRepository.create(content: "甲（撤销条）")
         _ = try await environment.todoRepository.create(title: "乙（撤销条）", due: nil)
-        try await waitUntilList(model) { !$0.notes.isEmpty && !$0.todos.isEmpty }
+        try await waitUntilList(model, "两组非空") { !$0.notes.isEmpty && !$0.todos.isEmpty }
         await model.deleteNote(a.id)
         await model.deleteTodo(todoID(model, title: "乙（撤销条）"))
-        #expect(model.deletedBarSummary == "乙（撤销条）")
+        #expect(model.deletedBar == .deleted("乙（撤销条）"))
         model.undoLastDelete()
-        // 撤销刷新（restore→refresh）是异步的：轮询等待下一条显示
-        try await waitUntilList(model) { $0.deletedBarSummary == "甲（撤销条）" }
+        // 注意：更早删除的「计时验证」从未撤销、仍在栈中，剩余应为 2
+        try await waitUntilList(model, "恢复视角-乙（计时）") { $0.deletedBar == .recovered("乙（撤销条）", remaining: 2) }
         try await Task.sleep(for: .milliseconds(400))
-        #expect(model.deletedBarSummary == nil) // 重启的计时到点消失
+        #expect(model.deletedBar == nil) // 重启的计时到点消失
     }
 
     /// 按标题找待办 id。

@@ -1408,6 +1408,28 @@
           }
         }
       }
+    },
+    "undoBar.recovered": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已恢复「%@」"
+          }
+        }
+      }
+    },
+    "undoBar.remaining": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "还可撤销 %lld 条"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

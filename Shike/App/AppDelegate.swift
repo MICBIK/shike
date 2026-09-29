@@ -76,6 +76,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         guard let environment else { return }
 
+        // 默认快捷键迁移（ADR-015 补记，2026-09-29 ⌃⌥N → ⌥N）：KeyboardShortcuts 的
+        // initial 只在首次启动写入 defaults；存量安装若仍存着旧默认组合则一次性改写，
+        // 用户自录的其它组合（含清空）不动。
+        let legacyDefault = KeyboardShortcuts.Shortcut(.n, modifiers: [.control, .option])
+        if KeyboardShortcuts.getShortcut(for: .togglePanel) == legacyDefault {
+            KeyboardShortcuts.setShortcut(
+                KeyboardShortcuts.Shortcut(.n, modifiers: [.option]),
+                for: .togglePanel
+            )
+        }
+
         // 设置窗口（单实例）与图标右键菜单。
         let settingsModel = SettingsModel(
             hotkeyService: environment.hotkeyService,

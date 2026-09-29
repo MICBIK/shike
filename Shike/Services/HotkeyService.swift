@@ -9,16 +9,18 @@
 // togglePanel，默认 ⌃⌥N 且默认开启（ADR-015、03 §13）（2026-09-28）。
 // 追加：macOS 26 起 Carbon 回调不触发，激活改经 CGEventTap 兜底通道（ADR-021），
 // 两条通道共用 dispatchHotkeyAction 去重入口（2026-09-28）。
+// 追加：默认组合改两键 ⌥N，存量安装由 AppDelegate 一次性迁移（ADR-015 补记，2026-09-29）。
 
 import AppKit
 import KeyboardShortcuts
 import Observation
 
-/// 全局快捷键名（S1-02）：呼出 / 收起面板，默认 ⌃⌥N（03 §13；阶段 1 实测无冲突后定稿）。
+/// 全局快捷键名（S1-02）：呼出 / 收起面板，默认 ⌥N（03 §13；2026-09-29 应产品负责人
+/// 要求由 ⌃⌥N 改两键，ADR-015 补记）。
 extension KeyboardShortcuts.Name {
     static let togglePanel = Self(
         "togglePanel",
-        initial: .init(.n, modifiers: [.control, .option])
+        initial: .init(.n, modifiers: [.option])
     )
 }
 

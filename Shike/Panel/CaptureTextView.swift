@@ -26,7 +26,10 @@ struct CaptureTextView: NSViewRepresentable {
     var textContainerDynamicHeight: Binding<CGFloat>?
     /// 时间识别高亮（S2-01）：被识别文字的 UTF-16 区间，空=无高亮。
     /// 仅在非组合态应用（IME 安全：组合中绝不触碰文字属性）。
+    /// 视觉批次（2026-09-29）：青绿药丸（背景+前景走资产色集），替代原强调色 30% 垫色。
     var highlightRanges: [NSRange] = []
+    /// 输入框焦点变化（视觉批次：容器聚焦描边）。
+    var onFocusChange: (Bool) -> Void = { _ in }
     var onSubmit: () -> Void
     /// Tab 切换模式（03 §4）；Shift+Tab 同样切换到另一模式。
     var onTab: (_ direction: FocusDirection) -> Void
@@ -53,6 +56,7 @@ struct CaptureTextView: NSViewRepresentable {
     func updateNSView(_ nsView: NSScrollView, context: Context) {
         guard let textView = nsView.documentView as? CaptureNSTextView else { return }
         context.coordinator.parent = self
+        textView.onFocusChange = { context.coordinator.parent.onFocusChange($0) }
         textView.placeholder = placeholder
 
         // 外部变更（提交清空、模式切换）：无条件回写视图（保留光标相对位置）。
@@ -119,8 +123,8 @@ struct CaptureTextView: NSViewRepresentable {
         let ranges: [NSRange]
     }
 
-    /// 把识别区间以强调色背景应用到文本存储；先整段清除本视图使用的背景色属性再按区间补回。
-    /// 只动 `.backgroundColor`（输入框不使用其他背景），不影响其他属性。
+    /// 把识别区间以青绿药丸（背景+前景，资产色集随深浅色）应用到文本存储；
+    /// 先整段清除本视图使用的两组属性再按区间补回。
     static func applyHighlight(ranges: [NSRange], in textView: NSTextView, lastApplied: inout HighlightKey?) {
         let key = HighlightKey(text: textView.string, ranges: ranges)
         guard key != lastApplied else { return }
@@ -129,10 +133,16 @@ struct CaptureTextView: NSViewRepresentable {
         let length = (textView.string as NSString).length
         if length > 0 {
             storage.removeAttribute(.backgroundColor, range: NSRange(location: 0, length: length))
+            storage.removeAttribute(.foregroundColor, range: NSRange(location: 0, length: length))
         }
-        let color = NSColor.controlAccentColor.withAlphaComponent(0.30)
+        let background = NSColor(named: "RecognitionHighlight")
+            ?? NSColor.controlAccentColor.withAlphaComponent(0.30)
+        let foreground = NSColor(named: "RecognitionText")
         for range in ranges where range.location != NSNotFound && range.location >= 0 && NSMaxRange(range) <= length {
-            storage.addAttribute(.backgroundColor, value: color, range: range)
+            storage.addAttribute(.backgroundColor, value: background, range: range)
+            if let foreground {
+                storage.addAttribute(.foregroundColor, value: foreground, range: range)
+            }
         }
     }
 
@@ -280,6 +290,8 @@ final class CaptureNSTextView: NSTextView {
     /// 回放缓冲按键期间为真（S1-04）：回放的回车按"裸回车=提交"处理，
     /// 不读 NSApp.currentEvent（程序化 keyDown 不会更新它，会残留热键修饰键）。
     var isReplayingKeys = false
+    /// 焦点变化回调（视觉批次：容器聚焦描边）。
+    var onFocusChange: ((Bool) -> Void)?
 
     override func draw(_ rect: CGRect) {
         super.draw(rect)
@@ -301,6 +313,7 @@ final class CaptureNSTextView: NSTextView {
     override func becomeFirstResponder() -> Bool {
         let became = super.becomeFirstResponder()
         if became {
+            onFocusChange?(true)
             // 让 AppKit 先完成字段编辑器安装，再把光标移到末尾（移植注释）。
             DispatchQueue.main.async { [weak self] in
                 guard let self, window?.firstResponder === self else { return }
@@ -309,5 +322,10 @@ final class CaptureNSTextView: NSTextView {
             }
         }
         return became
+    }
+
+    override func resignFirstResponder() -> Bool {
+        onFocusChange?(false)
+        return super.resignFirstResponder()
     }
 }
