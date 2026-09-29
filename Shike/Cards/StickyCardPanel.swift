@@ -77,6 +77,8 @@ struct CardContentView: View {
     var onEditingTextChange: (String) -> Void = { _ in }
     /// 结束编辑（Esc/点击外部），保存交给控制器。
     var onEditEnd: () -> Void = {}
+    /// 在面板中显示（S3-08，03 §10.5）。
+    var onShowInPanel: () -> Void = {}
 
     @FocusState private var editorFocused: Bool
 
@@ -172,56 +174,63 @@ struct CardContentView: View {
         .padding(.top, 6)
     }
 
-    /// ⋯ 菜单（03 §10.5 的自动隐藏分支先随 S3-03 上线；颜色/层级等随 S3-08 并入）。
+    /// ⋯ 菜单（03 §10.5 全量，S3-03/S3-05/S3-08）。
     private var optionsMenu: some View {
         Menu {
+            sectionEditing
+            Picker(String(localized: .cardMenuColor), selection: colorBinding) {
+                Text(String(localized: .cardColorYellow)).tag(CardColor.yellow)
+                Text(String(localized: .cardColorGreen)).tag(CardColor.green)
+                Text(String(localized: .cardColorBlue)).tag(CardColor.blue)
+                Text(String(localized: .cardColorPink)).tag(CardColor.pink)
+                Text(String(localized: .cardColorPurple)).tag(CardColor.purple)
+                Text(String(localized: .cardColorGray)).tag(CardColor.gray)
+            }
+            .pickerStyle(.inline)
+            Picker(String(localized: .settingsCardFontSize), selection: fontSizeBinding) {
+                Text(String(localized: .cardFontSizeSmall)).tag(CardFontSize.small)
+                Text(String(localized: .cardFontSizeMedium)).tag(CardFontSize.medium)
+                Text(String(localized: .cardFontSizeLarge)).tag(CardFontSize.large)
+            }
+            .pickerStyle(.inline)
+            Picker(String(localized: .cardBarLevel), selection: levelBinding) {
+                Text(String(localized: .cardLevelFloating)).tag(CardLevel.floating)
+                Text(String(localized: .cardLevelNormal)).tag(CardLevel.normal)
+                Text(String(localized: .cardLevelDesktop)).tag(CardLevel.desktop)
+            }
+            .pickerStyle(.inline)
+            Picker(String(localized: .settingsCardAllSpaces), selection: allSpacesBinding) {
+                Text(String(localized: .cardSpaceAllSpaces)).tag(true)
+                Text(String(localized: .cardSpaceCurrentOnly)).tag(false)
+            }
+            .pickerStyle(.inline)
             Toggle(
-                String(localized: .cardMenuAutoHide),
-                isOn: Binding(
-                    get: { model.options.autoHide },
-                    set: { newValue in
-                        var options = model.options
-                        options.autoHide = newValue
-                        onOptionsChange(options)
-                    }
-                )
+                String(localized: .settingsCardShowOverFullScreen),
+                isOn: showOverFullScreenBinding
             )
-            if model.options.autoHide {
-                Menu(String(localized: .cardMenuAutoHideDelay)) {
-                    Picker("", selection: Binding(
-                        get: { model.options.hideDelay },
-                        set: { newValue in
-                            var options = model.options
-                            options.hideDelay = newValue
-                            onOptionsChange(options)
-                        }
-                    )) {
+            Menu(String(localized: .cardMenuAutoHide)) {
+                Toggle(String(localized: .cardMenuAutoHide), isOn: autoHideBinding)
+                if model.options.autoHide {
+                    Picker(String(localized: .cardMenuAutoHideDelay), selection: hideDelayBinding) {
                         ForEach([1.0, 3.0, 5.0, 10.0], id: \.self) { seconds in
                             Text(String(localized: .settingsCardHideDelaySeconds(Int(seconds))))
                                 .tag(seconds)
                         }
                     }
                     .pickerStyle(.inline)
-                    .labelsHidden()
-                }
-                Menu(String(localized: .settingsCardHiddenOpacity)) {
-                    Picker("", selection: Binding(
-                        get: { model.options.hiddenOpacity },
-                        set: { newValue in
-                            var options = model.options
-                            options.hiddenOpacity = newValue
-                            onOptionsChange(options)
-                        }
-                    )) {
+                    Picker(String(localized: .settingsCardHiddenOpacity), selection: hiddenOpacityBinding) {
                         ForEach([0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6], id: \.self) { opacity in
                             Text(String(localized: .settingsCardHiddenOpacityPercent(Int((opacity * 100).rounded()))))
                                 .tag(opacity)
                         }
                     }
                     .pickerStyle(.inline)
-                    .labelsHidden()
                 }
             }
+            Divider()
+            Button(String(localized: .cardMenuShowInPanel), action: onShowInPanel)
+            Button(String(localized: .cardMenuUnpin), action: onClose)
+                .keyboardShortcut("w", modifiers: .command)
         } label: {
             Image(systemName: "ellipsis")
         }
@@ -229,6 +238,54 @@ struct CardContentView: View {
         .menuIndicator(.visible)
         .fixedSize()
         .help(String(localized: .cardMenuOptions))
+    }
+
+    /// 编辑入口（03 §10.5 第一行）。
+    @ViewBuilder
+    private var sectionEditing: some View {
+        if !model.isEditing {
+            Button(String(localized: .listMenuEdit), action: onEditRequest)
+        }
+    }
+
+    // 选项绑定：统一走"改副本 → onOptionsChange"（持久化经仓储回环）
+    private var colorBinding: Binding<CardColor> {
+        optionBinding(\.color) { $0.color = $1 }
+    }
+    private var fontSizeBinding: Binding<CardFontSize> {
+        optionBinding(\.fontSize) { $0.fontSize = $1 }
+    }
+    private var levelBinding: Binding<CardLevel> {
+        optionBinding(\.level) { $0.level = $1 }
+    }
+    private var allSpacesBinding: Binding<Bool> {
+        optionBinding(\.allSpaces) { $0.allSpaces = $1 }
+    }
+    private var showOverFullScreenBinding: Binding<Bool> {
+        optionBinding(\.showOverFullScreen) { $0.showOverFullScreen = $1 }
+    }
+    private var autoHideBinding: Binding<Bool> {
+        optionBinding(\.autoHide) { $0.autoHide = $1 }
+    }
+    private var hideDelayBinding: Binding<Double> {
+        optionBinding(\.hideDelay) { $0.hideDelay = $1 }
+    }
+    private var hiddenOpacityBinding: Binding<Double> {
+        optionBinding(\.hiddenOpacity) { $0.hiddenOpacity = $1 }
+    }
+
+    private func optionBinding<Value>(
+        _ keyPath: KeyPath<StickyCardOptions, Value>,
+        _ set: @escaping (inout StickyCardOptions, Value) -> Void
+    ) -> Binding<Value> {
+        Binding(
+            get: { model.options[keyPath: keyPath] },
+            set: { newValue in
+                var options = model.options
+                set(&options, newValue)
+                onOptionsChange(options)
+            }
+        )
     }
 }
 

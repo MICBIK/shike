@@ -429,6 +429,19 @@ final class PanelModel {
         }
     }
 
+    /// 卡片菜单"在面板中显示"（S3-08）：切便签模式并按 uuid 定位高亮。
+    func locateNote(uuid: UUID) {
+        exitSearch()
+        mode = .note
+        locateNoteID = uuid.uuidString
+        locateNoteClearTask?.cancel()
+        locateNoteClearTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(1.5))
+            guard !Task.isCancelled else { return }
+            self?.locateNoteID = nil
+        }
+    }
+
     /// "已完成"组展开状态（S2-09）：提升到模型——定位已完成待办时需先展开。
     var isCompletedSectionExpanded = false
     /// 正在"设置时间…"的待办（S2-07）；弹层经 .popover(item:) 挂载。

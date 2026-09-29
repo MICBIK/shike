@@ -82,6 +82,10 @@ struct StatusMenuTests {
             openSettings: {},
             toggleLaunchAtLogin: {},
             launchAtLoginEnabled: { launchAtLoginEnabled },
+            hideAllCards: {},
+            showAllCards: {},
+            hasCards: { false },
+            allCardsHidden: { false },
             openAbout: {}
         ))
         _ = statusMenu.buildMenu() // 预热
@@ -120,6 +124,10 @@ struct StatusMenuTests {
             openSettings: { openedSettings = true },
             toggleLaunchAtLogin: { toggledLogin = true },
             launchAtLoginEnabled: { false },
+            hideAllCards: {},
+            showAllCards: {},
+            hasCards: { false },
+            allCardsHidden: { false },
             openAbout: { openedAbout = true }
         ))
         let items = statusMenu.buildMenu().items
@@ -129,5 +137,43 @@ struct StatusMenuTests {
         _ = items[4].target?.perform(items[4].action!, with: items[4])
         #expect(openedPanel && openedSettings && toggledLogin && openedAbout)
         #expect(items[3].state == .off) // 未启用形态
+        // 无卡片时右键菜单不出现"隐藏/显示所有卡片"项（S3-09）
+        #expect(!items.contains { $0.title == String(localized: .menuHideAllCards) })
+    }
+
+    @Test("有卡片时右键菜单出现互斥的隐藏/显示所有卡片项（S3-09，03 §10.6）")
+    func hideShowAllCardsItems() {
+        var hidAll = false
+        var showedAll = false
+        func build(hidden: Bool) -> (StatusMenu, [NSMenuItem]) {
+            let menu = StatusMenu(actions: .init(
+                openPanel: {},
+                openSettings: {},
+                toggleLaunchAtLogin: {},
+                launchAtLoginEnabled: { false },
+                hideAllCards: { hidAll = true },
+                showAllCards: { showedAll = true },
+                hasCards: { true },
+                allCardsHidden: { hidden },
+                openAbout: {}
+            ))
+            // NSMenuItem.target 弱引用：菜单实例必须与断言同生命周期
+            return (menu, menu.buildMenu().items)
+        }
+        let (visibleMenu, visibleItems) = build(hidden: false)
+        let hideItem = visibleItems.first { $0.title == String(localized: .menuHideAllCards) }
+        #expect(hideItem != nil)
+        _ = hideItem?.target?.perform(hideItem!.action!, with: hideItem!)
+        #expect(hidAll)
+
+        let (hiddenMenu, hiddenItems) = build(hidden: true)
+        let showItem = hiddenItems.first { $0.title == String(localized: .menuShowAllCards) }
+        #expect(showItem != nil)
+        _ = showItem?.target?.perform(showItem!.action!, with: showItem!)
+        #expect(showedAll)
+        // 互斥：隐藏态不显示"隐藏所有卡片"
+        #expect(!hiddenItems.contains { $0.title == String(localized: .menuHideAllCards) })
+        _ = visibleMenu // 菜单实例存活到断言结束（target 弱引用）
+        _ = hiddenMenu
     }
 }

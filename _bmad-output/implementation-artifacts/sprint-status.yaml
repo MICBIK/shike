@@ -78,15 +78,15 @@ development_status:
   3-9-搜索: done
   3-10-通知权限: done
   epic-3-retrospective: done
-  epic-4: in-progress
+  epic-4: done
   4-1-技术验证-卡片窗口与唤回: done
   4-2-钉出与收回: done
   4-3-显示层级: done
   4-4-自动隐藏: done
-  4-5-卡片外观: backlog
-  4-6-空间与全屏: backlog
+  4-5-卡片外观: done
+  4-6-空间与全屏: done
   4-7-卡片上编辑: done
-  4-8-恢复与屏幕变化: backlog
-  4-9-卡片菜单: backlog
-  4-10-全部显示与隐藏: backlog
+  4-8-恢复与屏幕变化: done
+  4-9-卡片菜单: done
+  4-10-全部显示与隐藏: done
   epic-4-retrospective: optional

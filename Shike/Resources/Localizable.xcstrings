@@ -364,6 +364,28 @@
         }
       }
     },
+    "card.menu.color": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "颜色"
+          }
+        }
+      }
+    },
+    "card.menu.showInPanel": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "在面板中显示"
+          }
+        }
+      }
+    },
     "card.menu.options": {
       "extractionState": "manual",
       "localizations": {
@@ -932,6 +954,28 @@
           "stringUnit": {
             "state": "translated",
             "value": "开机自启"
+          }
+        }
+      }
+    },
+    "menu.hideAllCards": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "隐藏所有卡片"
+          }
+        }
+      }
+    },
+    "menu.showAllCards": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "显示所有卡片"
           }
         }
       }

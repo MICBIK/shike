@@ -28,6 +28,8 @@ final class CardManager {
     var updateOptions: (Note.ID, StickyCardOptions) -> Void
     /// 卡片上编辑保存（S3-06）：防抖自动保存与收尾保存共用。
     var updateNoteContent: (Note.ID, String) -> Void
+    /// 在面板中显示（S3-08）：打开面板 + 切便签 + 定位（AppDelegate 接线）。
+    var showInPanel: (UUID) -> Void
 }
 
     /// 钉出定位与拖动钳制用的屏幕（面板所在屏；AppDelegate 在状态项就绪后设置）。
@@ -45,6 +47,12 @@ final class CardManager {
     private var appearanceObservation: NSKeyValueObservation?
     /// 自动隐藏共享轮询（S3-03，ADR-025 结论 1）：30Hz，仅当存在开启自动隐藏的卡片时运行。
     private var autoHideTimer: Timer?
+    /// 显示器变化（S3-07）：断开/改分辨率后把出屏卡片移回可见区域。
+    private var screenChangeObserver: NSObjectProtocol?
+    /// 全部隐藏（S3-09）：临时内存标记，不改卡片设置；true 时所有面板收起、轮询暂停。
+    private(set) var isHiddenAll = false
+    /// "在面板中显示"的出口（AppDelegate 接线：开面板 + 切便签 + 定位）。
+    nonisolated(unsafe) var showInPanelHandler: (UUID) -> Void = { _ in }
 
     /// 外观判定的纯函数（便于 L2）：darkAqua 视为深色。
     nonisolated static func isDarkAppearance(_ appearance: NSAppearance) -> Bool {
@@ -69,6 +77,16 @@ final class CardManager {
             }
         }
         guard task == nil else { return }
+        // 显示器变化（S3-07）：把出屏卡片钳回可见区域并持久化移动
+        screenChangeObserver = NotificationCenter.default.addObserver(
+            forName: NSApplication.didChangeScreenParametersNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated {
+                self?.reclampAllToVisibleArea()
+            }
+        }
         task = Task { [cardRepository] in
             do {
                 for try await visible in cardRepository.observeVisible() {
@@ -90,12 +108,60 @@ final class CardManager {
         appearanceObservation = nil
         autoHideTimer?.invalidate()
         autoHideTimer = nil
+        if let screenChangeObserver {
+            NotificationCenter.default.removeObserver(screenChangeObserver)
+        }
+        screenChangeObserver = nil
         for controller in controllers.values {
             controller.close()
         }
         controllers.removeAll()
         previousSnapshot = []
     }
+
+    // - MARK: 屏幕变化与全部显示/隐藏（S3-07 / S3-09）
+
+    /// 显示器断开/分辨率变化：全部卡片钳回当前所在屏可见区域，移动过的持久化。
+    private func reclampAllToVisibleArea() {
+        for controller in controllers.values {
+            guard let current = controller.currentFrame() else { continue }
+            let visible = controller.panel.screen?.visibleFrame ?? NSScreen.main?.visibleFrame
+            guard let visible else { continue }
+            let clamped = CardGeometry.clampedFrame(
+                NSRect(x: current.x, y: current.y, width: current.width, height: current.height),
+                in: visible
+            )
+            if clamped.x != current.x || clamped.y != current.y {
+                controller.panel.setFrame(
+                    NSRect(x: clamped.x, y: clamped.y, width: clamped.width, height: clamped.height),
+                    display: true
+                )
+                actions?.moveCard(controller.panel.noteID, clamped)
+            }
+        }
+    }
+
+    /// 隐藏所有卡片（03 §10.6）：临时收起，不改设置不入库。
+    func hideAllCards() {
+        isHiddenAll = true
+        autoHideTimer?.invalidate()
+        autoHideTimer = nil
+        for controller in controllers.values {
+            controller.close()
+        }
+    }
+
+    /// 显示所有卡片（03 §10.6）：恢复收起前的显示状态（隐藏期间新建/关闭由观察流对账兜住）。
+    func showAllCards() {
+        isHiddenAll = false
+        for controller in controllers.values {
+            controller.show()
+        }
+        syncAutoHideTimer()
+    }
+
+    /// 是否存在卡片记录（菜单项显示与否）。
+    var hasCards: Bool { !controllers.isEmpty }
 
     /// 当前卡片 frame（钉出错开定位的输入）。
     func existingFrames() -> [CardFrame] {
@@ -123,9 +189,9 @@ final class CardManager {
         syncAutoHideTimer()
     }
 
-    /// 有开自动隐藏的卡片才跑共享 30Hz 轮询（NFR24：全局一个监听器）。
+    /// 有开自动隐藏的卡片才跑共享 30Hz 轮询（NFR24：全局一个监听器）；全部隐藏时暂停。
     private func syncAutoHideTimer() {
-        let needed = controllers.values.contains { $0.model.options.autoHide }
+        let needed = !isHiddenAll && controllers.values.contains { $0.model.options.autoHide }
         if needed, autoHideTimer == nil {
             let timer = Timer(timeInterval: 1.0 / 30.0, repeats: true) { [weak self] _ in
                 MainActor.assumeIsolated {
@@ -174,10 +240,15 @@ final class CardManager {
             },
             onContentChange: { [weak self] noteID, text in
                 self?.actions?.updateNoteContent(noteID, text)
+            },
+            onShowInPanelRequest: { [weak self] uuid in
+                self?.actions?.showInPanel(uuid)
             }
         )
         controllers[item.card.noteID] = controller
-        controller.show()
+        if !isHiddenAll {
+            controller.show()
+        }
     }
 }
 
@@ -193,6 +264,9 @@ final class CardController: NSObject, NSWindowDelegate {
     private let onLevelCycle: (Note.ID, StickyCardOptions) -> Void
     private let onOptionsChange: (Note.ID, StickyCardOptions) -> Void
     private let onContentChange: (Note.ID, String) -> Void
+    private let onShowInPanelRequest: (UUID) -> Void
+    /// 便签 uuid（"在面板中显示"定位用，S3-08）。
+    let noteUUID: UUID
     /// 最近一次已应用到窗口的自动隐藏状态（tick 未变化时不重复做动画）。
     private var appliedAutoHide: (alpha: Double, ignoresMouseEvents: Bool)?
     /// 编辑防抖任务（0.5 秒，03 §10.2）。
@@ -207,7 +281,8 @@ final class CardController: NSObject, NSWindowDelegate {
         onUnpin: @escaping (Note.ID) -> Void,
         onLevelCycle: @escaping (Note.ID, StickyCardOptions) -> Void,
         onOptionsChange: @escaping (Note.ID, StickyCardOptions) -> Void,
-        onContentChange: @escaping (Note.ID, String) -> Void
+        onContentChange: @escaping (Note.ID, String) -> Void,
+        onShowInPanelRequest: @escaping (UUID) -> Void
     ) {
         // NSObject 子类：先初始化全部存储属性 → super.init() → 才能使用 self（闭包捕获）
         self.screenVisibleFrame = screenVisibleFrame
@@ -216,6 +291,8 @@ final class CardController: NSObject, NSWindowDelegate {
         self.onLevelCycle = onLevelCycle
         self.onOptionsChange = onOptionsChange
         self.onContentChange = onContentChange
+        self.onShowInPanelRequest = onShowInPanelRequest
+        self.noteUUID = note.uuid
         let frame = NSRect(
             x: card.frame.x, y: card.frame.y,
             width: card.frame.width, height: card.frame.height
@@ -242,7 +319,11 @@ final class CardController: NSObject, NSWindowDelegate {
                 },
                 onEditRequest: { [weak self] in self?.beginEditing() },
                 onEditingTextChange: { [weak self] text in self?.scheduleAutosave(text: text) },
-                onEditEnd: { [weak self] in self?.endEditing(save: true) }
+                onEditEnd: { [weak self] in self?.endEditing(save: true) },
+                onShowInPanel: { [weak self] in
+                    guard let self else { return }
+                    self.onShowInPanelRequest(self.noteUUID)
+                }
             )
         )
     }

@@ -18,6 +18,10 @@ final class StatusMenu: NSObject {
         let openSettings: () -> Void
         let toggleLaunchAtLogin: () -> Void
         let launchAtLoginEnabled: () -> Bool
+        let hideAllCards: () -> Void
+        let showAllCards: () -> Void
+        let hasCards: () -> Bool
+        let allCardsHidden: () -> Bool
         let openAbout: () -> Void
     }
 
@@ -57,6 +61,18 @@ final class StatusMenu: NSObject {
         launchAtLogin.state = actions.launchAtLoginEnabled() ? .on : .off
         menu.addItem(launchAtLogin)
 
+        // 全部显示/隐藏（S3-09，03 §10.6）：仅有卡片时出现，互斥显示；临时态不入库。
+        if actions.hasCards() {
+            let hidden = actions.allCardsHidden()
+            let cards = NSMenuItem(
+                title: hidden ? String(localized: .menuShowAllCards) : String(localized: .menuHideAllCards),
+                action: hidden ? #selector(showAllCardsAction) : #selector(hideAllCardsAction),
+                keyEquivalent: ""
+            )
+            cards.target = self
+            menu.addItem(cards)
+        }
+
         let about = NSMenuItem(
             title: String(localized: .menuAbout),
             action: #selector(openAboutAction),
@@ -87,6 +103,14 @@ final class StatusMenu: NSObject {
 
     @objc private func toggleLaunchAtLoginAction() {
         actions.toggleLaunchAtLogin()
+    }
+
+    @objc private func hideAllCardsAction() {
+        actions.hideAllCards()
+    }
+
+    @objc private func showAllCardsAction() {
+        actions.showAllCards()
     }
 
     @objc private func openAboutAction() {

@@ -116,6 +116,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 environment.launchAtLoginService.refresh()
                 return environment.launchAtLoginService.isEnabled
             },
+            hideAllCards: { [weak environment] in environment?.cardManager.hideAllCards() },
+            showAllCards: { [weak environment] in environment?.cardManager.showAllCards() },
+            hasCards: { [weak environment] in
+                guard let environment else { return false }
+                return environment.cardManager.hasCards
+            },
+            allCardsHidden: { [weak environment] in
+                environment?.cardManager.isHiddenAll ?? false
+            },
             openAbout: { [weak self] in self?.openAbout() }
         ))
         self.statusMenu = statusMenu
@@ -303,6 +312,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self?.statusItemController?.statusBarButton?.window?.screen
                 ?? NSScreen.main
                 ?? NSScreen.screens[0]
+        }
+        // 卡片菜单"在面板中显示"（S3-08）：开面板 + 切便签 + 定位高亮（同通知定位的组合方式）。
+        environment.cardManager.showInPanelHandler = { [weak self, weak environment] uuid in
+            guard let self, let environment,
+                  let button = self.statusItemController?.statusBarButton else { return }
+            if !popoverController.popover.isShown {
+                popoverController.toggle(from: button)
+            }
+            environment.panelModel.locateNote(uuid: uuid)
         }
 
         // 每日备份（§3 节点 I/J）：后台执行一次，跨天再备份；不等待完成。
