@@ -44,6 +44,9 @@ struct PanelView: View {
         // 视觉批次：识别 chip 的弹入/淡出（减弱动态效果时直切）。
         .animation(Motion.standard(), value: model.recognitionHintState)
         .animation(Motion.standard(), value: model.isSearching)
+        // 可读性修复（2026-09-29 验收反馈）：面板背景给稳定的实心底，
+        // 不再透出壁纸造成"文字发雾"；保留一丝材质透气感。
+        .background(Color(nsColor: .windowBackgroundColor).opacity(0.93))
     }
 
     private var topBar: some View {

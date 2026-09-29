@@ -31,6 +31,8 @@ struct NoteListView: View {
                 }
             }
             .listStyle(.sidebar)
+            // 可读性修复：去掉 List 自带的半透明底，露出面板实心底（2026-09-29）。
+            .scrollContentBackground(.hidden)
             .onChange(of: model.recentlyCreatedItemID) { _, newID in
                 if let newID {
                     proxy.scrollTo(newID)
