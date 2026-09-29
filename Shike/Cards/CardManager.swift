@@ -155,6 +155,7 @@ final class CardManager {
     func showAllCards() {
         isHiddenAll = false
         for controller in controllers.values {
+            controller.restoreForShowAll()
             controller.show()
         }
         syncAutoHideTimer()
@@ -426,6 +427,16 @@ final class CardController: NSObject, NSWindowDelegate {
     /// 拖动期间不隐藏（03 §10.4）；结束时重置离开计时。
     func setDragging(_ dragging: Bool) {
         autoHide.setBusy(dragging, now: ProcessInfo.processInfo.systemUptime)
+    }
+
+    /// 全部显示（S3-09，打磨 R9）：隐藏相位停着的卡片若只 orderFront 会保持
+    /// 半透明+点击穿透——强制回显并重置自动隐藏计时。
+    func restoreForShowAll() {
+        autoHide.setBusy(true, now: 0)
+        autoHide.setBusy(false, now: 0)
+        panel.ignoresMouseEvents = false
+        panel.alphaValue = 1
+        appliedAutoHide = (1, false)
     }
 
     // - MARK: 卡片上编辑（S3-06，03 §10.2）
