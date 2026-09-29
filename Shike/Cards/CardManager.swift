@@ -22,9 +22,7 @@ final class CardManager {
         var moveCard: (Note.ID, CardFrame) -> Void
         /// 取消钉住（✕）。
         var unpin: (Note.ID) -> Void
-        /// 层级按钮循环（携带完整当前选项，写回时只换层级）。
-        var cycleLevel: (Note.ID, StickyCardOptions) -> Void
-    /// 卡片菜单改动选项（自动隐藏开关/延迟/不透明度，S3-03）。
+        /// 卡片菜单改动选项（自动隐藏开关/延迟/不透明度，S3-03）。
     var updateOptions: (Note.ID, StickyCardOptions) -> Void
     /// 卡片上编辑保存（S3-06）：防抖自动保存与收尾保存共用。
     var updateNoteContent: (Note.ID, String) -> Void
@@ -233,9 +231,6 @@ final class CardManager {
             onUnpin: { [weak self] noteID in
                 self?.actions?.unpin(noteID)
             },
-            onLevelCycle: { [weak self] noteID, options in
-                self?.actions?.cycleLevel(noteID, options)
-            },
             onOptionsChange: { [weak self] noteID, options in
                 self?.actions?.updateOptions(noteID, options)
             },
@@ -262,7 +257,6 @@ final class CardController: NSObject, NSWindowDelegate {
     private let screenVisibleFrame: NSRect
     private let onMove: (Note.ID, CardFrame) -> Void
     private let onUnpin: (Note.ID) -> Void
-    private let onLevelCycle: (Note.ID, StickyCardOptions) -> Void
     private let onOptionsChange: (Note.ID, StickyCardOptions) -> Void
     private let onContentChange: (Note.ID, String) -> Void
     private let onShowInPanelRequest: (UUID) -> Void
@@ -280,7 +274,6 @@ final class CardController: NSObject, NSWindowDelegate {
         isDark: Bool,
         onMove: @escaping (Note.ID, CardFrame) -> Void,
         onUnpin: @escaping (Note.ID) -> Void,
-        onLevelCycle: @escaping (Note.ID, StickyCardOptions) -> Void,
         onOptionsChange: @escaping (Note.ID, StickyCardOptions) -> Void,
         onContentChange: @escaping (Note.ID, String) -> Void,
         onShowInPanelRequest: @escaping (UUID) -> Void
@@ -289,7 +282,6 @@ final class CardController: NSObject, NSWindowDelegate {
         self.screenVisibleFrame = screenVisibleFrame
         self.onMove = onMove
         self.onUnpin = onUnpin
-        self.onLevelCycle = onLevelCycle
         self.onOptionsChange = onOptionsChange
         self.onContentChange = onContentChange
         self.onShowInPanelRequest = onShowInPanelRequest
@@ -305,13 +297,13 @@ final class CardController: NSObject, NSWindowDelegate {
         panel.apply(options: card.options)
         super.init()
         panel.delegate = self // 失去 key（点击外部）即结束编辑（03 §10.2）
-        panel.contentView = NSHostingView(
+        panel.contentView = CardHostingView(
             rootView: CardContentView(
                 model: model,
                 onClose: { [weak self] in self?.closeRequested() },
-                onLevelCycle: { [weak self] in self?.levelCycleRequested() },
                 onDragStarted: { [weak self] in self?.setDragging(true) },
                 onDragEnded: { [weak self] in self?.dragEnded() },
+                onResizeEnded: { [weak self] in self?.resizeEnded() },
                 onOptionsChange: { [weak self] options in
                     guard let self else { return }
                     self.model.options = options
@@ -490,15 +482,22 @@ final class CardController: NSObject, NSWindowDelegate {
         onUnpin(panel.noteID)
     }
 
-    /// 层级按钮循环：floating → normal → desktop（03 §10.3；持久化经动作出口）。
-    private func levelCycleRequested() {
-        onLevelCycle(panel.noteID, model.options)
-    }
-
     /// 拖动结束：钳制进所在可见区域后持久化（03 §10.2 移动）。
     private func dragEnded() {
         setDragging(false)
         let clamped = CardGeometry.clampedFrame(panel.frame, in: panel.screen?.visibleFrame ?? screenVisibleFrame)
+        panel.setFrame(
+            NSRect(x: clamped.x, y: clamped.y, width: clamped.width, height: clamped.height),
+            display: true
+        )
+        onMove(panel.noteID, clamped)
+    }
+
+    /// 调整大小结束（03 §10.2，ADR-026）：把手跟踪期间已实时钳制最小尺寸，
+    /// 这里再按可见区域钳制出屏部分并持久化（与移动同走 onMove）。
+    private func resizeEnded() {
+        setDragging(false) // 与拖动共用 busy 位，结束后重置自动隐藏计时
+        let clamped = CardGeometry.clampedResize(frame: panel.frame, in: panel.screen?.visibleFrame ?? screenVisibleFrame)
         panel.setFrame(
             NSRect(x: clamped.x, y: clamped.y, width: clamped.width, height: clamped.height),
             display: true

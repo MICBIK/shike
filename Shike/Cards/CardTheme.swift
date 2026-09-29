@@ -35,27 +35,26 @@ enum CardTheme {
         }
     }
 
-    /// 卡片层级 → NSWindow.Level（ADR-025 结论 2；桌面层 key=2，宏在 Swift 不可见）。
+    /// 卡片层级 → NSWindow.Level（ADR-025 结论 2；ADR-026：桌面层取 desktopIcon + 1——
+    /// desktopWindow 层（壁纸）被 Finder 整屏桌面窗口（desktopIcon 层）压住，必然收不到
+    /// 点击；desktopIcon 原值与 Finder 同层、层内 z 序不可预期，同类产品（Tack/macterm）
+    /// 均取 +1/+2，这里取 +1：壁纸之上、桌面图标之上、仍低于普通窗口）。
     static func windowLevel(for level: CardLevel) -> NSWindow.Level {
         switch level {
         case .floating: .floating
         case .normal: .normal
-        case .desktop: NSWindow.Level(rawValue: Int(CGWindowLevelForKey(CGWindowLevelKey(rawValue: 2)!)))
+        case .desktop: NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.desktopIconWindow)) + 1)
         }
     }
 
-    /// 层级在卡片按钮上循环的下一档（floating → normal → desktop → floating）。
-    static func nextLevel(after level: CardLevel) -> CardLevel {
-        switch level {
-        case .floating: .normal
-        case .normal: .desktop
-        case .desktop: .floating
-        }
-    }
-
-    /// 空间行为（ADR-025 结论 3）：所有空间跟随显示；全屏压盖用 fullScreenAuxiliary。
+    /// 空间行为（ADR-025 结论 3；ADR-026 补 .stationary/.ignoresCycle）：
+    /// 所有空间跟随显示（不随空间切换移动）；全屏压盖用 fullScreenAuxiliary；
+    /// 卡片不进 ⌘` 窗口循环（borderless 面板不属于窗口轮换语义）。
     static func collectionBehavior(allSpaces: Bool, showOverFullScreen: Bool) -> NSWindow.CollectionBehavior {
-        var behavior: NSWindow.CollectionBehavior = allSpaces ? [.canJoinAllSpaces] : [.moveToActiveSpace]
+        var behavior: NSWindow.CollectionBehavior = allSpaces
+            ? [.canJoinAllSpaces, .stationary]
+            : [.moveToActiveSpace]
+        behavior.insert(.ignoresCycle)
         if showOverFullScreen {
             behavior.insert(.fullScreenAuxiliary)
         }

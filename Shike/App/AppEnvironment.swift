@@ -132,11 +132,6 @@ public final class AppEnvironment {
             unpin: { [weak self] noteID in
                 Task { await self?.unpinCard(noteID) }
             },
-            cycleLevel: { [weak self] noteID, options in
-                var next = options
-                next.level = CardTheme.nextLevel(after: options.level)
-                Task { await self?.updateCardOptions(noteID, next) }
-            },
             updateOptions: { [weak self] noteID, options in
                 Task { await self?.updateCardOptions(noteID, options) }
             },
