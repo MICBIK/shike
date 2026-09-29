@@ -99,13 +99,43 @@ public struct TodoRepository: Sendable {
         try await database.performWrite { database in
             let now = try database.transactionDate
             try database.execute(
-                sql: "UPDATE todo SET snoozedUntil = ?, updatedAt = ? WHERE id = ?",
+                sql: "UPDATE todo SET snoozedUntil = ?, updatedAt = ? WHERE id = ? AND completedAt IS NULL",
                 arguments: [date, now, id.rawValue]
             )
             if database.changesCount == 0 {
                 throw ShikeDataError.notFound
             }
         }
+    }
+
+    // - MARK: 按 uuid 的读写（S2-04 通知动作路径：动作到达时不依赖界面快照，盲审 F1）
+
+    /// 按 uuid 读取待办（含已删除；调用方自行判断 deletedAt）。不存在返回 nil。
+    /// uuid 以 36 位小写文本存储（ADR-020），比较时同步小写。
+    public func todo(uuid: UUID) async throws -> Todo? {
+        try await database.writer.read { database in
+            try TodoRecord.filter(Column("uuid") == uuid.uuidString.lowercased())
+                .fetchOne(database)?
+                .todo
+        }
+    }
+
+    /// 按 uuid 完成待办（通知动作）。待办不存在或已删除返回 false（调用方忽略）。
+    public func setCompleted(uuid: UUID, _ completed: Bool) async throws -> Bool {
+        guard let todo = try await self.todo(uuid: uuid), todo.deletedAt == nil else {
+            return false
+        }
+        try await setCompleted(todo.id, completed)
+        return true
+    }
+
+    /// 按 uuid 稍后提醒（通知动作）。不存在/已删除/已完成返回 false（盲审 F5：不给已完成待办写脏 snoozedUntil）。
+    public func snooze(uuid: UUID, until date: Date) async throws -> Bool {
+        guard let todo = try await self.todo(uuid: uuid), todo.deletedAt == nil, todo.completedAt == nil else {
+            return false
+        }
+        try await snooze(todo.id, until: date)
+        return true
     }
 
     /// 软删除：deletedAt 设为当前时间；已删除的保留原来的 deletedAt。不更新 updatedAt。

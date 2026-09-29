@@ -19,6 +19,9 @@ final class StatusItemController {
     /// 右键菜单的提供者（1.11 起 AppDelegate 注入 StatusMenu）；返回 nil 表示不响应。
     var menuProvider: (() -> NSMenu?)?
 
+    /// 状态栏按钮（S1-02 起供全局快捷键的 toggle 提供锚点）。
+    var statusBarButton: NSStatusBarButton? { statusBarItem.button }
+
     init(popoverController: PopoverController) {
         self.popoverController = popoverController
         self.statusBarItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
@@ -37,6 +40,20 @@ final class StatusItemController {
         button.sendAction(on: [.leftMouseUp, .rightMouseUp])
         button.target = self
         button.action = #selector(handleStatusBarButtonAction)
+    }
+
+    /// 菜单栏计数（S2-08，03 §2）：图标右侧数字；nil 或 0 不显示。
+    func updateCounter(_ count: Int?) {
+        guard let button = statusBarItem.button else { return }
+        let text: String
+        switch count {
+        case .some(let value) where value > 0:
+            text = "\(value)"
+        default:
+            text = ""
+        }
+        button.title = text
+        statusBarItem.length = NSStatusItem.variableLength // 数字增减后回收宽度
     }
 
     @objc private func handleStatusBarButtonAction() {

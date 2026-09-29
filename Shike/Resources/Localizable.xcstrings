@@ -100,6 +100,28 @@
         }
       }
     },
+    "banner.notificationDenied": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "通知已关闭，到点不会提醒"
+          }
+        }
+      }
+    },
+    "banner.openSystemSettings": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "打开系统设置"
+          }
+        }
+      }
+    },
     "banner.retry": {
       "extractionState": "manual",
       "localizations": {
@@ -118,6 +140,138 @@
           "stringUnit": {
             "state": "translated",
             "value": "保存失败：%@"
+          }
+        }
+      }
+    },
+    "capture.recognition.allDay": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@（全天）"
+          }
+        }
+      }
+    },
+    "capture.recognition.daysLater": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld 天后"
+          }
+        }
+      }
+    },
+    "capture.recognition.dismiss": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "取消识别"
+          }
+        }
+      }
+    },
+    "capture.recognition.dismissed": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "不识别时间"
+          }
+        }
+      }
+    },
+    "capture.recognition.hoursLater": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld 小时后"
+          }
+        }
+      }
+    },
+    "capture.recognition.minutesLater": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld 分钟后"
+          }
+        }
+      }
+    },
+    "capture.recognition.past": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@（已过）"
+          }
+        }
+      }
+    },
+    "capture.recognition.remind": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ 提醒"
+          }
+        }
+      }
+    },
+    "greeting.afternoon": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "下午好"
+          }
+        }
+      }
+    },
+    "greeting.evening": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "晚上好"
+          }
+        }
+      }
+    },
+    "greeting.morning": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "早上好"
+          }
+        }
+      }
+    },
+    "greeting.noon": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "中午好"
           }
         }
       }
@@ -298,6 +452,149 @@
         }
       }
     },
+    "list.group.completed": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已完成（%lld）"
+          }
+        }
+      }
+    },
+    "list.group.later": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "以后"
+          }
+        }
+      }
+    },
+    "list.group.noDate": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无日期"
+          }
+        }
+      }
+    },
+    "list.group.notes": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "便签"
+          }
+        }
+      }
+    },
+    "list.group.overdue": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "逾期"
+          }
+        }
+      }
+    },
+    "list.group.pinned": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "置顶"
+          }
+        }
+      }
+    },
+    "list.group.today": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "今天"
+          }
+        }
+      }
+    },
+    "list.group.todos": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "待办"
+          }
+        }
+      }
+    },
+    "list.menu.copy": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "复制内容"
+          }
+        }
+      }
+    },
+    "list.menu.delete": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "删除"
+          }
+        }
+      }
+    },
+    "list.menu.edit": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "编辑"
+          }
+        }
+      }
+    },
+    "list.menu.pin": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "置顶"
+          }
+        }
+      }
+    },
+    "list.menu.unpin": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "取消置顶"
+          }
+        }
+      }
+    },
     "mainMenu.copy": {
       "extractionState": "manual",
       "localizations": {
@@ -386,6 +683,28 @@
         }
       }
     },
+    "menu.launchAtLogin": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "开机自启"
+          }
+        }
+      }
+    },
+    "menu.open": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "打开拾刻"
+          }
+        }
+      }
+    },
     "menu.quit": {
       "extractionState": "manual",
       "localizations": {
@@ -408,6 +727,72 @@
         }
       }
     },
+    "notification.action.complete": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "完成"
+          }
+        }
+      }
+    },
+    "notification.action.snooze": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "稍后提醒（%lld 分钟）"
+          }
+        }
+      }
+    },
+    "notification.body.allDay": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "全天 · %@"
+          }
+        }
+      }
+    },
+    "panel.capture.placeholder.note": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "记点什么…（⇧↩ 换行）"
+          }
+        }
+      }
+    },
+    "panel.capture.placeholder.todo": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "要做什么？比如：周五下午三点交报告"
+          }
+        }
+      }
+    },
+    "panel.empty.note.guide": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "在上方输入，回车保存"
+          }
+        }
+      }
+    },
     "panel.empty.note.title": {
       "extractionState": "manual",
       "localizations": {
@@ -415,6 +800,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "还没有便签"
+          }
+        }
+      }
+    },
+    "panel.empty.todo.guide": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "输入要做的事，回车保存；可以直接写时间，比如‘明天下午三点’"
           }
         }
       }
@@ -463,6 +859,182 @@
         }
       }
     },
+    "panel.stats.today": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "今天记了 **%lld** 条 · 待办完成 **%lld** 条"
+          }
+        }
+      }
+    },
+    "search.clear": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "清除搜索"
+          }
+        }
+      }
+    },
+    "search.empty": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "没有找到\"%@\""
+          }
+        }
+      }
+    },
+    "search.placeholder": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "搜索便签和待办…"
+          }
+        }
+      }
+    },
+    "settings.general.counter.allIncomplete": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "全部未完成"
+          }
+        }
+      }
+    },
+    "settings.general.counter.none": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "不显示"
+          }
+        }
+      }
+    },
+    "settings.general.counter.overdueToday": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "逾期+今天"
+          }
+        }
+      }
+    },
+    "settings.general.launchAtLogin": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "开机自启"
+          }
+        }
+      }
+    },
+    "settings.general.menuBarCounter": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "菜单栏计数"
+          }
+        }
+      }
+    },
+    "settings.general.openMode": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "呼出时进入"
+          }
+        }
+      }
+    },
+    "settings.general.openMode.last": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "上次的模式"
+          }
+        }
+      }
+    },
+    "settings.general.openMode.note": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "总是便签"
+          }
+        }
+      }
+    },
+    "settings.general.openMode.todo": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "总是待办"
+          }
+        }
+      }
+    },
+    "settings.launchAtLogin.failed": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "设置未生效，请稍后重试"
+          }
+        }
+      }
+    },
+    "settings.launchAtLogin.needApproval": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "需要在系统设置中批准后生效"
+          }
+        }
+      }
+    },
+    "settings.launchAtLogin.openSettings": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "打开登录项设置"
+          }
+        }
+      }
+    },
     "settings.placeholder": {
       "extractionState": "manual",
       "localizations": {
@@ -470,6 +1042,116 @@
           "stringUnit": {
             "state": "translated",
             "value": "将在阶段 %lld 提供"
+          }
+        }
+      }
+    },
+    "settings.reminder.allDayTime": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "全天待办提醒时间"
+          }
+        }
+      }
+    },
+    "settings.reminder.permission": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "通知权限"
+          }
+        }
+      }
+    },
+    "settings.reminder.permission.denied": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已关闭"
+          }
+        }
+      }
+    },
+    "settings.reminder.permission.granted": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已允许"
+          }
+        }
+      }
+    },
+    "settings.reminder.permission.notDetermined": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未请求"
+          }
+        }
+      }
+    },
+    "settings.reminder.snooze": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "稍后提醒时长"
+          }
+        }
+      }
+    },
+    "settings.reminder.snoozeMinutes": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld 分钟"
+          }
+        }
+      }
+    },
+    "settings.shortcuts.accessDenied": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "快捷键需要「辅助功能」权限才能生效：系统设置 ＞ 隐私与安全性 ＞ 辅助功能，允许拾刻后重进此页。"
+          }
+        }
+      }
+    },
+    "settings.shortcuts.enabled": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "启用"
+          }
+        }
+      }
+    },
+    "settings.shortcuts.togglePanel": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "呼出 / 收起面板"
           }
         }
       }
@@ -547,6 +1229,259 @@
           "stringUnit": {
             "state": "translated",
             "value": "设置"
+          }
+        }
+      }
+    },
+    "time.date": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld月%lld日"
+          }
+        }
+      }
+    },
+    "time.day.fullDate": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@年%@月%@日"
+          }
+        }
+      }
+    },
+    "time.day.monthDay": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@月%@日"
+          }
+        }
+      }
+    },
+    "time.day.today": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "今天"
+          }
+        }
+      }
+    },
+    "time.day.tomorrow": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "明天"
+          }
+        }
+      }
+    },
+    "time.day.weekday": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "周%@"
+          }
+        }
+      }
+    },
+    "time.day.yesterday": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "昨天"
+          }
+        }
+      }
+    },
+    "time.justNow": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "刚刚"
+          }
+        }
+      }
+    },
+    "time.minutesAgo": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld 分钟前"
+          }
+        }
+      }
+    },
+    "time.todayAt": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "今天 %@"
+          }
+        }
+      }
+    },
+    "time.yesterday": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "昨天"
+          }
+        }
+      }
+    },
+    "timeEditor.clear": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "清除时间"
+          }
+        }
+      }
+    },
+    "timeEditor.date": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "日期"
+          }
+        }
+      }
+    },
+    "timeEditor.hasTime": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "包含时刻"
+          }
+        }
+      }
+    },
+    "timeEditor.quick.nextMonday": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "下周一"
+          }
+        }
+      }
+    },
+    "timeEditor.quick.today": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "今天"
+          }
+        }
+      }
+    },
+    "timeEditor.quick.tomorrow": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "明天"
+          }
+        }
+      }
+    },
+    "timeEditor.time": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "时刻"
+          }
+        }
+      }
+    },
+    "todo.menu.setTime": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "设置时间…"
+          }
+        }
+      }
+    },
+    "undoBar.deleted": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已删除「%@」"
+          }
+        }
+      }
+    },
+    "undoBar.undo": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "撤销"
+          }
+        }
+      }
+    },
+    "undoBar.recovered": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已恢复「%@」"
+          }
+        }
+      }
+    },
+    "undoBar.remaining": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "还可撤销 %lld 条"
           }
         }
       }

@@ -7,8 +7,11 @@
 // 修改说明：自 demo AppDelegate 的面板相关部分（togglePopover、外部点击监听、didClose/didShow 兜底）
 // 与 MainPopoverSizing.swift 拆成独立控制器；去掉 EventKit 授权与单例；尺寸改为 03 §3 的
 // 360×520（最小 300×360、最大 600×1000）；activate(ignoringOtherApps:) 改为 activate()（2026-09-27）。
+// S1-01：初始尺寸读自 panel.size；新增 applyResize（把手钳制与持久化）、Esc 本地监听
+// （结束编辑 → 收起面板）与 escapeOutcome/persistSize/escapeHandler 回调（2026-09-28）。
 
 import AppKit
+import os
 import Combine
 import SwiftUI
 
@@ -35,11 +38,32 @@ final class PopoverController {
     private var didCloseEventDate = Date.distantPast
     private var globalOutsideClickMonitor: Any?
     private var localOutsideClickMonitor: Any?
+    private var localEscapeMonitor: Any?
 
-    init(contentViewController: NSViewController) {
+    /// Esc 的第一级"结束编辑"（S1-01：结束编辑 → 收起面板）。
+    /// 由 App 接到 PanelModel 的编辑状态；返回 true 表示编辑已被结束（本次 Esc 只做这一级）。
+    /// 阶段 1 的 2.6/2.7 接入真实编辑状态；列表编辑未实现时保持默认 false。
+    var escapeHandler: () -> Bool = { false }
+    /// 尺寸持久化（S1-01）：applyResize 钳制后且 isFinal 时调用；由 App 接到 Preferences.panelSize。
+    var persistSize: (CGSize) -> Void = { _ in }
+    /// 面板弹出（S1-03）：每次呼出应用"呼出时进入"设置；由 App 接到 PanelModel.applyOpenMode。
+    var onShow: () -> Void = {}
+    /// 面板收起（S1-04）：呼出即打字的缓冲在此丢弃；由 App 接到 TypingBuffer.reset。
+    var onClose: () -> Void = {}
+    /// ⌘1/⌘2 切模式（S1-03）：参数为数字字符（"1"/"2"）；返回 true 表示已消费。
+    var modeKeyHandler: (String) -> Bool = { _ in false }
+    /// ⌘F 进入搜索（S2-09，03 §13）；返回 true 表示已消费。
+    var searchKeyHandler: () -> Bool = { false }
+    /// 面板内 ⌘Z 撤销最近一次删除（S1-07，非编辑态）；返回 true 表示已消费。
+    var undoKeyHandler: () -> Bool = { false }
+
+    init(contentViewController: NSViewController, initialSize: CGSize = PanelSizing.defaultSize) {
         popover.animates = false
         popover.behavior = .transient
-        popover.contentSize = Self.clampedSize(PanelSizing.defaultSize, visibleFrame: Self.visibleFrame(for: nil))
+        popover.contentSize = Self.clampedSize(
+            NSSize(width: initialSize.width, height: initialSize.height),
+            visibleFrame: Self.visibleFrame(for: nil)
+        )
         popover.contentViewController = contentViewController // 启动时创建一次，之后常驻
 
         configureDidCloseNotification()
@@ -52,11 +76,14 @@ final class PopoverController {
         didCloseCancellationToken?.cancel()
         didShowCancellationToken?.cancel()
         stopOutsideClickMonitors()
+        stopEscapeMonitor()
     }
 
     func toggle(from button: NSStatusBarButton) {
         statusBarButton = button
-        if popover.isShown || Date().timeIntervalSince(didCloseEventDate) < 0.01 {
+        let intervalSinceClose = Date().timeIntervalSince(didCloseEventDate)
+        Log.app.info("面板 toggle：isShown=\(self.popover.isShown, privacy: .public) 距上次收起=\(intervalSinceClose, privacy: .public)s")
+        if Self.shouldDebounceClose(isShown: popover.isShown, intervalSinceClose: intervalSinceClose) {
             didCloseEventDate = .distantPast
             popover.performClose(button)
         } else {
@@ -65,6 +92,16 @@ final class PopoverController {
             NSApp.activate()
             popover.contentViewController?.view.window?.makeKey()
         }
+    }
+
+    /// 纯函数：toggle 是否应走"关闭/不打开"分支（移植自 demo 的防"刚关又开"：
+    /// 已显示时关闭；刚收起 10 毫秒内不重新打开）。
+    nonisolated static func shouldDebounceClose(
+        isShown: Bool,
+        intervalSinceClose: TimeInterval,
+        window: TimeInterval = 0.01
+    ) -> Bool {
+        isShown || intervalSinceClose < window
     }
 
     // - MARK: 尺寸（03 §3：默认 360×520；最小 300×360；最大 600×1000，且不超出所在屏幕的可见区域）
@@ -89,6 +126,81 @@ final class PopoverController {
         return NSSize(width: width, height: height)
     }
 
+    // - MARK: 尺寸把手（S1-01）与 Esc（03 §3、§13）
+
+    /// 把手回调：实时钳制并应用；isFinal 时持久化。
+    func applyResize(_ proposed: CGSize, isFinal: Bool) {
+        let clamped = Self.clampedSize(
+            NSSize(width: proposed.width, height: proposed.height),
+            visibleFrame: Self.visibleFrame(for: statusBarButton)
+        )
+        popover.contentSize = clamped
+        if isFinal {
+            persistSize(CGSize(width: clamped.width, height: clamped.height))
+        }
+    }
+
+    /// Esc 的处理结果（纯函数，03 §13 的顺序在阶段 1 只有两级）。
+    enum EscapeOutcome {
+        /// 第一级：编辑已被结束，本次 Esc 到此为止。
+        case consumedByEditing
+        /// 收起面板。
+        case closesPanel
+    }
+
+    nonisolated static func escapeOutcome(editingHandled: Bool) -> EscapeOutcome {
+        editingHandled ? .consumedByEditing : .closesPanel
+    }
+
+    private func startEscapeMonitor() {
+        stopEscapeMonitor()
+        localEscapeMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            // 面板内按键（03 §13）：裸 Esc 与 ⌘1/⌘2 在此消费，其余放行。
+            // assumeIsolated 的闭包是 @Sendable，只返回布尔，事件本身在监听闭包（非 @Sendable）中处理。
+            let swallow = MainActor.assumeIsolated { () -> Bool in
+                guard let self else { return false }
+                let modifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+                if event.keyCode == 53, modifiers.isEmpty {
+                    // 输入法组合态（候选窗/下划线）：Esc 交还输入法，不结束编辑也不收起面板（03 §4/S1-05）。
+                    if let textView = NSApp.keyWindow?.firstResponder as? NSTextView,
+                       textView.hasMarkedText() {
+                        return false
+                    }
+                    switch Self.escapeOutcome(editingHandled: self.escapeHandler()) {
+                    case .consumedByEditing:
+                        return true
+                    case .closesPanel:
+                        self.popover.performClose(nil)
+                        return true
+                    }
+                }
+                if modifiers.subtracting([.numericPad, .function, .capsLock]) == .command {
+                    // ⌘Z：非编辑态撤销最近一次删除；编辑态返回 false 交回文字撤销（03 §7）。
+                    if event.charactersIgnoringModifiers == "z" {
+                        return self.undoKeyHandler()
+                    }
+                    // ⌘F：进入搜索（S2-09）。
+                    if event.charactersIgnoringModifiers == "f" {
+                        return self.searchKeyHandler()
+                    }
+                    if let digit = event.charactersIgnoringModifiers,
+                       digit == "1" || digit == "2" {
+                        return self.modeKeyHandler(digit)
+                    }
+                }
+                return false
+            }
+            return swallow ? nil : event
+        }
+    }
+
+    private func stopEscapeMonitor() {
+        if let monitor = localEscapeMonitor {
+            NSEvent.removeMonitor(monitor)
+            localEscapeMonitor = nil
+        }
+    }
+
     // - MARK: 面板收起/弹出的兜底（移植自 demo）
 
     private func configureDidCloseNotification() {
@@ -100,6 +212,8 @@ final class PopoverController {
                 MainActor.assumeIsolated {
                     self?.didCloseEventDate = Date()
                     self?.stopOutsideClickMonitors()
+                    self?.stopEscapeMonitor()
+                    self?.onClose()
                 }
             }
     }
@@ -112,6 +226,8 @@ final class PopoverController {
             .sink { [weak self] _ in
                 MainActor.assumeIsolated {
                     self?.startOutsideClickMonitors()
+                    self?.startEscapeMonitor()
+                    self?.onShow()
                 }
             }
     }

@@ -1,0 +1,331 @@
+// Shike（拾刻）
+// Copyright (C) 2026 Shike contributors
+// SPDX-License-Identifier: GPL-3.0-only
+//
+// 部分代码源自 Reminders MenuBar（https://github.com/DamascenoRafael/reminders-menubar），
+// Copyright (C) Rafael Damasceno and contributors，以 GPL-3.0 授权。
+// 修改说明：自 demo 的 RmbHighlightedTextField.swift、PlaceholderNSTextView.swift 与
+// FocusDirection.swift 移植；去掉自动补全、高亮与对焦方向枚举；Tab 改为 onTab 回调
+// （切模式）；回车决策提为纯函数 newlineDecision 并在输入法组合态交还输入法；
+// 行数上限改为 03 §4（便签 6、待办 2）（2026-09-28）。
+
+import AppKit
+import SwiftUI
+
+/// 面板顶栏下方的快速输入框（S1-04，03 §4）。
+struct CaptureTextView: NSViewRepresentable {
+    let placeholder: String
+    var text: Binding<String>
+    var maximumNumberOfLines: Int
+    var allowsLineBreaks: Bool
+    var focusTrigger: UUID?
+    /// 外部驱动的草稿变更令牌（提交清空、模式切换）：焦点态下也必须回写视图，
+    /// 否则可见文字与绑定脱节、互相污染（demo 的"活动编辑器不回写"守卫只适用于
+    /// 其"提交即关窗"的场景，拾刻的常驻输入框需要显式通道）。
+    var externalChangeTrigger: UUID?
+    var textContainerDynamicHeight: Binding<CGFloat>?
+    /// 时间识别高亮（S2-01）：被识别文字的 UTF-16 区间，空=无高亮。
+    /// 仅在非组合态应用（IME 安全：组合中绝不触碰文字属性）。
+    /// 视觉批次（2026-09-29）：青绿药丸（背景+前景走资产色集），替代原强调色 30% 垫色。
+    var highlightRanges: [NSRange] = []
+    /// 输入框焦点变化（视觉批次：容器聚焦描边）。
+    var onFocusChange: (Bool) -> Void = { _ in }
+    var onSubmit: () -> Void
+    /// Tab 切换模式（03 §4）；Shift+Tab 同样切换到另一模式。
+    var onTab: (_ direction: FocusDirection) -> Void
+    /// 输入框获得焦点并就绪（S1-04）：呼出即打字的缓冲回放在此触发。
+    var onViewReady: (NSTextView) -> Void = { _ in }
+
+    private let textFont = NSFont.systemFont(ofSize: NSFont.systemFontSize)
+
+    func makeNSView(context: Context) -> NSScrollView {
+        let scrollView = CaptureNSTextView.scrollableTextView()
+        guard let textView = scrollView.documentView as? CaptureNSTextView else {
+            return scrollView
+        }
+        textView.placeholder = placeholder
+        textView.font = textFont
+        textView.allowsUndo = true
+        textView.drawsBackground = false
+        textView.isRichText = false
+        textView.importsGraphics = false
+        textView.delegate = context.coordinator
+        return scrollView
+    }
+
+    func updateNSView(_ nsView: NSScrollView, context: Context) {
+        guard let textView = nsView.documentView as? CaptureNSTextView else { return }
+        context.coordinator.parent = self
+        textView.onFocusChange = { context.coordinator.parent.onFocusChange($0) }
+        textView.placeholder = placeholder
+
+        // 外部变更（提交清空、模式切换）：无条件回写视图（保留光标相对位置）。
+        if let trigger = externalChangeTrigger, trigger != context.coordinator.lastExternalChangeTrigger {
+            context.coordinator.lastExternalChangeTrigger = trigger
+            updateText(in: textView, with: text.wrappedValue)
+        }
+
+        // AppKit 在输入法组合期间拥有文字；组合态不替换、不刷新属性（03 §4、规格 IME 安全）。
+        if !textView.hasMarkedText() {
+            let updatedText = text.wrappedValue
+            if updatedText == textView.string {
+                refreshPlaceholder(for: textView)
+            } else if textView.window?.firstResponder !== textView {
+                updateText(in: textView, with: updatedText)
+            }
+            Self.applyHighlight(
+                ranges: highlightRanges,
+                in: textView,
+                lastApplied: &context.coordinator.lastAppliedHighlight
+            )
+        }
+
+        if let trigger = focusTrigger, trigger != context.coordinator.lastFocusTrigger {
+            context.coordinator.lastFocusTrigger = trigger
+            if textView.window?.firstResponder !== textView {
+                textView.window?.makeFirstResponder(textView)
+            }
+            let textLength = (textView.string as NSString).length
+            textView.setSelectedRange(NSRange(location: textLength, length: 0))
+            // 就绪回调（呼出即打字）：缓冲回放在文本视图可接收 keyDown 后触发。
+            context.coordinator.parent.onViewReady(textView)
+        }
+
+        textView.scrollRangeToVisible(textView.selectedRange())
+        adjustDynamicHeight(for: textView, context: context)
+    }
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(self)
+    }
+
+    // - MARK: 文字与属性
+
+    private func updateText(in textView: NSTextView, with updatedText: String) {
+        let selectedRange = textView.selectedRange()
+        let updatedTextLength = (updatedText as NSString).length
+        let selectionLocation = min(selectedRange.location, updatedTextLength)
+        let selectionLength = min(selectedRange.length, updatedTextLength - selectionLocation)
+
+        textView.string = updatedText
+        textView.setSelectedRange(NSRange(location: selectionLocation, length: selectionLength))
+    }
+
+    private func refreshPlaceholder(for textView: NSTextView) {
+        textView.needsDisplay = true
+    }
+
+    // - MARK: 时间识别高亮（S2-01）
+
+    /// 高亮的应用状态（文本+区间）：一致则跳过，避免每键全量重设属性。
+    struct HighlightKey: Equatable {
+        let text: String
+        let ranges: [NSRange]
+    }
+
+    /// 把识别区间以青绿药丸（背景+前景，资产色集随深浅色）应用到文本存储；
+    /// 先整段清除本视图使用的两组属性再按区间补回。
+    static func applyHighlight(ranges: [NSRange], in textView: NSTextView, lastApplied: inout HighlightKey?) {
+        let key = HighlightKey(text: textView.string, ranges: ranges)
+        guard key != lastApplied else { return }
+        lastApplied = key
+        guard let storage = textView.textStorage else { return }
+        let length = (textView.string as NSString).length
+        if length > 0 {
+            storage.removeAttribute(.backgroundColor, range: NSRange(location: 0, length: length))
+            storage.removeAttribute(.foregroundColor, range: NSRange(location: 0, length: length))
+        }
+        let background = NSColor(named: "RecognitionHighlight")
+            ?? NSColor.controlAccentColor.withAlphaComponent(0.30)
+        let foreground = NSColor(named: "RecognitionText")
+        for range in ranges where range.location != NSNotFound && range.location >= 0 && NSMaxRange(range) <= length {
+            storage.addAttribute(.backgroundColor, value: background, range: range)
+            if let foreground {
+                storage.addAttribute(.foregroundColor, value: foreground, range: range)
+            }
+        }
+    }
+
+    // - MARK: 高度（03 §4：随内容增高，达上限后框内滚动）
+
+    /// 高度计算（纯函数）：至少一行，随内容增高，上限为 maxLines 行。
+    static func captureHeight(usedHeight: CGFloat, lineHeight: CGFloat, maxLines: Int) -> CGFloat {
+        let maxHeight = lineHeight * CGFloat(max(maxLines, 1))
+        return min(max(usedHeight, lineHeight), maxHeight)
+    }
+
+    private func adjustDynamicHeight(for textView: NSTextView, context: Context) {
+        guard let dynamicHeight = context.coordinator.parent.textContainerDynamicHeight,
+              let layoutManager = textView.layoutManager,
+              let textContainer = textView.textContainer else {
+            return
+        }
+        let lineHeight = layoutManager.defaultLineHeight(for: textFont)
+        let newHeight = Self.captureHeight(
+            usedHeight: layoutManager.usedRect(for: textContainer).height,
+            lineHeight: lineHeight,
+            maxLines: maximumNumberOfLines
+        )
+        guard dynamicHeight.wrappedValue != newHeight else { return }
+        DispatchQueue.main.async {
+            dynamicHeight.wrappedValue = newHeight
+        }
+    }
+
+    // - MARK: 回车决策（纯函数；L1 覆盖）
+
+    enum NewlineDecision {
+        /// 交给输入法（组合态）。
+        case toInputMethod
+        /// 插入换行（⇧↩ 且模式允许）。
+        case insertLineBreak
+        /// 提交。
+        case submit
+        /// 交给 AppKit 默认处理（理论不可达，防御）。
+        case passThrough
+    }
+
+    /// 回车（insertNewline 命令）的处置：组合态 > ⇧↩（允许换行的模式）> 裸回车提交。
+    static func newlineDecision(
+        hasMarkedText: Bool,
+        allowsLineBreaks: Bool,
+        modifiers: NSEvent.ModifierFlags
+    ) -> NewlineDecision {
+        if hasMarkedText { return .toInputMethod }
+        let relevant = modifiers.intersection([.command, .option, .shift, .control])
+        if allowsLineBreaks, relevant == .shift { return .insertLineBreak }
+        if relevant.isEmpty { return .submit }
+        return .passThrough
+    }
+
+    // - MARK: Coordinator
+
+    /// delegate 回调均在主线程（AppKit 保证）；显式标注以满足 Xcode 26 的隔离推断。
+    @MainActor
+    class Coordinator: NSObject, NSTextViewDelegate {
+        var parent: CaptureTextView
+        var lastFocusTrigger: UUID?
+        var lastExternalChangeTrigger: UUID?
+        /// 上次应用的高亮（文本+区间），一致时跳过重设。
+        var lastAppliedHighlight: HighlightKey?
+
+        init(_ parent: CaptureTextView) {
+            self.parent = parent
+        }
+
+        /// 事件修饰键：回放期间按"裸回车"处理（程序化 keyDown 不更新 NSApp.currentEvent，
+        /// 会残留呼出热键的 ⌃⌥——见 CaptureNSTextView.isReplayingKeys）。
+        private func eventModifiers(for textView: NSTextView) -> NSEvent.ModifierFlags {
+            if (textView as? CaptureNSTextView)?.isReplayingKeys == true { return [] }
+            return NSApp.currentEvent?.modifierFlags.intersection([.command, .option, .shift, .control]) ?? []
+        }
+
+        func textView(_ textView: NSTextView, doCommandBy commandSelector: Selector) -> Bool {
+            switch commandSelector {
+            case #selector(NSResponder.insertNewline(_:)):
+                let modifiers = eventModifiers(for: textView)
+                switch CaptureTextView.newlineDecision(
+                    hasMarkedText: textView.hasMarkedText(),
+                    allowsLineBreaks: parent.allowsLineBreaks,
+                    modifiers: modifiers
+                ) {
+                case .toInputMethod, .passThrough, .insertLineBreak:
+                    // insertLineBreak 返回 false 让 shouldChangeTextIn 放行 "\n"。
+                    return false
+                case .submit:
+                    parent.onSubmit()
+                    return true
+                }
+            case #selector(NSResponder.insertTab(_:)):
+                parent.onTab(.forward)
+                return true
+            case #selector(NSResponder.insertBacktab(_:)):
+                parent.onTab(.backward)
+                return true
+            default:
+                return false
+            }
+        }
+
+        func textView(
+            _ textView: NSTextView,
+            shouldChangeTextIn affectedCharRange: NSRange,
+            replacementString: String?
+        ) -> Bool {
+            guard let replacementString else { return true }
+            if replacementString == "\n" {
+                // 只有"⇧↩ 且模式允许换行"才真正插入换行；其余回车已被 doCommandBy 消费。
+                let modifiers = eventModifiers(for: textView)
+                return parent.allowsLineBreaks && modifiers == .shift
+            }
+            if replacementString == "\t" {
+                return false
+            }
+            return true
+        }
+
+        func textDidChange(_ obj: Notification) {
+            guard let textView = obj.object as? NSTextView else { return }
+            // 组合态不解析（S2-01）：拼音候选期间不写回绑定，组合结束时 AppKit
+            // 会以最终文本再回调一次，不会丢字。
+            guard !textView.hasMarkedText() else { return }
+            if parent.text.wrappedValue != textView.string {
+                parent.text.wrappedValue = textView.string
+            }
+        }
+    }
+}
+
+// - MARK: 方向（自 demo FocusDirection.swift 收敛为二值）
+
+enum FocusDirection {
+    case forward
+    case backward
+}
+
+// - MARK: AppKit 文本视图（自 demo PlaceholderNSTextView + FocusAwareNSTextView）
+
+final class CaptureNSTextView: NSTextView {
+    var placeholder = ""
+    /// 回放缓冲按键期间为真（S1-04）：回放的回车按"裸回车=提交"处理，
+    /// 不读 NSApp.currentEvent（程序化 keyDown 不会更新它，会残留热键修饰键）。
+    var isReplayingKeys = false
+    /// 焦点变化回调（视觉批次：容器聚焦描边）。
+    var onFocusChange: ((Bool) -> Void)?
+
+    override func draw(_ rect: CGRect) {
+        super.draw(rect)
+
+        guard string.isEmpty, !hasMarkedText(), !placeholder.isEmpty else { return }
+        let textOrigin = NSPoint(
+            x: textContainerInset.width + (textContainer?.lineFragmentPadding ?? 0),
+            y: textContainerInset.height
+        )
+        placeholder.draw(
+            at: textOrigin,
+            withAttributes: [
+                .font: font ?? .systemFont(ofSize: NSFont.systemFontSize),
+                .foregroundColor: NSColor.placeholderTextColor,
+            ]
+        )
+    }
+
+    override func becomeFirstResponder() -> Bool {
+        let became = super.becomeFirstResponder()
+        if became {
+            onFocusChange?(true)
+            // 让 AppKit 先完成字段编辑器安装，再把光标移到末尾（移植注释）。
+            DispatchQueue.main.async { [weak self] in
+                guard let self, window?.firstResponder === self else { return }
+                let textLength = (string as NSString).length
+                setSelectedRange(NSRange(location: textLength, length: 0))
+            }
+        }
+        return became
+    }
+
+    override func resignFirstResponder() -> Bool {
+        onFocusChange?(false)
+        return super.resignFirstResponder()
+    }
+}

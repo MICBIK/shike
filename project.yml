@@ -9,6 +9,9 @@ options:
 packages:
   ShikeKit:
     path: Packages/ShikeKit
+  KeyboardShortcuts:
+    url: https://github.com/sindresorhus/KeyboardShortcuts
+    exactVersion: 3.1.0
 
 # 工程级设置：ad-hoc 签名（本地与 CI 相同）、不启用沙盒；
 # 警告即错误由环境变量 SHIKE_WARNINGS_AS_ERRORS 控制，只在 CI 开启（stack.md）。
@@ -37,6 +40,7 @@ targets:
         products:
           - ShikeData
           - ShikeDateParser
+      - package: KeyboardShortcuts
     settings:
       base:
         PRODUCT_NAME: Shike
@@ -48,6 +52,7 @@ targets:
         INFOPLIST_KEY_CFBundleDisplayName: 拾刻
         INFOPLIST_KEY_NSHumanReadableCopyright: "Copyright (C) 2026 Shike contributors"
         INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.productivity
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
 
   ShikeTests:
     type: bundle.unit-test

@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>拾刻 · 创意方向对比</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    font-family: -apple-system, "PingFang SC", sans-serif;
+    background: linear-gradient(160deg, #1a2530 0%, #243440 50%, #1d2b36 100%);
+    min-height:100vh; padding:30px 20px 40px; color:#eee;
+  }
+  h1 { text-align:center; font-size:20px; font-weight:700; margin-bottom:6px; }
+  .sub { text-align:center; color:rgba(255,255,255,.55); font-size:13px; margin-bottom:26px; }
+  .cols { display:flex; gap:26px; justify-content:center; align-items:flex-start; flex-wrap:wrap; }
+  .col { width:392px; }
+  .col h2 {
+    font-size:14px; font-weight:700; text-align:center; margin-bottom:4px;
+    color:#fff; display:flex; align-items:center; justify-content:center; gap:8px;
+  }
+  .col h2 .tag {
+    font-size:10.5px; font-weight:600; padding:2px 9px; border-radius:99px;
+    background:rgba(45,212,191,.18); color:#5eead4; border:1px solid rgba(45,212,191,.4);
+  }
+  .col .desc {
+    font-size:12px; color:rgba(255,255,255,.6); text-align:center; margin-bottom:12px; line-height:1.6;
+    min-height:52px;
+  }
+  /* 现状截图列 */
+  .shot { border-radius:13px; overflow:hidden; box-shadow:0 14px 40px rgba(0,0,0,.5); }
+  .shot img { width:100%; display:block; }
+
+  /* ============ 创意稿面板 ============ */
+  .panel {
+    width:378px; border-radius:13px; overflow:hidden; position:relative;
+    box-shadow:0 0 0 .5px rgba(0,0,0,.3), 0 18px 50px rgba(0,0,0,.55);
+  }
+  .panel.paper {
+    background: linear-gradient(178deg, #eef7f5 0%, #f6f9f8 34%, #fbfcfc 100%);
+  }
+  .panel.quiet { background:#f7f7f8; }
+
+  /* 顶栏 */
+  .top { display:flex; align-items:center; padding:10px 14px 0; }
+  .seg { display:flex; background:rgba(20,40,38,.08); border-radius:9px; padding:2.5px; gap:2px; }
+  .seg b {
+    font-size:12.5px; font-weight:600; color:#57655f; padding:4.5px 16px; border-radius:7px;
+  }
+  .seg b.on {
+    background:#fff; color:#0f766e; box-shadow:0 1px 3px rgba(10,60,55,.16);
+    display:flex; align-items:center; gap:5px;
+  }
+  .paper .seg b.on { color:#0d9488; }
+  .badge {
+    background:#0d9488; color:#fff; font-size:9.5px; font-weight:700; border-radius:8px;
+    padding:0.5px 5.5px; line-height:14px;
+  }
+  .top .sp { flex:1; }
+  .top svg { width:15px; height:15px; stroke:#7a8884; fill:none; stroke-width:1.9; stroke-linecap:round; }
+
+  /* 日期问候行（共同升级） */
+  .greeting { padding:7px 16px 0; display:flex; align-items:baseline; gap:8px; }
+  .greeting .d { font-size:15px; font-weight:700; color:#17332e; letter-spacing:.01em; }
+  .greeting .w { font-size:12px; font-weight:600; color:#0d9488; }
+  .greeting .hi { margin-left:auto; font-size:11.5px; color:#8ba39d; }
+  .quiet .greeting .d { color:#1d1d1f; }
+  .quiet .greeting .w { color:#0d9488; }
+
+  /* 输入框 */
+  .cap { margin:9px 14px 2px; border-radius:10px; background:rgba(255,255,255,.75);
+    border:1px solid rgba(13,148,136,.22); padding:9px 12px;
+    box-shadow:0 1px 4px rgba(13,148,136,.07), inset 0 0 0 1px rgba(255,255,255,.6);
+    display:flex; align-items:center; gap:8px; }
+  .quiet .cap { background:#fff; border:1px solid rgba(0,0,0,.08); box-shadow:0 1px 3px rgba(0,0,0,.05); }
+  .cap .ph { font-size:13px; color:#9aa8a3; }
+  .cap .pen { width:14px; height:14px; stroke:#0d9488; fill:none; stroke-width:1.8; stroke-linecap:round; opacity:.85; }
+
+  /* chip */
+  .chiprow { padding:7px 16px 0; }
+  .chip {
+    display:inline-flex; align-items:center; gap:6px; font-size:12px;
+    border:1.5px solid rgba(13,148,136,.55); background:rgba(13,148,136,.09);
+    border-radius:99px; padding:3px 10px; color:#57655f;
+  }
+  .chip .t { color:#0d9488; font-weight:700; }
+  .chip svg { width:12px; height:12px; stroke:#0d9488; fill:none; stroke-width:2; stroke-linecap:round; }
+
+  /* ============ 方向一：纸感 ============ */
+  .plist { padding:10px 14px 6px; }
+  .glabel { font-size:11px; font-weight:700; color:#7a8884; margin:7px 2px 6px; letter-spacing:.04em; }
+  .glabel .n { color:#b0bdb8; font-weight:600; }
+  .note-card {
+    background:#fff; border-radius:10px; padding:9px 12px 8px 14px; margin-bottom:8px;
+    border:1px solid rgba(13,60,52,.07);
+    box-shadow:0 1px 2px rgba(20,60,54,.06), 0 3px 8px rgba(20,60,54,.05);
+    position:relative;
+  }
+  .note-card::before {
+    content:""; position:absolute; left:-1px; top:10px; bottom:10px; width:3px;
+    border-radius:0 3px 3px 0; background:linear-gradient(#14b8a6, #0d9488);
+  }
+  .note-card .c { font-size:13px; color:#24312d; line-height:1.5; }
+  .note-card .m { display:flex; justify-content:flex-end; margin-top:4px; }
+  .note-card .m span { font-size:10.5px; color:#a8b5b0; }
+  .todo-card {
+    background:#fff; border-radius:10px; padding:8px 12px; margin-bottom:7px;
+    border:1px solid rgba(13,60,52,.07); border-left:3px solid #0d9488;
+    box-shadow:0 1px 2px rgba(20,60,54,.06);
+    display:flex; align-items:center; gap:9px;
+  }
+  .todo-card.over { border-left-color:#e5484d; }
+  .todo-card .ck { width:17px; height:17px; border-radius:50%; border:1.6px solid #0d9488; flex:none; }
+  .todo-card.over .ck { border-color:#e5484d; }
+  .todo-card .t { font-size:13px; color:#24312d; font-weight:500; }
+  .todo-card .tm { font-size:11px; color:#0d9488; margin-left:auto; font-weight:600; }
+  .todo-card.over .tm { color:#e5484d; }
+
+  /* ============ 方向二：静谧 ============ */
+  .qlist { padding:8px 18px 6px; }
+  .qrow { display:flex; align-items:baseline; padding:8px 2px 7px; border-bottom:1px solid rgba(0,0,0,.055); }
+  .qrow:last-child { border-bottom:none; }
+  .qrow .ck { width:15px; height:15px; border-radius:50%; border:1.6px solid #0d9488; flex:none;
+    align-self:center; margin-right:10px; }
+  .qrow .b { flex:1; min-width:0; }
+  .qrow .t { font-size:13.5px; font-weight:500; color:#1d1d1f; line-height:1.45; }
+  .qrow .sub2 { font-size:11.5px; color:#98a09c; margin-top:2px; }
+  .qrow .tm { font-size:11px; color:#98a09c; margin-left:10px; white-space:nowrap; }
+  .qrow .tm.acc { color:#0d9488; font-weight:600; }
+  .qhead { font-size:10.5px; font-weight:700; color:#a0aaa6; letter-spacing:.14em; margin:13px 2px 3px; }
+  .qhead:first-child { margin-top:6px; }
+
+  /* 底部统计条（共同升级） */
+  .stat {
+    position:relative; margin-top:6px; padding:8px 16px;
+    display:flex; align-items:center; gap:7px;
+    background:linear-gradient(90deg, rgba(13,148,136,.10), rgba(13,148,136,.03));
+    border-top:1px solid rgba(13,148,136,.14);
+  }
+  .stat svg { width:13px; height:13px; stroke:#0d9488; fill:none; stroke-width:1.9; stroke-linecap:round; }
+  .stat .s { font-size:11.5px; color:#57655f; }
+  .stat .s b { color:#0d9488; font-weight:700; }
+</style>
+</head>
+<body>
+<h1>拾刻 · 两个创意方向</h1>
+<div class="sub">共同升级：顶栏日期问候 · 输入框光晕 · 识别 chip · 底部统计条 —— 差别在列表的「形」</div>
+<div class="cols">
+
+  <!-- 现状 -->
+  <div class="col">
+    <h2>现状 <span class="tag" style="background:rgba(255,255,255,.12);color:#c9ced2;border-color:rgba(255,255,255,.25)">朴素的原因</span></h2>
+    <div class="desc">系统控件直接竖排：行无边界、无品牌氛围层、顶栏无温度、留白无内容——像未完成的表单。</div>
+    <div class="shot"><img src="../../../../tmp/user-panel-note.png" onerror="this.src='file:///tmp/user-panel-note.png'"></div>
+  </div>
+
+  <!-- 方向一 -->
+  <div class="col">
+    <h2>方向一 · 纸感 <span class="tag">推荐</span></h2>
+    <div class="desc">便签长得像便签：品牌青绿渐变底 + 白卡片（左侧装订色条、时间在卡片角落）+ 待办按优先级描左色边。身份感最强，和桌面卡片阶段（阶段 3）一脉相承。</div>
+    <div class="panel paper">
+      <div class="top">
+        <div class="seg"><b class="on">便签</b><b>待办 <span class="badge">1</span></b></div>
+        <div class="sp"></div>
+        <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.4-4.4"/></svg>
+      </div>
+      <div class="greeting"><span class="d">9月29日</span><span class="w">周二</span><span class="hi">早上好 ☀</span></div>
+      <div class="cap">
+        <svg class="pen" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z"/></svg>
+        <span class="ph">记点什么…（⇧↩ 换行）</span>
+      </div>
+      <div class="plist">
+        <div class="glabel">便签 <span class="n">5</span></div>
+        <div class="note-card"><div class="c">测试 esc 能力</div><div class="m"><span>今天 03:47</span></div></div>
+        <div class="note-card"><div class="c">这是<br>第一次换行测试</div><div class="m"><span>今天 03:46</span></div></div>
+        <div class="note-card"><div class="c">测试一下</div><div class="m"><span>今天 03:45</span></div></div>
+        <div class="note-card"><div class="c">claude max 自建号池 0.8，请求可溯源 https://tzcode.top</div><div class="m"><span>昨天</span></div></div>
+        <div class="note-card"><div class="c">人工验收</div><div class="m"><span>昨天</span></div></div>
+      </div>
+      <div class="stat">
+        <svg viewBox="0 0 24 24"><path d="M12 20V10M18 20V4M6 20v-6"/></svg>
+        <span class="s">今天记了 <b>3</b> 条 · 待办完成 <b>5</b> 条</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 方向二 -->
+  <div class="col">
+    <h2>方向二 · 静谧排版</h2>
+    <div class="desc">不加卡片，靠字体层级与留白：标题加重、时间右对齐、分组标签小型大写字距、发丝分隔线。最克制、最「专业工具」，但创意感弱于方向一。</div>
+    <div class="panel quiet">
+      <div class="top">
+        <div class="seg"><b>便签</b><b class="on">待办 <span class="badge">1</span></b></div>
+        <div class="sp"></div>
+        <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.4-4.4"/></svg>
+      </div>
+      <div class="greeting"><span class="d">9月29日</span><span class="w">周二</span><span class="hi">早上好 ☀</span></div>
+      <div class="cap">
+        <svg class="pen" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z"/></svg>
+        <span class="ph">要做什么？比如：周五下午三点交报告</span>
+      </div>
+      <div class="chiprow"><span class="chip">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.6"/><path d="M12 7.2V12l3.2 2"/></svg>
+        <span><span class="t">周五 15:00 提醒</span></span>
+        <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </span></div>
+      <div class="qlist">
+        <div class="qhead">今天</div>
+        <div class="qrow"><span class="ck"></span><div class="b"><div class="t">开会</div></div><span class="tm acc">今天 14:00</span></div>
+        <div class="qhead">以后</div>
+        <div class="qrow"><span class="ck"></span><div class="b"><div class="t">交报告</div></div><span class="tm acc">周五 15:00</span></div>
+        <div class="qhead">无日期</div>
+        <div class="qrow"><span class="ck"></span><div class="b"><div class="t">有两点需要注意</div></div></div>
+        <div class="qhead">已完成 · 5</div>
+      </div>
+      <div class="stat">
+        <svg viewBox="0 0 24 24"><path d="M12 20V10M18 20V4M6 20v-6"/></svg>
+        <span class="s">今天记了 <b>3</b> 条 · 待办完成 <b>5</b> 条</span>
+      </div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

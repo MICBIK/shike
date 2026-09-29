@@ -52,7 +52,7 @@ struct ParserExclusionTitleTests {
         }
     }
 
-    @Test("05 §9.13 标题清理（M01～M08）")
+    @Test("05 §9.13 标题清理（M01～M11）")
     func section913() {
         let parser = ChineseDateParser(timeZone: Self.timeZone)
         let cases: [(id: String, input: String, expected: String)] = [
@@ -64,12 +64,24 @@ struct ParserExclusionTitleTests {
             ("M06", "周五下午三点，交报告。", "交报告"),
             ("M07", "明天", "明天"),
             ("M08", "记得明天交房租", "交房租"),
+            ("M09", "明天交报告提醒我。", "交报告"),
+            ("M10", "记得，明天交报告。", "交报告"),
+            ("M11", "提醒我明天九点开会提醒我", "开会"),
         ]
         for testCase in cases {
             let ranges = parser.parse(testCase.input, now: Self.t0)?.matchedRanges ?? []
             let title = TitleCleaner.clean(testCase.input, removing: ranges)
             #expect(title == testCase.expected, "[\(testCase.id)] 清理结果「\(title)」≠「\(testCase.expected)」")
         }
+    }
+
+    @Test("识别被取消的提交：仅空白与标点清理，提醒词与时间词保留（05 §7 修订）")
+    func stripWhitespaceAndPunctuationForDismissedRecognition() {
+        #expect(TitleCleaner.stripWhitespaceAndPunctuation("明天交报告提醒我。") == "明天交报告提醒我")
+        #expect(TitleCleaner.stripWhitespaceAndPunctuation("  周五下午三点   交报告  ") == "周五下午三点 交报告")
+        // 全是标点/空白：回退原文去首尾空白
+        #expect(TitleCleaner.stripWhitespaceAndPunctuation("。、！") == "。、！")
+        #expect(TitleCleaner.stripWhitespaceAndPunctuation("  ") == "")
     }
 
     @Test("越界的「X点X分」不识别（05 §3；全量盲审发现的退化缺陷回归）")
@@ -99,7 +111,7 @@ struct ParserExclusionTitleTests {
 /// 守护测试（parser.md「测试组织」）：05 §9 各表的（编号, 输入）与测试数据做对称差，必须为空。
 /// 任何一边增、删、改用例而另一边没有同步，测试即失败。
 struct ParserGuardTests {
-    @Test("守护测试：05 §9 全部 125 个用例与测试数据同步")
+    @Test("守护测试：05 §9 全部 128 个用例与测试数据同步")
     func specCasesMatchTests() throws {
         let specRows = try Self.extractSpecRows()
         // 编号必须唯一：先查重并干净失败，而不是让 Dictionary 初始化 crash（全量盲审 L2）
@@ -112,8 +124,8 @@ struct ParserGuardTests {
         #expect(duplicateIDs.isEmpty, "05 §9 编号重复：\(duplicateIDs.joined(separator: ", "))（守护测试要求编号唯一）")
         let testRows = Self.testRegistry()
 
-        #expect(specRows.count == 125, "05 §9 用例数应为 125，实际 \(specRows.count)；若规格有意变更，需同一次提交更新测试")
-        #expect(testRows.count == 125, "测试数据用例数应为 125，实际 \(testRows.count)")
+        #expect(specRows.count == 128, "05 §9 用例数应为 128，实际 \(specRows.count)；若规格有意变更，需同一次提交更新测试")
+        #expect(testRows.count == 128, "测试数据用例数应为 128，实际 \(testRows.count)")
 
         var mismatches: [String] = []
         for (id, input) in specRows {
@@ -145,6 +157,7 @@ struct ParserGuardTests {
             ("M01", "周五下午三点交报告"), ("M02", "明天提醒我买牛奶"), ("M03", "买牛奶，明天提醒"),
             ("M04", "10分钟后提醒我喝水"), ("M05", "交报告 周五下午三点"), ("M06", "周五下午三点，交报告。"),
             ("M07", "明天"), ("M08", "记得明天交房租"),
+            ("M09", "明天交报告提醒我。"), ("M10", "记得，明天交报告。"), ("M11", "提醒我明天九点开会提醒我"),
         ] {
             registry[id] = input
         }

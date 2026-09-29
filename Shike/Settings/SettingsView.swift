@@ -22,10 +22,19 @@ struct SettingsView: View {
 
     @ViewBuilder
     private func tabContent(_ tab: SettingsTab) -> some View {
-        if let stage = tab.placeholderStage {
-            PlaceholderSettingsView(stage: stage)
-        } else {
+        switch tab {
+        case .about:
             AboutSettingsView(onViewLicense: onViewLicense)
+        case .shortcuts:
+            ShortcutsSettingsView(model: model)
+        case .general:
+            GeneralSettingsView(model: model, launchAtLogin: model.launchAtLogin)
+        case .reminders:
+            ReminderSettingsView(model: model)
+        default:
+            if let stage = tab.placeholderStage {
+                PlaceholderSettingsView(stage: stage)
+            }
         }
     }
 }

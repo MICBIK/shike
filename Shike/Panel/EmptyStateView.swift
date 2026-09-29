@@ -4,8 +4,8 @@
 
 import SwiftUI
 
-/// 空状态（03 §3、02 验收第 4 条）：便签用 note.text 与"还没有便签"，
-/// 待办用 checklist 与"没有待办"；不显示引导句（S1-10 提供）。
+/// 空状态（03 §3、§14）：便签用 note.text 与"还没有便签"+ 引导句，
+/// 待办用 checklist 与"没有待办"+ 引导句（S1-10）。
 struct EmptyStateView: View {
     let mode: PanelModel.Mode
 
@@ -16,6 +16,9 @@ struct EmptyStateView: View {
                 .foregroundStyle(.secondary)
             Text(mode == .note ? String(localized: .panelEmptyNoteTitle) : String(localized: .panelEmptyTodoTitle))
                 .foregroundStyle(.secondary)
+            Text(mode == .note ? String(localized: .panelEmptyNoteGuide) : String(localized: .panelEmptyTodoGuide))
+                .font(.caption)
+                .foregroundStyle(.tertiary)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
