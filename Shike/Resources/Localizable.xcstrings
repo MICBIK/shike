@@ -144,6 +144,39 @@
         }
       }
     },
+    "card.bar.level": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "切换显示层级"
+          }
+        }
+      }
+    },
+    "card.menu.pinToDesktop": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "钉到桌面"
+          }
+        }
+      }
+    },
+    "card.menu.unpin": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "取消钉住"
+          }
+        }
+      }
+    },
     "capture.recognition.allDay": {
       "extractionState": "manual",
       "localizations": {

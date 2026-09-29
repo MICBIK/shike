@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
 import Foundation
+import ShikeData
 
 /// 偏好设置：类型化地读写 UserDefaults。
 /// 键名只在 `Preferences.Key` 中定义，默认值在同一处注册（conventions.md）。
@@ -23,6 +24,14 @@ public struct Preferences {
         public static let menuBarCounter = "menuBar.counter"
         public static let reminderAllDayMinutes = "reminder.allDayMinutes"
         public static let reminderSnoozeMinutes = "reminder.snoozeMinutes"
+        public static let cardDefaultLevel = "card.default.level"
+        public static let cardDefaultColor = "card.default.color"
+        public static let cardDefaultFontSize = "card.default.fontSize"
+        public static let cardDefaultAutoHide = "card.default.autoHide"
+        public static let cardDefaultHideDelay = "card.default.hideDelay"
+        public static let cardDefaultHiddenOpacity = "card.default.hiddenOpacity"
+        public static let cardDefaultAllSpaces = "card.default.allSpaces"
+        public static let cardDefaultShowOverFullScreen = "card.default.showOverFullScreen"
     }
 
     /// 默认值注册表：与 Key 同处维护（计算属性，避免非 Sendable 静态共享状态）。
@@ -38,6 +47,14 @@ public struct Preferences {
             Key.menuBarCounter: "overdueAndToday",
             Key.reminderAllDayMinutes: 540,
             Key.reminderSnoozeMinutes: 10,
+            Key.cardDefaultLevel: "floating",
+            Key.cardDefaultColor: "yellow",
+            Key.cardDefaultFontSize: "medium",
+            Key.cardDefaultAutoHide: false,
+            Key.cardDefaultHideDelay: 3.0,
+            Key.cardDefaultHiddenOpacity: 0.2,
+            Key.cardDefaultAllSpaces: true,
+            Key.cardDefaultShowOverFullScreen: false,
         ]
     }
 
@@ -134,5 +151,61 @@ public struct Preferences {
     public var reminderSnoozeMinutes: Int {
         get { (defaults.object(forKey: Key.reminderSnoozeMinutes) as? Int) ?? 10 }
         nonmutating set { defaults.set(newValue, forKey: Key.reminderSnoozeMinutes) }
+    }
+
+    // MARK: 卡片默认值（S3-02～S3-05，03 §9；字符串键非法值由消费端回落）
+
+    public var cardDefaultLevel: String {
+        get { defaults.string(forKey: Key.cardDefaultLevel) ?? "floating" }
+        nonmutating set { defaults.set(newValue, forKey: Key.cardDefaultLevel) }
+    }
+
+    public var cardDefaultColor: String {
+        get { defaults.string(forKey: Key.cardDefaultColor) ?? "yellow" }
+        nonmutating set { defaults.set(newValue, forKey: Key.cardDefaultColor) }
+    }
+
+    public var cardDefaultFontSize: String {
+        get { defaults.string(forKey: Key.cardDefaultFontSize) ?? "medium" }
+        nonmutating set { defaults.set(newValue, forKey: Key.cardDefaultFontSize) }
+    }
+
+    public var cardDefaultAutoHide: Bool {
+        get { defaults.bool(forKey: Key.cardDefaultAutoHide) }
+        nonmutating set { defaults.set(newValue, forKey: Key.cardDefaultAutoHide) }
+    }
+
+    public var cardDefaultHideDelay: Double {
+        get { (defaults.object(forKey: Key.cardDefaultHideDelay) as? Double) ?? 3.0 }
+        nonmutating set { defaults.set(newValue, forKey: Key.cardDefaultHideDelay) }
+    }
+
+    public var cardDefaultHiddenOpacity: Double {
+        get { (defaults.object(forKey: Key.cardDefaultHiddenOpacity) as? Double) ?? 0.2 }
+        nonmutating set { defaults.set(newValue, forKey: Key.cardDefaultHiddenOpacity) }
+    }
+
+    public var cardDefaultAllSpaces: Bool {
+        get { defaults.object(forKey: Key.cardDefaultAllSpaces) as? Bool ?? true }
+        nonmutating set { defaults.set(newValue, forKey: Key.cardDefaultAllSpaces) }
+    }
+
+    public var cardDefaultShowOverFullScreen: Bool {
+        get { defaults.bool(forKey: Key.cardDefaultShowOverFullScreen) }
+        nonmutating set { defaults.set(newValue, forKey: Key.cardDefaultShowOverFullScreen) }
+    }
+
+    /// 新卡片的完整默认选项（03 §10.2：各项取值来自偏好；非法存储值回落文档默认）。
+    public var cardDefaultOptions: StickyCardOptions {
+        StickyCardOptions(
+            level: CardLevel(rawValue: cardDefaultLevel) ?? .floating,
+            color: CardColor(rawValue: cardDefaultColor) ?? .yellow,
+            fontSize: CardFontSize(rawValue: cardDefaultFontSize) ?? .medium,
+            autoHide: cardDefaultAutoHide,
+            hideDelay: cardDefaultHideDelay,
+            hiddenOpacity: cardDefaultHiddenOpacity,
+            allSpaces: cardDefaultAllSpaces,
+            showOverFullScreen: cardDefaultShowOverFullScreen
+        )
     }
 }

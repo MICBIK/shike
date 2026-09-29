@@ -298,6 +298,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         environment.panelModel.start()
 
+        // 桌面卡片的定位屏幕 = 面板所在屏（03 §10.2）；管理器的观察流已在环境组装时启动（S3-01）。
+        environment.cardManager.screenProvider = { [weak self] in
+            self?.statusItemController?.statusBarButton?.window?.screen
+                ?? NSScreen.main
+                ?? NSScreen.screens[0]
+        }
+
         // 每日备份（§3 节点 I/J）：后台执行一次，跨天再备份；不等待完成。
         environment.backupService.start()
 
@@ -307,6 +314,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationWillTerminate(_ notification: Notification) {
         popoverController?.stop()
         environment?.panelModel.stop()
+        environment?.cardManager.stop()
         environment?.backupService.stop()
         environment?.typingBuffer.stopMonitor()
         environment?.hotkeyService.stopTapChannel()

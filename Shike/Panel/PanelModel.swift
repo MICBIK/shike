@@ -541,6 +541,22 @@ final class PanelModel {
         }
     }
 
+    // MARK: 桌面卡片（S3-01，03 §10）
+
+    /// 钉出/取消钉住的动作本体由 App 层注入（几何定位与卡片窗口都在 App 层，
+    /// PanelModel 只负责数据与提示条）；默认空实现便于 L2 单测。
+    @ObservationIgnored var pinNoteToDesktop: (Note.ID) async -> Void = { _ in }
+    @ObservationIgnored var unpinNoteFromDesktop: (Note.ID) async -> Void = { _ in }
+
+    /// App 层卡片写路径失败的统一上报（与保存失败同一提示条与重试机制，NFR19）。
+    func reportCardWriteFailure(_ error: Error, retry: @escaping @Sendable () -> Void) {
+        if let dataError = error as? ShikeDataError {
+            report(dataError, retry: retry)
+        } else {
+            report(.writeFailed(.ioError), retry: retry)
+        }
+    }
+
     /// 删除便签（软删除），入撤销栈并显示撤销提示条（S1-07）。
     func deleteNote(_ id: Note.ID) async {
         let summary = notes.first { $0.note.id == id }?.note.content ?? ""

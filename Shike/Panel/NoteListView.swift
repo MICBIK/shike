@@ -96,7 +96,13 @@ private struct NoteRow: View {
                     Text(item.note.content)
                         .font(.system(size: 13))
                         .lineLimit(3)
-                    HStack {
+                    HStack(spacing: 4) {
+                        // 已钉到桌面的图钉标记（S3-01）
+                        if item.isPinnedToDesktop {
+                            Image(systemName: "pin.fill")
+                                .font(.system(size: 8))
+                                .foregroundStyle(Color.accentColor)
+                        }
                         Spacer(minLength: 0)
                         Text(RelativeTimeFormatter.format(
                             item.note.updatedAt,
@@ -147,6 +153,14 @@ private struct NoteRow: View {
             }
             Button(item.note.pinnedAt == nil ? String(localized: .listMenuPin) : String(localized: .listMenuUnpin)) {
                 Task { await model.setNotePinned(item.note.id, item.note.pinnedAt == nil) }
+            }
+            // 钉到桌面（S3-01，03 §10.2）：已钉显示"取消钉住"。
+            Button(item.isPinnedToDesktop ? String(localized: .cardMenuUnpin) : String(localized: .cardMenuPinToDesktop)) {
+                if item.isPinnedToDesktop {
+                    Task { await model.unpinNoteFromDesktop(item.note.id) }
+                } else {
+                    Task { await model.pinNoteToDesktop(item.note.id) }
+                }
             }
             Button(String(localized: .listMenuCopy)) {
                 NSPasteboard.general.clearContents()

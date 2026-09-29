@@ -26,6 +26,8 @@ public final class AppEnvironment {
     let notificationScheduling: NotificationScheduling
     let notificationCoordinator: NotificationCoordinator
     let reminderScheduler: ReminderScheduler
+    /// 桌面卡片管理器（S3-01）：start(actions:) 由 AppDelegate 在状态项就绪后调用。
+    let cardManager: CardManager
 
     init(
         database: AppDatabase,
@@ -80,6 +82,10 @@ public final class AppEnvironment {
             timeZoneProvider: { [weak panelModel] in panelModel?.timeZone ?? .current }
         )
         self.reminderScheduler = reminderScheduler
+        // 桌面卡片（S3-01，03 §10）：管理器先创建并落属性（后面闭包捕获 self 需全部属性就绪），
+        // 面板动作注入与观察流启动在本 init 末尾。
+        let cardManager = CardManager(cardRepository: stickyCardRepository)
+        self.cardManager = cardManager
         // 通知动作（S2-04）：全部存储属性已就绪，接回调（闭包访问 self.panelModel）。
         // snoozeMinutes 动作发生时读偏好；面板的打开与定位由 AppDelegate 接线。
         notificationCoordinator.handlers.complete = { [weak self] uuid in
@@ -91,6 +97,82 @@ public final class AppEnvironment {
         notificationCoordinator.handlers.snoozeMinutes = {
             let stored = preferences.reminderSnoozeMinutes
             return SettingsModel.snoozeOptions.contains(stored) ? stored : 10
+        }
+        // 定位与钳制是 App 层几何（CardGeometry），写库失败走面板同一提示条（NFR19）。
+        panelModel.pinNoteToDesktop = { [weak self, weak cardManager] noteID in
+            guard let self, let cardManager else { return }
+            let frame = CardGeometry.initialFrame(
+                existingFrames: cardManager.existingFrames(),
+                screenVisibleFrame: cardManager.screenProvider().visibleFrame,
+                size: CardGeometry.defaultSize
+            )
+            do {
+                _ = try await stickyCardRepository.pin(
+                    noteID,
+                    frame: frame,
+                    options: preferences.cardDefaultOptions
+                )
+            } catch {
+                panelModel.reportCardWriteFailure(error, retry: { [weak self] in
+                    Task { await self?.pinCard(noteID) }
+                })
+            }
+        }
+        panelModel.unpinNoteFromDesktop = { [weak self] noteID in
+            await self?.unpinCard(noteID)
+        }
+        cardManager.start(actions: CardManager.Actions(
+            screenProvider: { [weak cardManager] in
+                // 卡片是窗口功能，必有屏幕会话；cardManager 与环境同生命周期。
+                cardManager?.screenProvider() ?? NSScreen.main ?? NSScreen.screens[0]
+            },
+            moveCard: { [weak self] noteID, frame in
+                Task { await self?.moveCard(noteID, frame) }
+            },
+            unpin: { [weak self] noteID in
+                Task { await self?.unpinCard(noteID) }
+            },
+            cycleLevel: { [weak self] noteID, options in
+                var next = options
+                next.level = CardTheme.nextLevel(after: options.level)
+                Task { await self?.updateCardOptions(noteID, next) }
+            }
+        ))
+    }
+
+    // MARK: 卡片写路径（S3-01）：失败上报与重试复用面板提示条（NFR19）
+
+    func pinCard(_ noteID: Note.ID) async {
+        await panelModel.pinNoteToDesktop(noteID)
+    }
+
+    private func unpinCard(_ noteID: Note.ID) async {
+        do {
+            try await stickyCardRepository.unpin(noteID)
+        } catch {
+            panelModel.reportCardWriteFailure(error, retry: { [weak self] in
+                Task { await self?.unpinCard(noteID) }
+            })
+        }
+    }
+
+    private func moveCard(_ noteID: Note.ID, _ frame: CardFrame) async {
+        do {
+            try await stickyCardRepository.updateFrame(noteID, frame: frame)
+        } catch {
+            panelModel.reportCardWriteFailure(error, retry: { [weak self] in
+                Task { await self?.moveCard(noteID, frame) }
+            })
+        }
+    }
+
+    private func updateCardOptions(_ noteID: Note.ID, _ options: StickyCardOptions) async {
+        do {
+            try await stickyCardRepository.updateOptions(noteID, options: options)
+        } catch {
+            panelModel.reportCardWriteFailure(error, retry: { [weak self] in
+                Task { await self?.updateCardOptions(noteID, options) }
+            })
         }
     }
 }
