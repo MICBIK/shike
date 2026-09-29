@@ -30,7 +30,7 @@ struct PanelView: View {
             }
             if let bar = model.deletedBar {
                 UndoBar(state: bar) { model.undoLastDelete() }
-                    .id(bar == nil ? "none" : String(describing: bar)) // 视角切换即重建：倒计时与出入场重启
+                    .id(String(describing: bar)) // 视角切换即重建：倒计时与出入场重启
                     .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
