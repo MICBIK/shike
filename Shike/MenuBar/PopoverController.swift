@@ -11,6 +11,7 @@
 // （结束编辑 → 收起面板）与 escapeOutcome/persistSize/escapeHandler 回调（2026-09-28）。
 
 import AppKit
+import os
 import Combine
 import SwiftUI
 
@@ -81,6 +82,7 @@ final class PopoverController {
     func toggle(from button: NSStatusBarButton) {
         statusBarButton = button
         let intervalSinceClose = Date().timeIntervalSince(didCloseEventDate)
+        Log.app.info("面板 toggle：isShown=\(self.popover.isShown, privacy: .public) 距上次收起=\(intervalSinceClose, privacy: .public)s")
         if Self.shouldDebounceClose(isShown: popover.isShown, intervalSinceClose: intervalSinceClose) {
             didCloseEventDate = .distantPast
             popover.performClose(button)

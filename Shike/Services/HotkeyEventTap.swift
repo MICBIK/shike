@@ -101,7 +101,13 @@ final class HotkeyEventTap {
             .maskControl, .maskAlternate, .maskCommand, .maskShift,
         ])
         guard flags == wantedFlags else { return false }
-        onMatch()
+        // 异步派发：事件回调上下文里同步弹 UI（NSPopover.show）行为异常
+        // （实测 tap 消费了按键但面板不出现），推迟到事件派发完成后的下一拍。
+        Log.app.info("快捷键 tap：命中组合，异步派发动作")
+        DispatchQueue.main.async { [onMatch] in
+            Log.app.info("快捷键 tap：执行动作")
+            onMatch()
+        }
         return true
     }
 

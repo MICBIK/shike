@@ -177,6 +177,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         environment.hotkeyService.register { [weak self] in
             guard let self,
                   let button = self.statusItemController?.statusBarButton else { return }
+            Log.app.info("快捷键动作：toggle 面板")
             popoverController.toggle(from: button)
         }
 
