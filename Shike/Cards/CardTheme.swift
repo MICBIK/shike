@@ -47,11 +47,17 @@ enum CardTheme {
         }
     }
 
-    /// 空间行为（ADR-025 结论 3；ADR-026 补 .stationary/.ignoresCycle）：
-    /// 所有空间跟随显示（不随空间切换移动）；全屏压盖用 fullScreenAuxiliary；
-    /// 卡片不进 ⌘` 窗口循环（borderless 面板不属于窗口轮换语义）。
-    static func collectionBehavior(allSpaces: Bool, showOverFullScreen: Bool) -> NSWindow.CollectionBehavior {
-        var behavior: NSWindow.CollectionBehavior = allSpaces
+    /// 空间行为（ADR-030）：普通层级**强制留在所属空间**——"所有空间跟随"的窗口
+    /// 切空间后压住目标空间的窗口（用户三指滑动实测），"会被遮挡"（03 §10.3）只在
+    /// 窗口属于该空间时成立；跨空间跟随只保留给置顶/桌面层（它们压不住人或本就该
+    /// 出现在每块桌面）。置顶/桌面层跨空间时带 .stationary（不随切换移动）。
+    /// 全屏压盖用 fullScreenAuxiliary；卡片不进 ⌘` 窗口循环。
+    static func collectionBehavior(
+        allSpaces: Bool,
+        showOverFullScreen: Bool,
+        level: CardLevel
+    ) -> NSWindow.CollectionBehavior {
+        var behavior: NSWindow.CollectionBehavior = (allSpaces && level != .normal)
             ? [.canJoinAllSpaces, .stationary]
             : [.moveToActiveSpace]
         behavior.insert(.ignoresCycle)

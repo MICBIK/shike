@@ -66,7 +66,8 @@ final class StickyCardPanel: NSPanel {
         level = newLevel
         collectionBehavior = CardTheme.collectionBehavior(
             allSpaces: options.allSpaces,
-            showOverFullScreen: options.showOverFullScreen
+            showOverFullScreen: options.showOverFullScreen,
+            level: options.level
         )
         if levelChanged, options.level == .normal, isVisible {
             orderBack(nil)

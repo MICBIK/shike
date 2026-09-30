@@ -121,4 +121,24 @@ struct CardGeometryTests {
         #expect(desktop < .normal) // 普通窗口能遮住桌面层卡片（03 §10.3）
         #expect(desktop > NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.desktopIconWindow)))) // 桌面图标之上
     }
+
+    @Test("空间行为（ADR-030）：普通层级强制留在所属空间；置顶/桌面层才可跨空间跟随")
+    func collectionBehaviorByLevel() {
+        // 用户开"所有空间"开关，但普通层级不跟随（跨空间窗口切空间后压住目标空间的窗口）
+        let normalAllSpaces = CardTheme.collectionBehavior(allSpaces: true, showOverFullScreen: false, level: .normal)
+        #expect(!normalAllSpaces.contains(.canJoinAllSpaces))
+        #expect(normalAllSpaces.contains(.moveToActiveSpace))
+        // 置顶/桌面层保持跨空间
+        for level in [CardLevel.floating, .desktop] {
+            let behavior = CardTheme.collectionBehavior(allSpaces: true, showOverFullScreen: false, level: level)
+            #expect(behavior.contains(.canJoinAllSpaces))
+            #expect(behavior.contains(.stationary))
+        }
+        // "仅当前空间"设置对任何层级都是 moveToActiveSpace
+        let normalCurrentOnly = CardTheme.collectionBehavior(allSpaces: false, showOverFullScreen: false, level: .floating)
+        #expect(!normalCurrentOnly.contains(.canJoinAllSpaces))
+        // 全屏压盖独立开关
+        let overFullScreen = CardTheme.collectionBehavior(allSpaces: false, showOverFullScreen: true, level: .normal)
+        #expect(overFullScreen.contains(.fullScreenAuxiliary))
+    }
 }
