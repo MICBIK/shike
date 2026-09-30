@@ -520,9 +520,11 @@ extension CardController {
     }
 
     /// 位移兜底持久化（ADR-027）：手势收尾（dragEnded/resizeEnded）之外的任何窗口
-    /// 移动（含收尾丢失的极端情况）也把最终位置落库；与已持久化值一致时跳过。
+    /// 移动也把最终位置落库；与已持久化值一致时跳过。
+    /// 拖动/调整大小进行中跳过（performDrag 拖动过程会连续触发本回调，收尾路径
+    /// 已统一落库——中途每次移动都写库是写库风暴，ADR-028）。
     func windowDidMove(_ notification: Notification) {
-        guard panel.isVisible else { return }
+        guard panel.isVisible, !model.isDragging else { return }
         let clamped = CardGeometry.clampedFrame(panel.frame, in: panel.screen?.visibleFrame ?? screenVisibleFrame)
         if clamped != lastPersistedFrame {
             persistFrame(clamped)

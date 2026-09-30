@@ -112,4 +112,13 @@ struct CardGeometryTests {
         // 未知/复合外观（如 highContrastAqua）按 bestMatch 规则回落浅色
         #expect(!CardManager.isDarkAppearance(NSAppearance(named: .vibrantLight)!))
     }
+
+    @Test("层级映射（ADR-026/028）：悬浮高于普通；普通就是普通（0）；桌面在普通之下、桌面图标层之上")
+    func windowLevelMapping() {
+        #expect(CardTheme.windowLevel(for: .floating) == .floating)
+        #expect(CardTheme.windowLevel(for: .normal) == .normal)
+        let desktop = CardTheme.windowLevel(for: .desktop)
+        #expect(desktop < .normal) // 普通窗口能遮住桌面层卡片（03 §10.3）
+        #expect(desktop > NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.desktopIconWindow)))) // 桌面图标之上
+    }
 }

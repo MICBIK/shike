@@ -54,18 +54,15 @@ final class StickyCardPanel: NSPanel {
     }
 
     /// 应用选项到窗口属性（颜色/字号在 SwiftUI 层随 options 渲染）。
-    /// 换层级后 orderFrontRegardless 重排 z 序（桌面↔普通↔置顶互切不沉底，ADR-026）；
-    /// 仅在窗口当前可见时才重排——隐藏所有卡片（orderOut）期间，观察流的任何
-    /// 选项/内容回流都不得把收起的卡片复活。
+    /// 层级切换只设 level：setter 自动把窗口挪到新层级的正确位置。普通层级
+    /// 被其他窗口遮挡是规格语义（03 §10.3），不强提最前（ADR-028：此前的
+    /// orderFrontRegardless 让每次设置回流都把卡片提到层内最前，普通层级形同置顶）。
     func apply(options: StickyCardOptions) {
         level = CardTheme.windowLevel(for: options.level)
         collectionBehavior = CardTheme.collectionBehavior(
             allSpaces: options.allSpaces,
             showOverFullScreen: options.showOverFullScreen
         )
-        if isVisible {
-            orderFrontRegardless()
-        }
     }
 }
 
