@@ -113,12 +113,15 @@ struct CardGeometryTests {
         #expect(!CardManager.isDarkAppearance(NSAppearance(named: .vibrantLight)!))
     }
 
-    @Test("层级映射（ADR-026/028）：悬浮高于普通；普通就是普通（0）；桌面在普通之下、桌面图标层之上")
+    @Test("层级映射（ADR-026/031）：悬浮最高；普通=normal−1（构造性低于其他 app 普通窗口）；桌面在普通之下、桌面图标层之上")
     func windowLevelMapping() {
         #expect(CardTheme.windowLevel(for: .floating) == .floating)
-        #expect(CardTheme.windowLevel(for: .normal) == .normal)
+        // ADR-031：普通层取 normal−1（Übersicht 生产验证值）——可成为 key 的非激活
+        // 面板在 normal 层 makeKey（编辑）就会顶到层内最前盖住其他 app 窗口，
+        // normal−1 从构造上保证不挡人
+        #expect(CardTheme.windowLevel(for: .normal) == NSWindow.Level(NSWindow.Level.normal.rawValue - 1))
         let desktop = CardTheme.windowLevel(for: .desktop)
-        #expect(desktop < .normal) // 普通窗口能遮住桌面层卡片（03 §10.3）
+        #expect(desktop < CardTheme.windowLevel(for: .normal)) // "普通"层能遮住桌面层卡片（03 §10.3）
         #expect(desktop > NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.desktopIconWindow)))) // 桌面图标之上
     }
 

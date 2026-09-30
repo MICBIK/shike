@@ -362,7 +362,11 @@ final class CardController: NSObject, NSWindowDelegate {
         model.options = card.options
         autoHide.parameters.hideDelay = card.options.hideDelay
         autoHide.hiddenAlpha = card.options.hiddenOpacity
-        panel.apply(options: card.options)
+        // 编辑中冻结窗口层级/空间属性（编辑态卡片临时浮出，ADR-031），
+        // 结束编辑时 endEditing 统一应用；内容/颜色/字号由 SwiftUI 随 model 即时渲染。
+        if !model.isEditing {
+            panel.apply(options: card.options)
+        }
         // frame 不在这里回写窗口（ADR-027）：拖动落库是异步写，完成前的观察流回流
         // 带着旧位置，回写会把刚拖的卡片弹回初始位置（2026-09-29 用户真机反馈）。
         // 窗口层是 frame 的唯一作者：位移经 dragEnded/resizeEnded/windowDidMove
@@ -452,6 +456,9 @@ final class CardController: NSObject, NSWindowDelegate {
         model.editingText = model.content
         model.isEditing = true
         panel.allowsKey = true
+        // 编辑时临时浮出（ADR-031）：普通层级卡片在 normal−1 层，可能整个被别的
+        // 窗口盖住——浮到 floating 让输入可见；结束编辑按所选层级回落。
+        panel.level = .floating
         panel.makeKey()
         panel.makeFirstResponder(nil) // 让 SwiftUI 的 FocusState 接管第一响应者
         autoHide.setBusy(true, now: ProcessInfo.processInfo.systemUptime)
@@ -466,6 +473,9 @@ final class CardController: NSObject, NSWindowDelegate {
         model.isEditing = false
         model.editingText = ""
         panel.allowsKey = false
+        // 按所选层级回落（ADR-031）：普通层级回到 normal−1 并让位（apply 的
+        // orderBack）；编辑期间用户若改了层级选项，也在这里统一生效。
+        panel.apply(options: model.options)
         autoHide.setBusy(false, now: ProcessInfo.processInfo.systemUptime)
         if save, text != model.content {
             // 面板同语义：内容未变跳过、清空=删除入撤销栈、失败上面板提示条

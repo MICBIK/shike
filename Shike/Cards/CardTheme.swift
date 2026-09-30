@@ -35,14 +35,15 @@ enum CardTheme {
         }
     }
 
-    /// 卡片层级 → NSWindow.Level（ADR-025 结论 2；ADR-026：桌面层取 desktopIcon + 1——
-    /// desktopWindow 层（壁纸）被 Finder 整屏桌面窗口（desktopIcon 层）压住，必然收不到
-    /// 点击；desktopIcon 原值与 Finder 同层、层内 z 序不可预期，同类产品（Tack/macterm）
-    /// 均取 +1/+2，这里取 +1：壁纸之上、桌面图标之上、仍低于普通窗口）。
+    /// 卡片层级 → NSWindow.Level（ADR-025 结论 2；ADR-026：桌面层 = desktopIcon+1；
+    /// ADR-031：普通层 = normal−1——Übersicht 生产验证值。可成为 key 的非激活面板
+    /// 在 normal 层一旦 makeKey（编辑）就顶到层内最前、盖住其他 app 的普通窗口，
+    /// 且切空间时带着该位置走（用户三次实测复现）；normal−1 从构造上保证卡片
+    /// 永远在其他 app 普通窗口之下，同时仍可点击、可编辑（key 经 CPS steal focus）。
     static func windowLevel(for level: CardLevel) -> NSWindow.Level {
         switch level {
         case .floating: .floating
-        case .normal: .normal
+        case .normal: NSWindow.Level(NSWindow.Level.normal.rawValue - 1)
         case .desktop: NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.desktopIconWindow)) + 1)
         }
     }
