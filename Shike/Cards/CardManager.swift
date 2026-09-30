@@ -41,6 +41,8 @@ final class CardManager {
     private var controllers: [Note.ID: CardController] = [:]
     /// 上一帧快照（CardDiff 的 old 输入；首帧为空 = 启动恢复全部 create）。
     private var previousSnapshot: [VisibleCard] = []
+    /// 启动恢复期（首帧 apply 进行中）：恢复出的普通层级卡片要让位，用户主动新钉不让（ADR-029）。
+    private var isRestoringFirstSnapshot = true
     /// 系统外观观察（打磨 R4）：深浅色切换即时推送全部卡片。
     private var appearanceObservation: NSKeyValueObservation?
     /// 自动隐藏共享轮询（S3-03，ADR-025 结论 1）：30Hz，仅当存在开启自动隐藏的卡片时运行。
@@ -185,6 +187,7 @@ final class CardManager {
             }
         }
         previousSnapshot = visible
+        isRestoringFirstSnapshot = false
         syncAutoHideTimer()
     }
 
@@ -244,6 +247,11 @@ final class CardManager {
         controllers[item.card.noteID] = controller
         if !isHiddenAll {
             controller.show()
+            // ADR-029：启动恢复的普通层级卡片让位（沉到普通窗口链底部）——
+            // 用户主动钉出的新卡仍提到最前（刚操作完要看到它）。
+            if isRestoringFirstSnapshot, item.card.options.level == .normal {
+                controller.sendToBack()
+            }
         }
     }
 }
@@ -339,6 +347,11 @@ final class CardController: NSObject, NSWindowDelegate {
         panel.makeKeyAndOrderFront(nil)
         // 非激活面板不会把拾刻变成前台应用（ADR-025 结论 4）；确保窗口可见即可。
         panel.orderFrontRegardless()
+    }
+
+    /// 沉到所在层级窗口链底部（ADR-029：启动恢复的普通层级卡片让位）。
+    func sendToBack() {
+        panel.orderBack(nil)
     }
 
     func apply(card: StickyCard, note: Note) {

@@ -54,15 +54,23 @@ final class StickyCardPanel: NSPanel {
     }
 
     /// 应用选项到窗口属性（颜色/字号在 SwiftUI 层随 options 渲染）。
-    /// 层级切换只设 level：setter 自动把窗口挪到新层级的正确位置。普通层级
-    /// 被其他窗口遮挡是规格语义（03 §10.3），不强提最前（ADR-028：此前的
-    /// orderFrontRegardless 让每次设置回流都把卡片提到层内最前，普通层级形同置顶）。
+    /// ADR-029 层级语义：切到"普通"时立即让位——level setter 会把窗口放到新层
+    /// 最前（正好压住正在用的窗口，用户看就是"普通=置顶"），orderBack 沉到普通
+    /// 窗口链底部（03 §10.3"会被遮挡"）；之后点卡片可见部分浮到前面（规格
+    /// "点击后浮到前面"，CardHostingView.mouseDown）。floating/desktop 由
+    /// level setter 自动浮出/沉底，无需干预。普通层级被其他窗口激活时被正常
+    /// 压盖（LevelProbe 原型 v4 实证：TextEdit 激活后压住全部配置的 panel）。
     func apply(options: StickyCardOptions) {
-        level = CardTheme.windowLevel(for: options.level)
+        let newLevel = CardTheme.windowLevel(for: options.level)
+        let levelChanged = newLevel != level
+        level = newLevel
         collectionBehavior = CardTheme.collectionBehavior(
             allSpaces: options.allSpaces,
             showOverFullScreen: options.showOverFullScreen
         )
+        if levelChanged, options.level == .normal, isVisible {
+            orderBack(nil)
+        }
     }
 }
 
@@ -496,6 +504,13 @@ private struct CardResizeGrip: NSViewRepresentable {
 
 /// 卡片宿主视图：非激活窗口里 SwiftUI `.plain` 按钮首击被吞的历史问题（≤macOS 14），
 /// 覆写 acceptsFirstMouse 兜底（ADR-026；macOS 15+ 系统已修，防御无害）。
+/// 普通层级卡片被其他窗口遮挡时，点击可见部分把自己提到所在层最前
+/// （03 §10.3"点击后浮到前面"，ADR-029）；floating/desktop 层级下此调用无害。
 final class CardHostingView: NSHostingView<CardContentView> {
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+
+    override func mouseDown(with event: NSEvent) {
+        window?.orderFront(nil)
+        super.mouseDown(with: event)
+    }
 }
