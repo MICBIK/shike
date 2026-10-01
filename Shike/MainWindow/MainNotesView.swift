@@ -442,7 +442,11 @@ private struct MainNoteRow: View {
             .padding(.vertical, 6)
             .focused($isFocused)
             .onExitCommand {
-                // Esc：结束编辑并立即保存（同卡片编辑的收尾时机）。
+                // IME 组合态守卫（W6）：组合中 Esc 归输入法（取消组合），不收整行
+                // 编辑。SwiftUI 不暴露组合态，经键窗第一响应者 NSTextView 探测
+                // （对照面板 CaptureTextView 的 hasMarkedText 守卫）；若组合中的
+                // Esc 误触发本命令，在此拦下。非组合态行为不变。
+                if (NSApp.keyWindow?.firstResponder as? NSTextView)?.hasMarkedText() == true { return }
                 model.endEditing()
             }
             .onChange(of: model.editingNoteText) { _, newText in

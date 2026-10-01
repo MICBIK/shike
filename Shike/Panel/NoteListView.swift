@@ -72,6 +72,9 @@ private struct NoteRow: View {
 
     /// 新建/定位高亮与 hover（hover 提示可点可右键）。
     @State private var isHovered = false
+    /// 行入场状态（W6 动效表「新条目插入列表：行淡入+轻微上移 0.2s」）：
+    /// 仅新条目做入场动效，旧行滚动进入不重复淡入。
+    @State private var hasAppeared = false
 
     private var isHighlighted: Bool {
         isRecentlyCreated || model.locateNoteID == item.note.uuid.uuidString
@@ -135,6 +138,16 @@ private struct NoteRow: View {
         .listRowInsets(EdgeInsets(top: 3, leading: 12, bottom: 3, trailing: 12))
         .listRowSeparator(.hidden)
         .listRowBackground(Color.clear)
+        .opacity(hasAppeared ? 1 : 0)
+        .offset(y: hasAppeared ? 0 : 5)
+        .onAppear {
+            // 新条目入场（W6 动效表）；旧行直显。减弱动态效果时 Motion.gentle 直切。
+            if isRecentlyCreated {
+                withAnimation(Motion.gentle(0.2)) { hasAppeared = true }
+            } else {
+                hasAppeared = true
+            }
+        }
         .animation(Motion.gentle(0.2), value: isHighlighted)
         .onChange(of: model.editingNoteID) { _, _ in
             if isEditing {

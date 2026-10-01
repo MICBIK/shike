@@ -2,6 +2,7 @@
 // Copyright (C) 2026 Shike contributors
 // SPDX-License-Identifier: GPL-3.0-only
 
+import AppKit
 import ShikeData
 import SwiftUI
 
@@ -128,9 +129,17 @@ private struct TodoRow: View {
     }
 
     private var isHighlighted: Bool {
-        model.recentlyCreatedItemID == todo.uuid.uuidString
-            || model.locateTodoID == todo.uuid.uuidString
+        isRecentlyCreated || model.locateTodoID == todo.uuid.uuidString
     }
+
+    /// 新建高亮（入场动效只跟它走，定位高亮不做入场）。
+    private var isRecentlyCreated: Bool {
+        model.recentlyCreatedItemID == todo.uuid.uuidString
+    }
+
+    /// 行入场状态（W6 动效表「新条目插入列表：行淡入+轻微上移 0.2s」）：
+    /// 仅新条目做入场动效，旧行滚动进入不重复淡入。
+    @State private var hasAppeared = false
 
     var body: some View {
         HStack(spacing: 9) {
@@ -148,6 +157,10 @@ private struct TodoRow: View {
                     .font(.system(size: 13))
                     .focused($isFocused)
                     .onSubmit {
+                        // IME 组合态守卫（W6）：组合中 ↩ 应只上屏候选，不当提交收尾
+                        // （对照 CaptureTextView 的 hasMarkedText 决策；SwiftUI 层
+                        // 经键窗第一响应者探测）。非组合态行为不变。
+                        if (NSApp.keyWindow?.firstResponder as? NSTextView)?.hasMarkedText() == true { return }
                         flushEditing()
                     }
                     .onChange(of: model.editingTodoText) { _, _ in
@@ -184,6 +197,16 @@ private struct TodoRow: View {
         .listRowInsets(EdgeInsets(top: 3, leading: 12, bottom: 3, trailing: 12))
         .listRowSeparator(.hidden)
         .listRowBackground(Color.clear)
+        .opacity(hasAppeared ? 1 : 0)
+        .offset(y: hasAppeared ? 0 : 5)
+        .onAppear {
+            // 新条目入场（W6 动效表）；旧行直显。减弱动态效果时 Motion.gentle 直切。
+            if isRecentlyCreated {
+                withAnimation(Motion.gentle(0.2)) { hasAppeared = true }
+            } else {
+                hasAppeared = true
+            }
+        }
         .animation(Motion.gentle(0.2), value: isVisuallyCompleted)
         .animation(Motion.gentle(0.2), value: isHighlighted)
         .animation(Motion.gentle(0.1), value: isHovered)
