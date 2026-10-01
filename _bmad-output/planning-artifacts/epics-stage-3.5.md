@@ -54,3 +54,26 @@
 5.1 → 5.2 →（5.3、5.4 可并行）→ 5.5 → 5.6。
 5.5 依赖 ShikeData 新增 `observeDeleted()`（note/todo 两仓储）；5.6 无新依赖。
 验收门槛：docs/02 阶段 3.5 验收清单 5 项全过 + 打磨轮次记录。
+
+## 执行计划（2026-10-01 夜，4 子代理并行）
+
+**分工与文件所有权（互不重叠）：**
+
+| 代理 | 范围 | 新文件 |
+|---|---|---|
+| A 数据层 | ShikeData：NoteRepository.observeDeleted / TodoRepository.observeDeleted（软删除行，按 deletedAt 降序）/ TrashRepository（restore/permanentlyDelete/emptyTrash 组合两表事务）+ 单测 | Packages/ShikeKit/Sources/ShikeData/Repositories/TrashRepository.swift + ShikeKitTests/TrashRepositoryTests.swift |
+| B 便签视图 | MainNotesModel（@Observable）+ MainNotesView（复用 NoteListItem 流、panelModel.saveNoteContent 同语义、分组置顶/全部）+ 单测 | Shike/MainWindow/MainNotesView.swift + ShikeTests/MainNotesModelTests.swift |
+| C 待办视图 | MainTodosModel + MainTodosView（复用待办分组器与 Todo 流、panelModel.completeTodo 同语义、五分组）+ 单测 | Shike/MainWindow/MainTodosView.swift + ShikeTests/MainTodosModelTests.swift |
+| D 回收站+导出 | TrashModel（闭包注入模式，测试 mock 闭包）+ TrashView + ExportService（纯函数 [Note]+[Todo]→Markdown/JSON）+ 单测 | Shike/MainWindow/TrashView.swift + Shike/Services/ExportService.swift + ShikeTests/{TrashModelTests,ExportServiceTests}.swift |
+
+**接口约定（主线程预定义，代理不得更改）：**
+- 数据层（A）：`NoteRepository.observeDeleted() -> AsyncThrowingStream<[Note], any Error>`、`TodoRepository.observeDeleted() -> AsyncThrowingStream<[Todo], any Error>`（deletedAt 非空、按 deletedAt 降序）、`TrashRepository(database:)`：observeNotes/observeTodos/restoreNote/restoreTodo/permanentlyDeleteNote/permanentlyDeleteTodo/emptyTrash（emptyTrash 单事务清两表）。
+- 视图模型（B/C/D）：闭包注入模式（同 PanelModel Actions 风格），测试传 mock 闭包；集成由主线程接真实仓储。
+- **本地化**：主线程预插全部新键（见下），代理直接用既有键 + 新键，**不得改 xcstrings**。
+- **禁碰**：Localizable.xcstrings、MainRootView（MainWindowController.swift）、AppDelegate、AppEnvironment、Panel/* 现有文件、docs。集成（MainRootView 接三视图、环境接线）由主线程统一做。
+
+**预插键（主线程，2026-10-01）：**
+main.notes.search=搜索便签；main.notes.group.all=全部；main.notes.empty=还没有便签，从菜单栏面板记一条吧；main.todos.search=搜索待办；main.todos.empty=没有待办；main.trash.notes=便签；main.trash.todos=待办；main.trash.empty=回收站是空的；main.trash.restore=恢复；main.trash.delete=永久删除；main.trash.emptyAll=清空回收站；main.trash.confirmDelete=永久删除后无法恢复，确定吗？；main.trash.confirmEmpty=清空回收站后无法恢复，确定吗？；main.export.markdown=导出为 Markdown…；main.export.json=导出为 JSON…；main.export.done=已导出；main.export.failed=导出失败。
+复用键：list.group.pinned/overdue/today/later/noDate/completed（分组标题）、search.placeholder（面板搜索）、panel.empty.note/todo.guide、list.menu.*（行右键菜单）、card.menu.unpin。
+
+**审查审计（完成后 15 轮）**：5 批 × 3 视角（正确性与并发 / 测试覆盖与边界 / 规范与本地化与 UI 一致性），每轮必须产出真问题并修复后才进下一轮；全部轮次记录台账。

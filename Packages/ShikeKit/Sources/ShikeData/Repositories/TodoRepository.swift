@@ -196,6 +196,20 @@ public struct TodoRepository: Sendable {
         }
     }
 
+    /// 观察回收站中的待办（deletedAt 非空）：按 deletedAt 降序（最新删除在
+    /// 前）、id 降序。订阅后先推当前值；读取失败时流以 readFailed(原因) 结束。
+    /// 永久删除的行已不存在，自然从结果中消失。
+    public func observeDeleted() -> AsyncThrowingStream<[Todo], any Error> {
+        observationStream(reader: database.writer) { database in
+            try TodoRecord.fetchAll(database, sql: """
+                SELECT * FROM todo
+                WHERE deletedAt IS NOT NULL
+                ORDER BY deletedAt DESC, id DESC
+                """)
+                .map { $0.todo }
+        }
+    }
+
     /// 全天规范化：hasTime 为否时存该日 00:00；为是时原样保存。
     static func normalizedDueAt(_ due: TodoDue?, timeZone: TimeZone) -> Date? {
         guard let due else { return nil }

@@ -73,9 +73,11 @@ public struct NoteRepository: Sendable {
     }
 
     /// 软删除：deletedAt 设为当前时间；已删除的保留原来的 deletedAt。
-    /// 不更新 updatedAt（ADR-017）。
-    public func softDelete(_ id: Note.ID) async throws {
-        try await database.performWrite { database in
+    /// 不更新 updatedAt（ADR-017）。返回是否实际发生了删除——行已在回收站时
+    /// 是无害 no-op 并返回 false（调用方据此避免重复入撤销栈等副作用）。
+    @discardableResult
+    public func softDelete(_ id: Note.ID) async throws -> Bool {
+        try await database.performWrite { database -> Bool in
             let now = try database.transactionDate
             try database.execute(
                 sql: "UPDATE note SET deletedAt = ? WHERE id = ? AND deletedAt IS NULL",
@@ -86,6 +88,7 @@ public struct NoteRepository: Sendable {
             {
                 throw ShikeDataError.notFound
             }
+            return database.changesCount == 1
         }
     }
 
@@ -136,6 +139,20 @@ public struct NoteRepository: Sendable {
                     isPinnedToDesktop: row["isPinnedToDesktop"] as Bool
                 )
             }
+        }
+    }
+
+    /// 观察回收站中的便签（deletedAt 非空）：按 deletedAt 降序（最新删除在
+    /// 前）、id 降序。订阅后先推当前值；读取失败时流以 readFailed(原因) 结束。
+    /// 永久删除的行已不存在，自然从结果中消失。
+    public func observeDeleted() -> AsyncThrowingStream<[Note], any Error> {
+        observationStream(reader: database.writer) { database in
+            try NoteRecord.fetchAll(database, sql: """
+                SELECT * FROM note
+                WHERE deletedAt IS NOT NULL
+                ORDER BY deletedAt DESC, id DESC
+                """)
+                .map { $0.note }
         }
     }
 }
