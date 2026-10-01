@@ -114,4 +114,77 @@ struct FirstFrameEmptyStateTests {
         try await settle()
         #expect(model.isLoaded)
     }
+
+    // - MARK: 失败态与假空态（打磨 R2）
+
+    /// 健康观察流：只推帧不 finish（健康流永不结束；finish 会被消费方视为故障信号）。
+    private func healthy<T: Sendable>(_ items: [T]) -> (stream: AsyncThrowingStream<[T], any Error>, yield: () -> Void) {
+        var continuation: AsyncThrowingStream<[T], any Error>.Continuation!
+        let stream = AsyncThrowingStream<[T], any Error> { continuation = $0 }
+        return (stream, { continuation.yield(items) })
+    }
+
+    @Test("便签模型：失败翻 isLoadFailed，健康帧翻回 false；取消不算失败不翻回")
+    func notesLoadFailedTracksStreamHealth() async throws {
+        let model = MainNotesModel(observeNotes: { failing() })
+        await model.runNotes(failing())
+        #expect(model.isLoaded)
+        #expect(model.isLoadFailed)
+
+        // 重试后健康帧到达（健康流不 finish，用挂起流模拟；断言后取消收尾）
+        let healthyStream = healthy([NoteListItem]())
+        let task = Task { await model.runNotes(healthyStream.stream) }
+        healthyStream.yield()
+        try await settle()
+        #expect(model.isLoadFailed == false)
+        task.cancel()
+        await task.value
+        #expect(model.isLoadFailed == false) // 取消不算失败
+    }
+
+    @Test("待办模型：失败翻 isLoadFailed，健康帧翻回 false")
+    func todosLoadFailedTracksStreamHealth() async throws {
+        let model = MainTodosModel()
+        await model.runTodos(failing())
+        #expect(model.isLoadFailed)
+
+        let healthyStream = healthy([Todo]())
+        let task = Task { await model.runTodos(healthyStream.stream) }
+        healthyStream.yield()
+        try await settle()
+        #expect(model.isLoadFailed == false)
+        task.cancel()
+        await task.value
+    }
+
+    @Test("回收站模型：单流失败、另一流后到成功帧——失败态不洗掉（失败的流不会再推帧）；双流都健康才洗掉")
+    func trashLoadFailedStaysUntilBothStreamsHealthy() async throws {
+        let model = TrashModel()
+        var notesContinuation: AsyncThrowingStream<[Note], any Error>.Continuation!
+        model.observeNotes = { AsyncThrowingStream { notesContinuation = $0 } }
+        model.observeTodos = { failing() }
+        model.start()
+        defer { model.stop() }
+        try await settle()
+        #expect(model.isLoadFailed) // 待办流失败
+
+        notesContinuation.yield([Note]()) // 便签流成功帧后到
+        try await settle()
+        #expect(model.isLoadFailed) // 不被洗掉
+
+        // 重试（双流重订阅为健康流）：两流成功帧到齐才洗掉
+        let healthyNotes = healthy([Note]())
+        let healthyTodos = healthy([Todo]())
+        model.observeNotes = { healthyNotes.stream }
+        model.observeTodos = { healthyTodos.stream }
+        model.start()
+        try await settle()
+        #expect(model.isLoadFailed) // 失败态保持到两流都健康
+        healthyNotes.yield()
+        try await settle()
+        #expect(model.isLoadFailed) // 只到一流仍保持
+        healthyTodos.yield()
+        try await settle()
+        #expect(model.isLoadFailed == false)
+    }
 }

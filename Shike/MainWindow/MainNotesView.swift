@@ -41,6 +41,9 @@ final class MainNotesModel {
     /// 反馈通道承接，不停在假空态）。视图空态分支以 `isLoaded && isEmpty` 分流，
     /// 首帧前渲染空白纸感底，避免闪现"还没有便签"。
     private(set) var isLoaded = false
+    /// 观察流是否处于失败态（打磨 R2）：失败翻 true、帧到达翻 false——空态视图
+    /// 据此显示「读取失败 + 重试」而不是误导性的"还没有便签"。
+    private(set) var isLoadFailed = false
     /// 搜索关键词（派生过滤见 filteredNotes；内存过滤，无需防抖）。
     var searchText: String = ""
     /// 正在原位编辑的便签（空则无编辑）。
@@ -115,6 +118,7 @@ final class MainNotesModel {
             for try await items in stream {
                 notes = items
                 isLoaded = true
+                isLoadFailed = false
                 // 正在编辑的行已从流中消失（如清空保存=删除后行被移除）：复位编辑态，
                 // 避免随后的防抖/失焦对已删行继续转发保存。
                 if let editingID = editingNoteID, !items.contains(where: { $0.id == editingID }) {
@@ -127,12 +131,14 @@ final class MainNotesModel {
             // 防止数据层语义变化后静默失效（模式同 CardManager 的观察流收尾）。
             guard !Task.isCancelled else { return }
             isLoaded = true
+            isLoadFailed = true
             readFailureHandler()
             Log.app.error("主窗口便签观察流非取消正常结束（应为故障信号）")
         } catch is CancellationError {
             // stop()/视图销毁的取消不算失败。
         } catch {
             isLoaded = true
+            isLoadFailed = true
             readFailureHandler()
             Log.app.error("主窗口便签观察流异常结束：\(String(describing: error), privacy: .public)")
         }
@@ -285,15 +291,39 @@ struct MainNotesView: View {
             // 不显示空态也不放 ProgressView（半秒的转圈比空白更吵）。
             Color.clear
         } else if model.notes.isEmpty {
-            // 空态（S3.5-03 AC）：还没有便签，从菜单栏面板记一条吧。
-            ContentUnavailableView {
-                Label(String(localized: .mainSectionNotes), systemImage: "note.text")
-            } description: {
-                Text(String(localized: .mainNotesEmpty))
+            if model.isLoadFailed {
+                // 读取失败（打磨 R2）：不显示"还没有便签"（谎话），给重试出口
+                // （重订阅，同面板读取失败横幅的重试语义）。
+                readFailedView
+            } else {
+                // 空态（S3.5-03 AC）：还没有便签，从菜单栏面板记一条吧。
+                ContentUnavailableView {
+                    Label(String(localized: .mainSectionNotes), systemImage: "note.text")
+                } description: {
+                    Text(String(localized: .mainNotesEmpty))
+                }
             }
         } else {
             noteList
         }
+    }
+
+    /// 读取失败空态（打磨 R2）：文案复用统一反馈条的 main.read.failed，重试重订阅。
+    private var readFailedView: some View {
+        VStack(spacing: 10) {
+            Image(systemName: "wifi.exclamationmark")
+                .font(.system(size: 28))
+                .foregroundStyle(.secondary)
+            Text(String(localized: .mainReadFailed))
+                .font(.callout)
+                .foregroundStyle(.secondary)
+            Button(String(localized: .bannerRetry)) {
+                model.start()
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.small)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     /// 两组列表（置顶在前列，空组不显示）。置顶组与全部组含同一条置顶便签，

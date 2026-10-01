@@ -52,13 +52,33 @@ final class TrashModel {
     private(set) var isLoaded = false
     @ObservationIgnored private var notesFirstFrameArrived = false
     @ObservationIgnored private var todosFirstFrameArrived = false
+    /// 两流各自收到过成功帧（打磨 R2）：都成功才洗掉失败态——单流失败、
+    /// 另一流后到成功帧时不能把失败态洗掉（失败的流不会再推帧）。
+    @ObservationIgnored private var notesFrameOK = false
+    @ObservationIgnored private var todosFrameOK = false
+    /// 观察流是否处于失败态（打磨 R2）：任一流失败翻 true、两流都收到成功帧翻
+    /// false——空态视图据此显示「读取失败 + 重试」而不是"回收站是空的"。
+    private(set) var isLoadFailed = false
 
-    /// 记一个流的首帧（或失败收尾）：两个流都到齐即翻 isLoaded。
-    private func markFirstFrame(notes: Bool) {
+    /// 记一个流的首帧/失败收尾（打磨 R2）：两个流都到齐即翻 isLoaded；
+    /// 失败翻 isLoadFailed、两流都收到过成功帧才翻回 false。
+    private func markFirstFrame(notes: Bool, failed: Bool = false) {
         if notes {
             notesFirstFrameArrived = true
         } else {
             todosFirstFrameArrived = true
+        }
+        if failed {
+            isLoadFailed = true
+        } else {
+            if notes {
+                notesFrameOK = true
+            } else {
+                todosFrameOK = true
+            }
+            if notesFrameOK && todosFrameOK {
+                isLoadFailed = false
+            }
         }
         if notesFirstFrameArrived && todosFirstFrameArrived {
             isLoaded = true
@@ -118,7 +138,7 @@ final class TrashModel {
                 // data-layer.md「观察」：非取消的正常结束是故障信号——兜底记日志，
                 // 防止数据层语义变化后静默失效（MainNotesModel/MainTodosModel 同款）。
                 guard !Task.isCancelled else { return }
-                self.markFirstFrame(notes: true)
+                self.markFirstFrame(notes: true, failed: true)
                 self.readFailureHandler()
                 Log.app.error("回收站便签观察流非取消结束（应为故障信号）")
             } catch is CancellationError {
@@ -126,7 +146,7 @@ final class TrashModel {
             } catch {
                 // 观察流异常结束：与卡片观察流同一策略——记日志，不静默吞掉；
                 // 同时翻转加载状态，视图不停在假空态（W2）。
-                self.markFirstFrame(notes: true)
+                self.markFirstFrame(notes: true, failed: true)
                 self.readFailureHandler()
                 Log.app.error("回收站便签观察流异常结束：\(String(describing: error), privacy: .public)")
             }
@@ -140,13 +160,13 @@ final class TrashModel {
                     self.markFirstFrame(notes: false)
                 }
                 guard !Task.isCancelled else { return }
-                self.markFirstFrame(notes: false)
+                self.markFirstFrame(notes: false, failed: true)
                 self.readFailureHandler()
                 Log.app.error("回收站待办观察流非取消结束（应为故障信号）")
             } catch is CancellationError {
                 // 取消不算故障
             } catch {
-                self.markFirstFrame(notes: false)
+                self.markFirstFrame(notes: false, failed: true)
                 self.readFailureHandler()
                 Log.app.error("回收站待办观察流异常结束：\(String(describing: error), privacy: .public)")
             }
@@ -317,17 +337,40 @@ struct TrashView: View {
         .padding(.vertical, 10)
     }
 
-    /// 空态（两组皆空）：回收站是空的。首帧未到渲染空白纸感底（W2）。
+    /// 空态（两组皆空）：回收站是空的。首帧未到渲染空白纸感底（W2）；
+    /// 失败态空快照不显示"是空的"（谎话），改「读取失败 + 重试」（打磨 R2）。
     @ViewBuilder
     private var content: some View {
         if !model.isLoaded {
             // 首帧未到（W2）：此时的"空"只是未加载——不显示空态也不放转圈。
             Color.clear
         } else if isTrashEmpty {
-            ContentUnavailableView(String(localized: .mainTrashEmpty), systemImage: "trash")
+            if model.isLoadFailed {
+                readFailedView
+            } else {
+                ContentUnavailableView(String(localized: .mainTrashEmpty), systemImage: "trash")
+            }
         } else {
             list
         }
+    }
+
+    /// 读取失败空态（打磨 R2）：文案复用 main.read.failed，重试重订阅（与便签/待办分区同款）。
+    private var readFailedView: some View {
+        VStack(spacing: 10) {
+            Image(systemName: "wifi.exclamationmark")
+                .font(.system(size: 28))
+                .foregroundStyle(.secondary)
+            Text(String(localized: .mainReadFailed))
+                .font(.callout)
+                .foregroundStyle(.secondary)
+            Button(String(localized: .bannerRetry)) {
+                model.start()
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.small)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     /// 两组列表：便签组在前、待办组在后（组内为流的降序）；组头与便签/待办分区的

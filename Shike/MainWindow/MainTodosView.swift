@@ -22,6 +22,9 @@ final class MainTodosModel {
     /// 反馈通道承接，不停在假空态）。视图空态分支以 `isLoaded && isEmpty` 分流，
     /// 首帧前渲染空白纸感底，避免闪现"没有待办"。
     private(set) var isLoaded = false
+    /// 观察流是否处于失败态（打磨 R2）：失败翻 true、帧到达翻 false——空态视图
+    /// 据此显示「读取失败 + 重试」而不是误导性的"没有待办"。
+    private(set) var isLoadFailed = false
 
     /// 搜索关键词（03 §16.4）：按标题不区分大小写即时过滤；纯空白视为不过滤。
     var searchText: String = ""
@@ -125,14 +128,17 @@ final class MainTodosModel {
             for try await items in stream {
                 todos = items
                 isLoaded = true
+                isLoadFailed = false
             }
             guard !Task.isCancelled else { return }
             isLoaded = true
+            isLoadFailed = true
             readFailureHandler()
             Log.app.error("主窗口待办观察流非取消结束（应为故障信号）")
         } catch {
             guard !(error is CancellationError) else { return }
             isLoaded = true
+            isLoadFailed = true
             readFailureHandler()
             Log.app.error("主窗口待办观察流失败：\(String(describing: error), privacy: .public)")
         }
@@ -238,12 +244,35 @@ struct MainTodosView: View {
             // 首帧未到（W2）：此时的"空"只是未加载——不显示空态也不放转圈。
             Color.clear
         } else if model.todos.isEmpty {
-            ContentUnavailableView(String(localized: .mainTodosEmpty), systemImage: "checklist")
+            if model.isLoadFailed {
+                // 读取失败（打磨 R2）：不显示"没有待办"（谎话），给重试出口。
+                readFailedView
+            } else {
+                ContentUnavailableView(String(localized: .mainTodosEmpty), systemImage: "checklist")
+            }
         } else if groups.hasNoActive && groups.completed.isEmpty {
             searchNoResults
         } else {
             list(groups: groups)
         }
+    }
+
+    /// 读取失败空态（打磨 R2）：文案复用 main.read.failed，重试重订阅（与便签分区同款）。
+    private var readFailedView: some View {
+        VStack(spacing: 10) {
+            Image(systemName: "wifi.exclamationmark")
+                .font(.system(size: 28))
+                .foregroundStyle(.secondary)
+            Text(String(localized: .mainReadFailed))
+                .font(.callout)
+                .foregroundStyle(.secondary)
+            Button(String(localized: .bannerRetry)) {
+                model.start()
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.small)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     /// 搜索无命中的轻提示（文案与「清空」按钮复用面板搜索既有键，便签分区同款）。
