@@ -551,7 +551,10 @@ final class PanelModel {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         do {
             if trimmed.isEmpty {
-                try await noteRepository.softDelete(id)
+                // 迟到防抖（行已被外部删除、快照未及送达）时 softDelete 是 no-op：
+                // 只在确实发生删除时入撤销栈（softDelete 返回实际删除与否）。
+                let deleted = try await noteRepository.softDelete(id)
+                guard deleted else { return }
                 recordDeletion(kind: .note(id), summary: item.note.content)
             } else if item.note.content != text {
                 try await noteRepository.updateContent(id, to: text)

@@ -1,0 +1,249 @@
+// Shike（拾刻）
+// Copyright (C) 2026 Shike contributors
+// SPDX-License-Identifier: GPL-3.0-only
+
+import Foundation
+import ShikeData
+import Testing
+
+@testable import Shike
+@testable import ShikeData // Note/Todo 的 memberwise init 是 internal（包内约定）
+
+/// 主窗口集成接线表（S3.5 集成，MainWindowController.init 的闭包装配）：
+/// 便签/待办动作经 PanelModel 同语义落库（清空=删除入撤销栈、完成清提醒）、
+/// 回收站写路径接真实 TrashRepository 且失败转 main.trash.failed、
+/// 编辑/设置时间呼出面板并沿面板行为。只构造控制器不开窗（init 仅闭包赋值），
+/// 环境同既有 L2：内存库 + 独立 UserDefaults suite。
+@MainActor
+struct MainWindowWiringTests {
+    private func makeEnvironment(simulateWriteFailure: Bool = false) throws -> (AppEnvironment, String) {
+        let suiteName = "shike-tests-\(UUID().uuidString)"
+        let database = simulateWriteFailure
+            ? try AppDatabase.inMemory(options: AppDatabase.Options(simulateWriteFailure: true))
+            : try AppDatabase.inMemory()
+        let environment = AppEnvironment(
+            database: database,
+            preferences: Preferences(defaults: UserDefaults(suiteName: suiteName)!),
+            dataDirectory: FileManager.default.temporaryDirectory
+                .appendingPathComponent("shike-tests-main-wiring-\(UUID().uuidString)", isDirectory: true)
+        )
+        return (environment, suiteName)
+    }
+
+    /// 写操作落库后新建观察流取首帧（首帧即当前全量）。
+    private func activeNotes(_ environment: AppEnvironment) async throws -> [NoteListItem] {
+        var iterator = environment.noteRepository.observeActive().makeAsyncIterator()
+        return try await iterator.next() ?? []
+    }
+
+    private func activeTodos(_ environment: AppEnvironment) async throws -> [Todo] {
+        var iterator = environment.todoRepository.observeActive().makeAsyncIterator()
+        return try await iterator.next() ?? []
+    }
+
+    private func deletedNotes(_ environment: AppEnvironment) async throws -> [Note] {
+        var iterator = environment.trashRepository.observeNotes().makeAsyncIterator()
+        return try await iterator.next() ?? []
+    }
+
+    private func deletedTodos(_ environment: AppEnvironment) async throws -> [Todo] {
+        var iterator = environment.trashRepository.observeTodos().makeAsyncIterator()
+        return try await iterator.next() ?? []
+    }
+
+    /// 一次性流（播种面板快照用）：runNotes 消费完即返回。
+    private func oneShotNotes(_ items: [NoteListItem]) -> AsyncThrowingStream<[NoteListItem], any Error> {
+        AsyncThrowingStream { continuation in
+            continuation.yield(items)
+            continuation.finish()
+        }
+    }
+
+    /// 轮询直到 async 条件成立或超时（写路径是 fire-and-forget Task，无可等待句柄）。
+    private func waitUntil(
+        _ label: String,
+        timeoutSeconds: Double = 2,
+        _ condition: () async throws -> Bool
+    ) async throws {
+        let deadline = Date().addingTimeInterval(timeoutSeconds)
+        while Date() < deadline {
+            if try await condition() { return }
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        Issue.record("等待超时：\(label)")
+    }
+
+    // - MARK: 回收站接线
+
+    @Test("接线：回收站写路径接真实 TrashRepository——恢复回 active、永久删除消失、反馈为成功文案")
+    func trashClosuresHitTrashRepository() async throws {
+        let (environment, suiteName) = try makeEnvironment()
+        defer { UserDefaults.standard.removePersistentDomain(forName: suiteName) }
+        let controller = MainWindowController(environment: environment)
+        let model = controller.trashModel
+        model.statusHideDelay = .seconds(60) // 防 3 秒自清干扰断言
+        model.start()
+        defer { model.stop() }
+
+        let note = try await environment.noteRepository.create(content: "回收便签")
+        let todo = try await environment.todoRepository.create(title: "回收待办", due: nil)
+        try await environment.noteRepository.softDelete(note.id)
+        try await environment.todoRepository.softDelete(todo.id)
+        try await waitUntil("回收站两流就位") {
+            !model.deletedNotes.isEmpty && !model.deletedTodos.isEmpty
+        }
+
+        // 恢复便签：写路径落库（回收站清空、active 重现）+ 默认成功文案
+        await model.requestRestoreNote(note.id)
+        try await waitUntil("便签恢复") { model.deletedNotes.isEmpty }
+        let activeAfterRestore = try await activeNotes(environment)
+        #expect(activeAfterRestore.map(\.id) == [note.id])
+        #expect(model.statusMessage == String(localized: .mainTrashRestored("便签")))
+
+        // 永久删除待办：走确认状态机 → 真实仓储
+        model.requestDeleteTodo(todo.id)
+        await model.confirm()
+        try await waitUntil("待办消失") { model.deletedTodos.isEmpty }
+        let activeAfterDelete = try await activeTodos(environment)
+        #expect(activeAfterDelete.isEmpty)
+        #expect(model.statusMessage == String(localized: .mainTrashPermanentlyDeleted("待办")))
+    }
+
+    @Test("接线：回收站写路径失败转 main.trash.failed（simulateWriteFailure 与 notFound 两类），默认成功文案不覆盖")
+    func trashFailureShowsFailedMessage() async throws {
+        let (environment, suiteName) = try makeEnvironment(simulateWriteFailure: true)
+        defer { UserDefaults.standard.removePersistentDomain(forName: suiteName) }
+        let controller = MainWindowController(environment: environment)
+        let model = controller.trashModel
+        model.statusHideDelay = .seconds(60)
+
+        // 写必抛（统一写路径失败）：清空走确认后收到失败文案而非"已清空回收站"
+        model.requestEmptyAll()
+        await model.confirm()
+        #expect(model.statusMessage == String(localized: .mainTrashFailed))
+        #expect(model.confirmTarget == nil)
+
+        // notFound（幽灵 id）同样经 catch 转失败文案
+        await model.requestRestoreNote(Note.ID(rawValue: 9999))
+        #expect(model.statusMessage == String(localized: .mainTrashFailed))
+    }
+
+    // - MARK: 便签接线
+
+    @Test("接线：便签动作接 PanelModel 同语义——保存更新、清空=删除入回收站、置顶/删除直达仓储")
+    func notesClosuresHitPanelModelSemantics() async throws {
+        let (environment, suiteName) = try makeEnvironment()
+        defer { UserDefaults.standard.removePersistentDomain(forName: suiteName) }
+        let panelModel = environment.panelModel
+        // 播种面板快照：panelModel.saveNoteContent 的未变跳过/清空=删除按 notes.first 守卫
+        let seeded = try await environment.noteRepository.create(content: "原文")
+        await panelModel.runNotes(oneShotNotes([NoteListItem(note: seeded, isPinnedToDesktop: false)]))
+
+        let controller = MainWindowController(environment: environment)
+
+        // 保存新内容 → panelModel.updateContent 落库
+        controller.notesModel.saveNoteContent(seeded.id, "新内容")
+        try await waitUntil("内容更新") {
+            try await self.activeNotes(environment).first?.note.content == "新内容"
+        }
+
+        // 清空=删除（软删除入回收站；撤销语义在面板）
+        controller.notesModel.saveNoteContent(seeded.id, "")
+        try await waitUntil("清空删除") {
+            let active = try await self.activeNotes(environment)
+            guard active.isEmpty else { return false }
+            return !(try await self.deletedNotes(environment)).isEmpty
+        }
+
+        // 置顶/删除直达仓储
+        let second = try await environment.noteRepository.create(content: "第二条")
+        controller.notesModel.setNotePinned(second.id, true)
+        try await waitUntil("置顶") {
+            try await self.activeNotes(environment).first(where: { $0.id == second.id })?.note.pinnedAt != nil
+        }
+        controller.notesModel.deleteNote(second.id)
+        try await waitUntil("删除") {
+            try await self.activeNotes(environment).allSatisfy { $0.id != second.id }
+        }
+    }
+
+    // - MARK: 待办接线
+
+    @Test("接线：待办动作接 PanelModel 同语义——完成走三态落库并清 snoozedUntil（ADR-017）、删除入回收站")
+    func todosClosuresHitPanelModelSemantics() async throws {
+        let (environment, suiteName) = try makeEnvironment()
+        defer { UserDefaults.standard.removePersistentDomain(forName: suiteName) }
+        let controller = MainWindowController(environment: environment)
+        // 勾选接面板三态（1 秒待移入），测试缩短计时窗
+        environment.panelModel.completionDelay = .milliseconds(50)
+        let todo = try await environment.todoRepository.create(title: "接线待办", due: nil)
+        let snoozed = Date().addingTimeInterval(3600)
+        _ = try await environment.todoRepository.snooze(uuid: todo.uuid, until: snoozed)
+
+        // 完成：toggleTodoCompletion 待移入到期 → setTodoCompleted 落库 + 清 snoozedUntil
+        controller.todosModel.toggleComplete(todo.id, true)
+        try await waitUntil("完成清稍后") {
+            guard let item = try await self.activeTodos(environment).first(where: { $0.id == todo.id }) else {
+                return false
+            }
+            return item.completedAt != nil && item.snoozedUntil == nil
+        }
+
+        // 删除：软删除入回收站
+        controller.todosModel.delete(todo.id)
+        try await waitUntil("删除") {
+            let active = try await self.activeTodos(environment)
+            guard active.isEmpty else { return false }
+            return !(try await self.deletedTodos(environment)).isEmpty
+        }
+    }
+
+    @Test("接线：编辑/设置时间呼出面板并沿面板行为（行内编辑/时间弹层/定位高亮）；未知 id 静默忽略")
+    func editAndSetTimeOpenPanelWithPanelBehavior() async throws {
+        let (environment, suiteName) = try makeEnvironment()
+        defer { UserDefaults.standard.removePersistentDomain(forName: suiteName) }
+        let controller = MainWindowController(environment: environment)
+        let todo = try await environment.todoRepository.create(title: "目标待办", due: nil)
+        let model = controller.todosModel
+        model.observeTodos = { environment.todoRepository.observeActive() }
+        model.start()
+        defer { model.stop() }
+        try await waitUntil("主窗口快照就位") { !model.todos.isEmpty }
+
+        var panelOpened = 0
+        controller.openPanelHandler = { panelOpened += 1 }
+
+        // 编辑：呼出面板 + 行内编辑态播种 + 定位高亮
+        model.edit(todo.id)
+        #expect(panelOpened == 1)
+        #expect(environment.panelModel.editingTodoID == todo.id)
+        #expect(environment.panelModel.editingTodoText == "目标待办")
+        #expect(environment.panelModel.locateTodoID == todo.uuid.uuidString)
+
+        // 设置时间：先收尾编辑态（endEditingIfNeeded），再弹时间层
+        model.setTime(todo.id)
+        #expect(panelOpened == 2)
+        #expect(environment.panelModel.editingTodoID == nil)
+        #expect(environment.panelModel.editingTimeTarget?.id == todo.id)
+
+        // 未知 id：不呼出、面板状态不变
+        model.edit(Todo.ID(rawValue: 9999))
+        #expect(panelOpened == 2)
+        #expect(environment.panelModel.editingTimeTarget?.id == todo.id)
+    }
+
+    @Test("导出文件名日期：yyyy-MM-dd 按注入时区（en_US_POSIX 固定字段序）")
+    func exportFileDateUsesInjectedTimeZone() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "America/New_York")!
+        var components = DateComponents()
+        components.year = 2026
+        components.month = 10
+        components.day = 1
+        components.hour = 20 // 纽约 10-01 20:00 = UTC 10-02 00:00，钉住时区而非 UTC
+        let date = calendar.date(from: components)!
+
+        #expect(MainWindowController.fileDate(date, timeZone: TimeZone(identifier: "America/New_York")!) == "2026-10-01")
+        #expect(MainWindowController.fileDate(date, timeZone: TimeZone(identifier: "Asia/Shanghai")!) == "2026-10-02")
+    }
+}

@@ -103,7 +103,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         )
         self.settingsWindowController = settingsWindowController
         // 主窗口（S3.5-01）：菜单栏右键与设置-通用都能打开。
-        let mainWindowController = MainWindowController()
+        let mainWindowController = MainWindowController(environment: environment)
         self.mainWindowController = mainWindowController
         settingsModel.openMainWindow = { [weak mainWindowController] in mainWindowController?.show() }
         let statusMenu = StatusMenu(actions: .init(
@@ -144,6 +144,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             initialSize: environment.preferences.panelSize
         )
         self.popoverController = popoverController
+        // 主窗口待办「编辑/设置时间」先呼出面板再定位（S3.5-04 集成）：面板与状态项
+        // 归本控制器所有，装配完成后注入（组合方式与通知定位 openPanelHandler 一致）。
+        mainWindowController.openPanelHandler = { [weak self] in
+            guard let self, let button = self.statusItemController?.statusBarButton else { return }
+            if !(self.popoverController?.popover.isShown ?? false) {
+                self.popoverController?.toggle(from: button)
+            }
+        }
         // S1-01：尺寸把手的持久化、Esc 的"结束编辑"经面板模型回调（无单例）。
         popoverController.persistSize = { [weak environment] size in
             guard let environment else { return }
@@ -340,6 +348,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // 打磨 R6：退出前把在编辑的列表行立即冲进保存管线（原实现要等 0.5 秒防抖，
         // 立即退出有丢失窗口；deferred-work 2.8/阶段 1 收尾评估项）。
         _ = environment?.panelModel.endEditingIfNeeded()
+        mainWindowController?.endEditingIfNeeded()
+        mainWindowController?.stop()
         popoverController?.stop()
         environment?.panelModel.stop()
         environment?.cardManager.stop()

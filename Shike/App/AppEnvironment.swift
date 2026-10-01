@@ -17,6 +17,8 @@ public final class AppEnvironment {
     public let noteRepository: NoteRepository
     public let todoRepository: TodoRepository
     public let stickyCardRepository: StickyCardRepository
+    /// 回收站（S3.5-05）：观察软删除、恢复、永久删除、清空（组合两表事务）。
+    public let trashRepository: TrashRepository
     let panelModel: PanelModel
     let backupService: BackupService
     let hotkeyService: HotkeyService
@@ -44,6 +46,7 @@ public final class AppEnvironment {
         self.noteRepository = noteRepository
         self.todoRepository = todoRepository
         self.stickyCardRepository = StickyCardRepository(database: database)
+        self.trashRepository = TrashRepository(database: database)
         self.panelModel = PanelModel(noteRepository: noteRepository, todoRepository: todoRepository, preferences: preferences)
         self.backupService = BackupService(
             database: database,
