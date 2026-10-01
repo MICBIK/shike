@@ -149,19 +149,29 @@ final class MainNotesModel {
     // MARK: 原位编辑
 
     /// 单击行进入原位编辑（同一时刻只有一行在编辑）：先收尾上一行并立即保存，
-    /// 再经仲裁器让其他面（面板行/卡片）收尾（W4"后来者拿走"），最后以该行
-    /// 当前内容播种编辑文字。
+    /// 再经仲裁器让其他面（面板行/卡片）收尾（W4"后来者拿走"），最后播种编辑
+    /// 文字——优先用仲裁器返回的在编文字（打磨 R1：面板/卡片未保存的编辑尚未
+    /// 回流到本模型快照，按快照播种会回退对方刚打的字）。
     func beginEditing(_ id: Note.ID) {
         guard editingNoteID != id else { return } // 已在编辑本行：保留进行中的文字
         endEditing()
-        editArbiter.claim(
+        let evicted = editArbiter.claim(
             noteID: id,
             owner: .mainWindow,
             isEditing: { [weak self] in self?.editingNoteID == id },
-            endEditing: { [weak self] in self?.endEditing() }
+            endEditing: { [weak self] noteID in self?.endEditingIfEditing(noteID) }
         )
         editingNoteID = id
-        editingNoteText = notes.first(where: { $0.id == id })?.note.content ?? ""
+        editingNoteText = evicted ?? notes.first(where: { $0.id == id })?.note.content ?? ""
+    }
+
+    /// 仲裁器驱逐闭包（W4）：本模型正在编辑 id 时结束编辑（既有保存通道）并
+    /// 返回进行中的文字；不在编辑返回 nil。
+    func endEditingIfEditing(_ id: Note.ID) -> String? {
+        guard editingNoteID == id else { return nil }
+        let text = editingNoteText
+        endEditing()
+        return text
     }
 
     /// 结束编辑：取消防抖并立即转发保存（失焦/Esc/开始编辑另一行共用）。

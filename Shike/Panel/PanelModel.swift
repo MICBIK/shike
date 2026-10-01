@@ -517,16 +517,28 @@ final class PanelModel {
     /// 进入面板行内编辑（W4 三面互斥的 claim 点；面板行点击/右键菜单共用）：
     /// 先收面板内正在编辑的其它行（03 §5 单行编辑语义不变），再经仲裁器让
     /// 其他面（主窗口行/卡片）收尾（触发各自保存），最后授权本面。
+    /// 播种优先用仲裁器返回的在编文字（打磨 R1）：主窗口/卡片未保存的编辑
+    /// 尚未回流到行快照，按快照播种会把对方刚打的字回退成旧文。
     func beginNoteEditing(_ id: Note.ID, content: String) {
+        guard editingNoteID != id else { return } // 已在编辑本行：保留进行中的文字
         _ = endEditingIfNeeded()
-        editArbiter.claim(
+        let evicted = editArbiter.claim(
             noteID: id,
             owner: .panel,
             isEditing: { [weak self] in self?.editingNoteID == id },
-            endEditing: { [weak self] in _ = self?.endEditingIfNeeded() }
+            endEditing: { [weak self] noteID in self?.endEditingIfEditing(noteID) }
         )
         editingNoteID = id
-        editingNoteText = content
+        editingNoteText = evicted ?? content
+    }
+
+    /// 仲裁器驱逐闭包（W4）：本面板正在编辑 id 时结束编辑（既有异步保存语义）
+    /// 并返回进行中的文字供接手面播种；不在编辑返回 nil。
+    func endEditingIfEditing(_ id: Note.ID) -> String? {
+        guard editingNoteID == id else { return nil }
+        let text = editingNoteText
+        _ = endEditingIfNeeded()
+        return text
     }
 
     /// 新的呼出空窗开始（S1-04）：复位就绪标志；由 PopoverController.onShow 经 App 接入。

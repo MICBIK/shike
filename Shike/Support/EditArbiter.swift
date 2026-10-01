@@ -25,30 +25,36 @@ final class EditArbiter {
         case card
     }
 
-    /// 一条在编记录：owner + 探活（该面是否仍在编辑这条）+ 结束编辑（触发保存）。
+    /// 一条在编记录：owner + 探活（该面是否仍在编辑这条）+ 结束编辑（触发保存，
+    /// 返回在编文字供接手面播种）。
     private struct Entry {
         let owner: Owner
         let isEditing: () -> Bool
-        let endEditing: () -> Void
+        let endEditing: (Note.ID) -> String?
     }
 
     /// 按 noteID 记当前编辑面（会话级，不持久化；量级=曾编辑过的便签数）。
     private var entries: [Note.ID: Entry] = [:]
 
     /// claim 一条便签的编辑权：目标正被其他面编辑时先让对方收尾（保存），
-    /// 再授权给新 owner。同面重复 claim（已在编辑本行）不动既有记录。
+    /// 再授权给新 owner。**返回被驱逐方的在编文字**（未驱逐/过期条目为 nil）——
+    /// 接手面的快照可能滞后于对方未保存的编辑（打磨 R1：直接按快照播种会把
+    /// 对方刚打的字回退成旧文，随后保存即静默覆盖），必须以返回文字播种。
+    /// 同面重复 claim（已在编辑本行）不动既有记录、不触发收尾。
     /// 先写新条目再调旧结束闭包：旧闭包内部不回调仲裁器，无重入风险。
+    @discardableResult
     func claim(
         noteID: Note.ID,
         owner: Owner,
         isEditing: @escaping () -> Bool,
-        endEditing: @escaping () -> Void
-    ) {
+        endEditing: @escaping (Note.ID) -> String?
+    ) -> String? {
         let previous = entries[noteID]
         entries[noteID] = Entry(owner: owner, isEditing: isEditing, endEditing: endEditing)
         if let previous, previous.owner != owner, previous.isEditing() {
-            previous.endEditing()
+            return previous.endEditing(noteID)
         }
+        return nil
     }
 
     /// 测试与诊断：某条便签当前的编辑面（无则 nil）。

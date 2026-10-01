@@ -473,17 +473,18 @@ final class CardController: NSObject, NSWindowDelegate {
 
     /// 双击进入编辑：窗口允许成为 key（ADR-025 结论 4）并聚焦文本视图；编辑中不自动隐藏。
     /// 进入前先经仲裁器 claim（W4 三面互斥）：面板/主窗口正在编辑同一条便签时，
-    /// 对方先收尾（触发保存），本卡拿到编辑（"后来者拿走"）。
+    /// 对方先收尾（触发保存），本卡拿到编辑（"后来者拿走"）；播种优先用仲裁器
+    /// 返回的在编文字（打磨 R1：面板未保存的编辑尚未经观察流回流到 model.content）。
     func beginEditing() {
         guard !model.isEditing else { return }
-        editArbiter.claim(
+        let evicted = editArbiter.claim(
             noteID: panel.noteID,
             owner: .card,
             isEditing: { [weak self] in self?.model.isEditing == true },
-            endEditing: { [weak self] in self?.endEditing(save: true) }
+            endEditing: { [weak self] noteID in self?.endEditingIfEditing(noteID) }
         )
         autosaveTask?.cancel()
-        model.editingText = model.content
+        model.editingText = evicted ?? model.content
         model.isEditing = true
         panel.allowsKey = true
         // 编辑时临时浮出（ADR-031）：普通层级卡片在 normal−1 层，可能整个被别的
@@ -517,6 +518,19 @@ final class CardController: NSObject, NSWindowDelegate {
         // orderBack）；编辑期间用户若改了层级选项，也在这里统一生效。
         panel.apply(options: model.options)
         autoHide.setBusy(false, now: ProcessInfo.processInfo.systemUptime)
+        return text
+    }
+
+    /// 仲裁器驱逐闭包（W4）：本卡在编辑该便签时收编辑态（走既有保存通道）并
+    /// 返回在编文字供接手面播种；不在编辑返回 nil。卡片只编辑自己那条，
+    /// noteID 不符（理论不可达）同样返回 nil。
+    func endEditingIfEditing(_ noteID: Note.ID) -> String? {
+        guard model.isEditing, panel.noteID == noteID else { return nil }
+        let text = teardownEditing()
+        if text != model.content {
+            // 面板同语义：内容未变跳过、清空=删除入撤销栈、失败上面板提示条
+            onContentChange(panel.noteID, text)
+        }
         return text
     }
 
