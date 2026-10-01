@@ -508,6 +508,27 @@ final class PanelModel {
         replayBufferedKeys(textView)
     }
 
+    // - MARK: 三面编辑互斥（W4）
+
+    /// 同一条便签的面板/主窗口/卡片编辑仲裁（AppEnvironment 装配注入；
+    /// 默认新实例供 L2/预览直接组装）。
+    @ObservationIgnored var editArbiter = EditArbiter()
+
+    /// 进入面板行内编辑（W4 三面互斥的 claim 点；面板行点击/右键菜单共用）：
+    /// 先收面板内正在编辑的其它行（03 §5 单行编辑语义不变），再经仲裁器让
+    /// 其他面（主窗口行/卡片）收尾（触发各自保存），最后授权本面。
+    func beginNoteEditing(_ id: Note.ID, content: String) {
+        _ = endEditingIfNeeded()
+        editArbiter.claim(
+            noteID: id,
+            owner: .panel,
+            isEditing: { [weak self] in self?.editingNoteID == id },
+            endEditing: { [weak self] in _ = self?.endEditingIfNeeded() }
+        )
+        editingNoteID = id
+        editingNoteText = content
+    }
+
     /// 新的呼出空窗开始（S1-04）：复位就绪标志；由 PopoverController.onShow 经 App 接入。
     func beginCaptureWindow() {
         isCaptureReady = false

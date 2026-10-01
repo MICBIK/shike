@@ -30,6 +30,8 @@ public final class AppEnvironment {
     let reminderScheduler: ReminderScheduler
     /// 桌面卡片管理器（S3-01）：start(actions:) 由 AppDelegate 在状态项就绪后调用。
     let cardManager: CardManager
+    /// 同一条便签的三面编辑互斥仲裁（W4）：App 环境级单份，装配注入面板/主窗口/卡片。
+    let editArbiter = EditArbiter()
 
     init(
         database: AppDatabase,
@@ -87,8 +89,11 @@ public final class AppEnvironment {
         self.reminderScheduler = reminderScheduler
         // 桌面卡片（S3-01，03 §10）：管理器先创建并落属性（后面闭包捕获 self 需全部属性就绪），
         // 面板动作注入与观察流启动在本 init 末尾。
-        let cardManager = CardManager(cardRepository: stickyCardRepository)
+        let cardManager = CardManager(cardRepository: stickyCardRepository, editArbiter: editArbiter)
         self.cardManager = cardManager
+        // 三面编辑互斥（W4）：面板侧的仲裁器注入（主窗口侧在 MainWindowController、
+        // 卡片侧经 CardManager init）。
+        panelModel.editArbiter = editArbiter
         // 通知动作（S2-04）：全部存储属性已就绪，接回调（闭包访问 self.panelModel）。
         // snoozeMinutes 动作发生时读偏好；面板的打开与定位由 AppDelegate 接线。
         notificationCoordinator.handlers.complete = { [weak self] uuid in

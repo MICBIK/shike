@@ -257,6 +257,8 @@ final class MainWindowController {
         // 时区统一走面板口径（阶段 1 恒 .current；Options.timeZone 接线时随面板一并改）。
         trashModel.timeZone = panelModel.timeZone
         notesModel.timeZone = panelModel.timeZone
+        // 三面编辑互斥（W4）：主窗口便签行的仲裁器接环境级单份（面板/卡片侧已接）。
+        notesModel.editArbiter = environment.editArbiter
         // 读失败上报（W3）：三模型统一挂同一闭包（feedback 弱持有）。
         notesModel.readFailureHandler = showReadFailure
         todosModel.readFailureHandler = showReadFailure

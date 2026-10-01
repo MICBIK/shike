@@ -40,6 +40,8 @@ final class CardManager {
 
     private var actions: Actions?
     private let cardRepository: StickyCardRepository
+    /// 三面编辑互斥仲裁（W4）：卡片进入编辑时 claim，其他面编辑同一条时对方收尾。
+    private let editArbiter: EditArbiter
     private var task: Task<Void, Never>?
     private var controllers: [Note.ID: CardController] = [:]
     /// 上一帧快照（CardDiff 的 old 输入；首帧为空 = 启动恢复全部 create）。
@@ -62,8 +64,9 @@ final class CardManager {
         appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
     }
 
-    init(cardRepository: StickyCardRepository) {
+    init(cardRepository: StickyCardRepository, editArbiter: EditArbiter = EditArbiter()) {
         self.cardRepository = cardRepository
+        self.editArbiter = editArbiter
     }
 
     func start(actions: Actions) {
@@ -241,6 +244,7 @@ final class CardManager {
             card: item.card,
             note: item.note,
             screenVisibleFrame: actions?.screenProvider().visibleFrame ?? NSScreen.main!.visibleFrame,
+            editArbiter: editArbiter,
             isDark: Self.isDarkAppearance(NSApp.effectiveAppearance),
             onMove: { [weak self] noteID, frame in
                 self?.actions?.moveCard(noteID, frame)
@@ -290,11 +294,14 @@ final class CardController: NSObject, NSWindowDelegate {
     private var lastPersistedFrame: CardFrame?
     /// 编辑防抖任务（0.5 秒，03 §10.2）。
     private var autosaveTask: Task<Void, Never>?
+    /// 三面编辑互斥仲裁（W4）：由 CardManager 下传（AppEnvironment 装配的环境级单份）。
+    private let editArbiter: EditArbiter
 
     init(
         card: StickyCard,
         note: Note,
         screenVisibleFrame: NSRect,
+        editArbiter: EditArbiter,
         isDark: Bool,
         onMove: @escaping (Note.ID, CardFrame) -> Void,
         onUnpin: @escaping (Note.ID) -> Void,
@@ -304,6 +311,7 @@ final class CardController: NSObject, NSWindowDelegate {
     ) {
         // NSObject 子类：先初始化全部存储属性 → super.init() → 才能使用 self（闭包捕获）
         self.screenVisibleFrame = screenVisibleFrame
+        self.editArbiter = editArbiter
         self.onMove = onMove
         self.onUnpin = onUnpin
         self.onOptionsChange = onOptionsChange
@@ -464,8 +472,16 @@ final class CardController: NSObject, NSWindowDelegate {
     // - MARK: 卡片上编辑（S3-06，03 §10.2）
 
     /// 双击进入编辑：窗口允许成为 key（ADR-025 结论 4）并聚焦文本视图；编辑中不自动隐藏。
+    /// 进入前先经仲裁器 claim（W4 三面互斥）：面板/主窗口正在编辑同一条便签时，
+    /// 对方先收尾（触发保存），本卡拿到编辑（"后来者拿走"）。
     func beginEditing() {
         guard !model.isEditing else { return }
+        editArbiter.claim(
+            noteID: panel.noteID,
+            owner: .card,
+            isEditing: { [weak self] in self?.model.isEditing == true },
+            endEditing: { [weak self] in self?.endEditing(save: true) }
+        )
         autosaveTask?.cancel()
         model.editingText = model.content
         model.isEditing = true

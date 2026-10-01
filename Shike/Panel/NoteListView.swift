@@ -193,10 +193,9 @@ private struct NoteRow: View {
     private var editingTextDebounceSeed: String { model.editingNoteText }
 
     private func startEditing() {
-        // 先 flush 正在编辑的其它行（03 §5：单击即改，同一时刻只有一行在编辑）。
-        _ = model.endEditingIfNeeded()
-        model.editingNoteID = item.note.id
-        model.editingNoteText = item.note.content
+        // 先 flush 正在编辑的其它行（03 §5：单击即改，同一时刻只有一行在编辑），
+        // 再经仲裁器 claim（W4：其他面在编辑同一条时先收尾）并授权本行。
+        model.beginNoteEditing(item.note.id, content: item.note.content)
     }
 
     /// 结束编辑并立即保存（失焦/Esc/收起面板共用；内容未变时 saveNoteContent 内部跳过）。

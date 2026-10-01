@@ -52,6 +52,9 @@ final class MainNotesModel {
     @ObservationIgnored var timeZone: TimeZone = .current
     /// 编辑自动保存的防抖时长（L2 注入缩短；0.5 秒与面板行内编辑一致）。
     @ObservationIgnored var saveDebounceDelay: Duration = .milliseconds(500)
+    /// 三面编辑互斥仲裁（W4）：AppEnvironment 装配注入（MainWindowController 接线）；
+    /// 默认新实例供 L2 直接组装。
+    @ObservationIgnored var editArbiter = EditArbiter()
 
     /// @ObservationIgnored + nonisolated(unsafe)（Task 取消本身 Sendable 安全）
     /// 只为让 deinit 能停止；模式同 PanelModel。
@@ -146,10 +149,17 @@ final class MainNotesModel {
     // MARK: 原位编辑
 
     /// 单击行进入原位编辑（同一时刻只有一行在编辑）：先收尾上一行并立即保存，
-    /// 再以该行当前内容播种编辑文字。
+    /// 再经仲裁器让其他面（面板行/卡片）收尾（W4"后来者拿走"），最后以该行
+    /// 当前内容播种编辑文字。
     func beginEditing(_ id: Note.ID) {
         guard editingNoteID != id else { return } // 已在编辑本行：保留进行中的文字
         endEditing()
+        editArbiter.claim(
+            noteID: id,
+            owner: .mainWindow,
+            isEditing: { [weak self] in self?.editingNoteID == id },
+            endEditing: { [weak self] in self?.endEditing() }
+        )
         editingNoteID = id
         editingNoteText = notes.first(where: { $0.id == id })?.note.content ?? ""
     }
