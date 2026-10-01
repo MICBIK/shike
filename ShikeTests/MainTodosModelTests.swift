@@ -154,7 +154,7 @@ struct MainTodosModelTests {
         #expect(model.groups.noDate.count == 2)
         #expect(model.groups.completed.count == 1)
 
-        // 无命中：五组全空（视图据此显示空态），原始快照保留（过滤只作用派生）
+        // 无命中：五组全空（视图据此显示"没有找到 X"+清除，与便签分区同款），原始快照保留（过滤只作用派生）
         model.searchText = "不存在的关键词"
         let groups = model.groups
         #expect(groups.hasNoActive && groups.completed.isEmpty)

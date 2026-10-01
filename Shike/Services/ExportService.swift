@@ -14,10 +14,9 @@ enum ExportService {
     /// 空节不输出，节内跟随数据原序；空数据只输出标题。
     /// `generatedAt` 既是标题日期，也是待办分组的"现在"（导出反映生成时刻的状态）。
     ///
-    /// 与界面的两处有意差异：
-    /// - 「置顶」节已单列，故「全部」节只含未置顶便签（界面的「全部」组含置顶）——
-    ///   每条便签在文档中恰好出现一次，不冗余；
-    /// - 待办节内跟随数据原序（界面按 due 排序），见 todoSections 注释。
+    /// 节结构与界面分组一一对应：「全部」节 = 全量（含置顶），与界面「全部」组同口径——
+    /// 置顶便签在「置顶」「全部」两节各出现一次（界面两组也各显示一次）；
+    /// 待办节内跟随数据原序（界面按 due 排序），见 todoSections 注释。
     ///
     /// - Note: 导出是数据制品而非界面文案，节标题为固定中文（"置顶""全部""待办""逾期"
     ///   "今天""以后""无日期""已完成"），写死在代码里——导出文件不随应用语言切换，
@@ -30,16 +29,16 @@ enum ExportService {
     static func markdown(notes: [Note], todos: [Todo], generatedAt: Date, timeZone: TimeZone) -> String {
         var lines: [String] = ["# 拾刻导出（\(headerDate(generatedAt, timeZone: timeZone))）"]
 
-        // 便签分两节：置顶（pinnedAt 非空）与其余的"全部"，节内跟随数据原序。
+        // 便签两节：「全部」= 全量（含置顶），与界面「全部」组同口径；置顶单列一节，
+        // 置顶便签在两节各出现一次（与界面两组各显示一次一致）。节内跟随数据原序。
         let pinned = notes.filter { $0.pinnedAt != nil }
-        let unpinned = notes.filter { $0.pinnedAt == nil }
         if !pinned.isEmpty {
             lines.append("## 置顶")
             lines.append(contentsOf: noteItemLines(pinned))
         }
-        if !unpinned.isEmpty {
+        if !notes.isEmpty {
             lines.append("## 全部")
-            lines.append(contentsOf: noteItemLines(unpinned))
+            lines.append(contentsOf: noteItemLines(notes))
         }
 
         // 待办五分组（同 TodoGrouping 的判定语义），空节不输出。
@@ -159,8 +158,8 @@ enum ExportService {
     /// JSON 文档（S3.5-06）：`{"version":1,"generatedAt":ISO8601,"notes":[...],"todos":[...]}`。
     /// Note/Todo 是非 Codable 的域类型（ShikeData 的定义未遵循 Codable），用私有映射类型
     /// ExportedNote/ExportedTodo 过渡；uuid 作跨设备稳定标识，时间统一 ISO8601
-    /// （秒级精度——数据库毫秒在导出中舍入；未来需要毫秒对账时随 version 2 演进）。
-    /// 可选字段编码为显式 null（键恒在，消费方按稳定 schema 读取），见 encodeOptional。
+    /// （带小数秒的毫秒精度，与数据库时间戳精度对齐）。可选字段编码为显式 null
+    /// （键恒在，消费方按稳定 schema 读取），见 encodeOptional。
     static func json(notes: [Note], todos: [Todo], generatedAt: Date) throws -> Data {
         let document = ExportedDocument(
             version: 1,
@@ -189,7 +188,14 @@ enum ExportService {
             }
         )
         let encoder = JSONEncoder()
-        encoder.dateEncodingStrategy = .iso8601
+        // ISO8601 带小数秒（毫秒）：.iso8601 策略只到秒，会丢数据库时间戳的毫秒位。
+        // 逐次创建 formatter，与本文件其余格式化入口同款。
+        encoder.dateEncodingStrategy = .custom { date, encoder in
+            let formatter = ISO8601DateFormatter()
+            formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            var container = encoder.singleValueContainer()
+            try container.encode(formatter.string(from: date))
+        }
         // prettyPrinted：导出文件人也要读；sortedKeys：同版本输出字节稳定（利于比对）。
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         return try encoder.encode(document)

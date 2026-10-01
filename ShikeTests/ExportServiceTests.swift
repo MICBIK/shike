@@ -25,6 +25,13 @@ struct ExportServiceTests {
         components.hour = 10
         return calendar.date(from: components)!
     }()
+    /// 导出实现的同款解析器（ISO8601 带小数秒=毫秒，与数据库时间戳精度对齐）。
+    /// ISO8601DateFormatter 非 Sendable，逐次创建（与 ExportService 的格式化入口同款）。
+    private static func makeISO8601Milliseconds() -> ISO8601DateFormatter {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return formatter
+    }
 
     /// 相对基准日的某天（默认当天 12:00）。
     private func date(_ daysFromNow: Int, hour: Int = 12, minute: Int = 0) -> Date {
@@ -34,13 +41,13 @@ struct ExportServiceTests {
         return calendar.date(bySettingHour: hour, minute: minute, second: 0, of: day)!
     }
 
-    private func note(id: Int64, content: String, pinned: Bool = false) -> Note {
+    private func note(id: Int64, content: String, pinned: Bool = false, createdAt: Date? = nil) -> Note {
         Note(
             id: Note.ID(rawValue: id),
             uuid: UUID(),
             content: content,
             pinnedAt: pinned ? Self.generatedAt : nil,
-            createdAt: Self.generatedAt,
+            createdAt: createdAt ?? Self.generatedAt,
             updatedAt: Self.generatedAt,
             deletedAt: nil
         )
@@ -119,10 +126,10 @@ struct ExportServiceTests {
             searchStart = lines.index(after: index)
         }
 
-        // 便签逐条出现；置顶便签全文档恰出现一次（「全部」节只含未置顶，与界面组语义的差异见 ExportService 注释）
+        // 便签逐节出现；「全部」节=全量含置顶（与界面「全部」组同口径，置顶在两节各一次）
         #expect(sectionLines(output, header: "## 置顶") == ["- 置顶便签"])
-        #expect(sectionLines(output, header: "## 全部") == ["- 普通便签"])
-        #expect(output.components(separatedBy: "- 置顶便签").count - 1 == 1)
+        #expect(sectionLines(output, header: "## 全部") == ["- 置顶便签", "- 普通便签"])
+        #expect(output.components(separatedBy: "- 置顶便签").count - 1 == 2)
 
         // 待办条目按节归属（分组正确性：时间条目须落在正确的节内）
         #expect(sectionLines(output, header: "## 待办 · 逾期") == ["- [ ] 逾期待办（2026-09-28 12:00）"])
@@ -150,11 +157,11 @@ struct ExportServiceTests {
         #expect(output.contains("## 全部"))
         #expect(!output.contains("## 待办"))
 
-        // 仅置顶输入：「全部」节不输出（每条便签在文档中恰好出现一次）
+        // 仅置顶输入：「全部」节=全量仍输出（与界面同口径），置顶便签两节各一次
         let pinnedOnly = markdown(notes: [note(id: 1, content: "只有置顶", pinned: true)], todos: [])
         #expect(pinnedOnly.contains("## 置顶"))
-        #expect(!pinnedOnly.contains("## 全部"))
-        #expect(pinnedOnly.components(separatedBy: "- 只有置顶").count - 1 == 1)
+        #expect(pinnedOnly.contains("## 全部"))
+        #expect(pinnedOnly.components(separatedBy: "- 只有置顶").count - 1 == 2)
     }
 
     @Test("markdown：待办五分组日界边界（昨天 23:59 逾期、今天 00:00/23:59 今天、明天 00:00 以后）")
@@ -208,9 +215,9 @@ struct ExportServiceTests {
         #expect(Set(object.keys) == ["version", "generatedAt", "notes", "todos"])
         #expect(object["version"] as? Int == 1)
 
-        // generatedAt：ISO8601（UTC），整秒注入 → 往返相等
+        // generatedAt：ISO8601 毫秒（UTC），整秒注入 → 往返相等
         let generatedAtText = try #require(object["generatedAt"] as? String)
-        let parsedGeneratedAt = try #require(ISO8601DateFormatter().date(from: generatedAtText))
+        let parsedGeneratedAt = try #require(Self.makeISO8601Milliseconds().date(from: generatedAtText))
         #expect(parsedGeneratedAt == Self.generatedAt)
 
         // notes 字段值
@@ -246,7 +253,7 @@ struct ExportServiceTests {
         let todos = try #require(object["todos"] as? [[String: Any]])
         let exportedTodo = try #require(todos.first)
         let completedAtText = try #require(exportedTodo["completedAt"] as? String)
-        #expect(ISO8601DateFormatter().date(from: completedAtText) == completedAt)
+        #expect(Self.makeISO8601Milliseconds().date(from: completedAtText) == completedAt)
         #expect(exportedTodo["due"] is NSNull) // 无 due 时为空
     }
 
@@ -283,7 +290,7 @@ struct ExportServiceTests {
         let object = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
         let exportedTodo = try #require((object["todos"] as? [[String: Any]])?.first)
         let text = try #require(exportedTodo["snoozedUntil"] as? String)
-        #expect(ISO8601DateFormatter().date(from: text) == snoozedUntil)
+        #expect(Self.makeISO8601Milliseconds().date(from: text) == snoozedUntil)
     }
 
     @Test("json：解码往返——显式 null 还原为 nil、非空字段精确还原（同 schema 镜像结构验证）")
@@ -295,7 +302,7 @@ struct ExportServiceTests {
         let data = try ExportService.json(notes: [pinned, plain], todos: [timed, done], generatedAt: Self.generatedAt)
 
         // 导出投影类型是 ExportService 私有：测试内定义同 schema 镜像结构验证解码方向
-        // （导出时间的秒级精度约定见 ExportService.json 注释；此处基准均取整秒）。
+        // （解码策略与导出实现同款：ISO8601 带小数秒=毫秒）。
         struct MirrorDue: Codable { let date: Date; let hasTime: Bool }
         struct MirrorNote: Codable {
             let uuid: UUID
@@ -323,7 +330,17 @@ struct ExportServiceTests {
         }
 
         let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .iso8601
+        decoder.dateDecodingStrategy = .custom { decoder in
+            let container = try decoder.singleValueContainer()
+            let text = try container.decode(String.self)
+            guard let date = Self.makeISO8601Milliseconds().date(from: text) else {
+                throw DecodingError.dataCorrupted(.init(
+                    codingPath: decoder.codingPath,
+                    debugDescription: "非法 ISO8601 日期：\(text)"
+                ))
+            }
+            return date
+        }
         let document = try decoder.decode(MirrorDocument.self, from: data)
 
         #expect(document.version == 1)
@@ -337,5 +354,62 @@ struct ExportServiceTests {
         #expect(document.todos[0].deletedAt == nil)
         #expect(document.todos[1].completedAt == date(0, hour: 9))
         #expect(document.todos[1].due == nil)
+    }
+
+    @Test("json：毫秒精度保真——带小数秒的 ISO8601 往返不丢数据库毫秒位")
+    func jsonPreservesMillisecondPrecision() throws {
+        let createdAt = Date(timeIntervalSince1970: 1_790_000_000.123)
+        let data = try ExportService.json(
+            notes: [note(id: 1, content: "毫秒便签", createdAt: createdAt)],
+            todos: [],
+            generatedAt: Self.generatedAt
+        )
+
+        struct MirrorNote: Codable {
+            let uuid: UUID
+            let content: String
+            let pinnedAt: Date?
+            let createdAt: Date
+            let updatedAt: Date
+            let deletedAt: Date?
+        }
+        struct MirrorDocument: Codable {
+            let version: Int
+            let generatedAt: Date
+            let notes: [MirrorNote]
+            let todos: [MirrorTodo]
+        }
+        struct MirrorTodo: Codable {
+            let uuid: UUID
+            let title: String
+            let due: MirrorDue?
+            let snoozedUntil: Date?
+            let completedAt: Date?
+            let createdAt: Date
+            let updatedAt: Date
+            let deletedAt: Date?
+        }
+        struct MirrorDue: Codable { let date: Date; let hasTime: Bool }
+
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .custom { decoder in
+            let container = try decoder.singleValueContainer()
+            let text = try container.decode(String.self)
+            guard let date = Self.makeISO8601Milliseconds().date(from: text) else {
+                throw DecodingError.dataCorrupted(.init(
+                    codingPath: decoder.codingPath,
+                    debugDescription: "非法 ISO8601 日期：\(text)"
+                ))
+            }
+            return date
+        }
+        let document = try decoder.decode(MirrorDocument.self, from: data)
+        #expect(document.notes[0].createdAt == createdAt) // 毫秒位往返相等
+
+        // 编码侧字面量确实带小数秒（区别于旧 .iso8601 策略的整秒输出）
+        let object = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        let exportedNote = try #require((object["notes"] as? [[String: Any]])?.first)
+        let createdAtText = try #require(exportedNote["createdAt"] as? String)
+        #expect(createdAtText.hasSuffix(".123Z"))
     }
 }

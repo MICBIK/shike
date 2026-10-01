@@ -217,15 +217,34 @@ struct MainTodosView: View {
         .padding(.vertical, 10)
     }
 
-    /// 空态（ContentUnavailableView）：过滤后五组全空——包括真没有待办与搜索无命中。
+    /// 空态分流（与便签分区同口径）：真没有待办显示"没有待办"；快照非空但搜索
+    /// 过滤为空显示"没有找到 X"+ 一键清除。
     @ViewBuilder
     private var content: some View {
         let groups = model.groups
-        if groups.hasNoActive && groups.completed.isEmpty {
+        if model.todos.isEmpty {
             ContentUnavailableView(String(localized: .mainTodosEmpty), systemImage: "checklist")
+        } else if groups.hasNoActive && groups.completed.isEmpty {
+            searchNoResults
         } else {
             list(groups: groups)
         }
+    }
+
+    /// 搜索无命中的轻提示（文案与「清空」按钮复用面板搜索既有键，便签分区同款）。
+    private var searchNoResults: some View {
+        VStack(spacing: 8) {
+            Text(String(localized: .searchEmpty(model.searchText)))
+                .font(.callout)
+                .foregroundStyle(.secondary)
+            Button(String(localized: .searchClear)) {
+                model.searchText = ""
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.small)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.top, 48)
     }
 
     private func list(groups: TodoGroups) -> some View {
