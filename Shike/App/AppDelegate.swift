@@ -345,10 +345,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
-        // 打磨 R6：退出前把在编辑的列表行立即冲进保存管线（原实现要等 0.5 秒防抖，
-        // 立即退出有丢失窗口；deferred-work 2.8/阶段 1 收尾评估项）。
-        _ = environment?.panelModel.endEditingIfNeeded()
+        // W1 数据安全：退出前把三面在编辑内容同步冲进仓储（SyncFlush 等待落库，
+        // 超时 3 秒放弃并记日志）。必须先于各 stop()——stop 只做订阅收尾，
+        // 不保证写入完成。
+        environment?.panelModel.flushPendingEditsSynchronously()
         mainWindowController?.endEditingIfNeeded()
+        environment?.cardManager.flushEditingContentsSynchronously()
         mainWindowController?.stop()
         popoverController?.stop()
         environment?.panelModel.stop()

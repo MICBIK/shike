@@ -157,6 +157,20 @@ final class MainNotesModel {
         saveNoteContent(id, text)
     }
 
+    /// 退出冲刷接缝（W1）：取走在编辑内容并复位编辑态（取消防抖，复位语义同
+    /// endEditing 的同帧约定），供调用方经 SyncFlush 按保存语义同步落库——
+    /// 不走 saveNoteContent 闭包（那是 fire-and-forget）。快照内容用于"未变
+    /// 跳过"比对；行已不在快照返回 nil 内容（同既有守卫语义：跳过）。
+    func takePendingEdit() -> (id: Note.ID, text: String, snapshotContent: String?)? {
+        saveDebounceTask?.cancel()
+        saveDebounceTask = nil
+        guard let id = editingNoteID else { return nil }
+        let text = editingNoteText
+        editingNoteID = nil
+        editingNoteText = ""
+        return (id, text, notes.first(where: { $0.id == id })?.note.content)
+    }
+
     /// 编辑文字变化（视图 TextField.onChange 调用）：0.5 秒防抖后转发保存闭包。
     /// 防抖刻意做在模型层而非视图层——保存闭包的接收方（集成时为 panelModel.saveNoteContent）
     /// 自身无防抖（面板的防抖在其视图层）；若将来接收方自带防抖，把本方法改为直接转发即可。

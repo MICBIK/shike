@@ -626,6 +626,36 @@ final class PanelModel {
         return false
     }
 
+    /// 退出专用（applicationWillTerminate 在各 stop() 之前调用，W1 数据安全）：
+    /// 把在编辑内容同步冲进仓储（SyncFlush 等待落库）。数据语义与
+    /// saveNoteContent/saveTodoTitle 一致（trim、空→软删除、未变跳过）；
+    /// 不动撤销栈与提示条（进程随即退出，UI 无意义），失败与超时只记日志。
+    /// 既有异步路径不动（Esc/收起面板的保存时机照旧），本方法退出专用。
+    func flushPendingEditsSynchronously() {
+        if let id = editingNoteID {
+            editingNoteID = nil
+            let text = editingNoteText
+            editingNoteText = ""
+            SyncFlush.noteContent(
+                id,
+                text: text,
+                snapshotContent: notes.first(where: { $0.note.id == id })?.note.content,
+                repository: noteRepository
+            )
+        }
+        if let id = editingTodoID {
+            editingTodoID = nil
+            let text = editingTodoText
+            editingTodoText = ""
+            SyncFlush.todoTitle(
+                id,
+                text: text,
+                snapshotTitle: todos.first(where: { $0.id == id })?.title,
+                repository: todoRepository
+            )
+        }
+    }
+
     // - MARK: 待办列表与完成（S1-06，03 §6）
 
     /// 正在原位编辑的待办标题（空则无编辑）。

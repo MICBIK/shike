@@ -26,6 +26,9 @@ final class CardManager {
     var updateOptions: (Note.ID, StickyCardOptions) -> Void
     /// 卡片上编辑保存（S3-06）：防抖自动保存与收尾保存共用。
     var updateNoteContent: (Note.ID, String) -> Void
+    /// 退出冲刷的同步写通道（W1）：AppEnvironment 接 SyncFlush + NoteRepository
+    /// （快照语义同既有写路径取面板快照）；默认空实现供测试组装。
+    var syncUpdateNoteContent: (Note.ID, String) -> Void = { _, _ in }
     /// 在面板中显示（S3-08）：打开面板 + 切便签 + 定位（AppDelegate 接线）。
     var showInPanel: (UUID) -> Void
 }
@@ -117,6 +120,17 @@ final class CardManager {
         }
         controllers.removeAll()
         previousSnapshot = []
+    }
+
+    /// 退出冲刷（W1，applicationWillTerminate 在各 stop() 之前调用）：把在编辑
+    /// 卡片的文字经注入的同步写通道落库。编辑态在捕获时收尾（teardownEditing
+    /// 一并取消防抖）；文字未变的卡返回 nil 跳过，空→软删除的语义在
+    /// SyncFlush.noteContent（AppEnvironment 注入）。
+    func flushEditingContentsSynchronously() {
+        for controller in controllers.values {
+            guard let edit = controller.takeEditingForFlush() else { continue }
+            actions?.syncUpdateNoteContent(edit.noteID, edit.text)
+        }
     }
 
     // - MARK: 屏幕变化与全部显示/隐藏（S3-07 / S3-09）
@@ -467,6 +481,16 @@ final class CardController: NSObject, NSWindowDelegate {
     /// 结束编辑（Esc/点击外部/关闭卡片）。save=false 仅用于卡片即将销毁的路径。
     func endEditing(save: Bool) {
         guard model.isEditing else { return }
+        let text = teardownEditing()
+        if save, text != model.content {
+            // 面板同语义：内容未变跳过、清空=删除入撤销栈、失败上面板提示条
+            onContentChange(panel.noteID, text)
+        }
+    }
+
+    /// 收编辑态的公共收尾（endEditing 与退出冲刷共用）：取消防抖、复位编辑文字、
+    /// 窗口层级回落、解除 busy；返回编辑文字供调用方决定保存路径。
+    private func teardownEditing() -> String {
         autosaveTask?.cancel()
         autosaveTask = nil
         let text = model.editingText
@@ -477,10 +501,16 @@ final class CardController: NSObject, NSWindowDelegate {
         // orderBack）；编辑期间用户若改了层级选项，也在这里统一生效。
         panel.apply(options: model.options)
         autoHide.setBusy(false, now: ProcessInfo.processInfo.systemUptime)
-        if save, text != model.content {
-            // 面板同语义：内容未变跳过、清空=删除入撤销栈、失败上面板提示条
-            onContentChange(panel.noteID, text)
-        }
+        return text
+    }
+
+    /// 退出冲刷接缝（W1）：取走在编辑文字并收编辑态（不走 onContentChange 的
+    /// fire-and-forget 通道）；文字未变返回 nil（同保存语义的跳过）。
+    func takeEditingForFlush() -> (noteID: Note.ID, text: String)? {
+        guard model.isEditing else { return nil }
+        let text = teardownEditing()
+        guard text != model.content else { return nil }
+        return (panel.noteID, text)
     }
 
     /// 停止输入 0.5 秒自动保存（03 §10.2；FR44 防抖同面板）。

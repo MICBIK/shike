@@ -260,11 +260,18 @@ final class MainWindowController {
         }
     }
 
-    /// 退出前尽力冲刷便签在编辑内容（与面板 endEditingIfNeeded 的 R6 打磨同款语义）：
-    /// 立即转发注入闭包；写入本身是 fire-and-forget Task，进程随即退出时存在小的
-    /// 丢失窗口（弱保证，与面板同口径）。
+    /// 退出前同步冲刷主窗口便签在编辑内容（W1 数据安全）：取走在编辑快照
+    /// （takePendingEdit 复位编辑态与防抖）后经 SyncFlush 同步等待落库——
+    /// 同面板保存语义（空→软删除、未变跳过，比对基准是本模型快照），
+    /// 不再走 saveNoteContent 的 fire-and-forget 通道。超时/失败记日志。
     func endEditingIfNeeded() {
-        notesModel.endEditing()
+        guard let edit = notesModel.takePendingEdit() else { return }
+        SyncFlush.noteContent(
+            edit.id,
+            text: edit.text,
+            snapshotContent: edit.snapshotContent,
+            repository: environment.noteRepository
+        )
     }
 
     /// 退出前停止主窗口模型的观察消费与跨天/唤醒观察者（进程退出场景下

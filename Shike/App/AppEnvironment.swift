@@ -142,6 +142,17 @@ public final class AppEnvironment {
                 // 面板同语义（清空=删除入撤销栈、未变跳过、失败提示条）
                 Task { await self?.panelModel.saveNoteContent(noteID, text) }
             },
+            syncUpdateNoteContent: { [weak self] noteID, text in
+                // 退出冲刷（W1）：数据语义同上一行的写路径——快照也同源取面板
+                // 的（卡片既有保存走 saveNoteContent，本就按面板快照守卫）。
+                guard let self else { return }
+                SyncFlush.noteContent(
+                    noteID,
+                    text: text,
+                    snapshotContent: panelModel.notes.first(where: { $0.note.id == noteID })?.note.content,
+                    repository: noteRepository
+                )
+            },
             showInPanel: { [weak cardManager] uuid in
                 cardManager?.showInPanelHandler(uuid)
             }
