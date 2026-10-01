@@ -200,6 +200,8 @@ private struct NoteRow: View {
 
     /// 结束编辑并立即保存（失焦/Esc/收起面板共用；内容未变时 saveNoteContent 内部跳过）。
     private func flushEditing() {
+        saveDebounceTask?.cancel()
+        saveDebounceTask = nil
         _ = model.endEditingIfNeeded()
     }
 
@@ -209,7 +211,9 @@ private struct NoteRow: View {
         saveDebounceTask = Task { [weak model] in
             try? await Task.sleep(for: .milliseconds(500))
             guard !Task.isCancelled else { return }
-            await model?.saveNoteContent(item.note.id, model?.editingNoteText ?? "")
+            // 经模型守卫受理（打磨 R4）：切行后迟到的防抖不再落库——
+            // 那时 editingNoteText 已是其它行的文字。
+            model?.saveEditingNoteContentIfEditing(item.note.id)
         }
     }
 

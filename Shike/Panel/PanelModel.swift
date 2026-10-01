@@ -541,6 +541,23 @@ final class PanelModel {
         return text
     }
 
+    /// 面板便签行的迟到防抖保存入口（打磨 R4）：仅当该行仍在编辑态时受理。
+    /// 迟到的防抖在切行后到达时 editingNoteText 已是其它行的文字，照落会把
+    /// 别人的内容写进本行（静默数据污染；对齐主窗口 MainNotesModel.saveContent
+    /// 的同款守卫）。视图防抖任务到期后调本方法。
+    func saveEditingNoteContentIfEditing(_ id: Note.ID) {
+        guard editingNoteID == id else { return }
+        let text = editingNoteText // 与守卫同一 tick 取字，杜绝切行后的微窗竞态
+        Task { await saveNoteContent(id, text) }
+    }
+
+    /// 面板待办行的迟到防抖保存入口（打磨 R4，语义同上）。
+    func saveEditingTodoTitleIfEditing(_ id: Todo.ID) {
+        guard editingTodoID == id else { return }
+        let text = editingTodoText // 与守卫同一 tick 取字
+        Task { await saveTodoTitle(id, text) }
+    }
+
     /// 新的呼出空窗开始（S1-04）：复位就绪标志；由 PopoverController.onShow 经 App 接入。
     func beginCaptureWindow() {
         isCaptureReady = false

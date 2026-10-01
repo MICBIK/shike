@@ -250,6 +250,8 @@ private struct TodoRow: View {
     }
 
     private func flushEditing() {
+        saveDebounceTask?.cancel()
+        saveDebounceTask = nil
         _ = model.endEditingIfNeeded()
     }
 
@@ -259,7 +261,9 @@ private struct TodoRow: View {
         saveDebounceTask = Task { [weak model] in
             try? await Task.sleep(for: .milliseconds(500))
             guard !Task.isCancelled else { return }
-            await model?.saveTodoTitle(todo.id, model?.editingTodoText ?? "")
+            // 经模型守卫受理（打磨 R4）：切行后迟到的防抖不再落库——
+            // 那时 editingTodoText 已是其它行的标题。
+            model?.saveEditingTodoTitleIfEditing(todo.id)
         }
     }
 
