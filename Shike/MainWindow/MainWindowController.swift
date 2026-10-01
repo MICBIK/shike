@@ -97,9 +97,13 @@ struct MainRootView: View {
         }
         // 底部统一反馈条（W3）：导出成功/失败、回收站写失败、三模型读失败、
         // 面板写失败旁路都写 feedbackModel（3 秒自清）；回收站分区内部的
-        // 同源展示照旧（TrashView 顶部小字条）。
+        // 同源展示照旧（TrashView 顶部小字条）——同一条失败在回收站分区
+        // 两处同文案时底部条让位（打磨 R3：同屏不重复显示同一句话，
+        // 两通道同一 tick 写入、同时长自清，去重窗口即显示窗口）。
         .safeAreaInset(edge: .bottom) {
-            if let message = feedbackModel.message {
+            if let message = feedbackModel.message,
+               !(section == .trash && message == trashModel.statusMessage)
+            {
                 VStack(spacing: 0) {
                     Divider()
                     Text(message)
