@@ -46,6 +46,25 @@ final class TrashModel {
     /// 已删除的待办（流已按 deletedAt 降序，模型不再排序）。
     private(set) var deletedTodos: [Todo] = []
 
+    /// 首帧加载状态（W2）：两个观察流各交付首帧（含空数组帧）后置 true——此前的
+    /// "两组皆空"只是未加载，不能显示"回收站是空的"（首帧空态闪现）。任一流失败/
+    /// 非取消结束时同样置 true（失败由反馈通道承接，不停在假空态）。
+    private(set) var isLoaded = false
+    @ObservationIgnored private var notesFirstFrameArrived = false
+    @ObservationIgnored private var todosFirstFrameArrived = false
+
+    /// 记一个流的首帧（或失败收尾）：两个流都到齐即翻 isLoaded。
+    private func markFirstFrame(notes: Bool) {
+        if notes {
+            notesFirstFrameArrived = true
+        } else {
+            todosFirstFrameArrived = true
+        }
+        if notesFirstFrameArrived && todosFirstFrameArrived {
+            isLoaded = true
+        }
+    }
+
     // - MARK: 注入接缝（@ObservationIgnored：闭包不参与观察；默认空实现零副作用）
 
     /// 便签观察流工厂：集成接 `trashRepository.observeNotes()`。
@@ -92,15 +111,19 @@ final class TrashModel {
                 for try await notes in self.observeNotes() {
                     guard !Task.isCancelled else { return }
                     self.deletedNotes = notes
+                    self.markFirstFrame(notes: true)
                 }
                 // data-layer.md「观察」：非取消的正常结束是故障信号——兜底记日志，
                 // 防止数据层语义变化后静默失效（MainNotesModel/MainTodosModel 同款）。
                 guard !Task.isCancelled else { return }
+                self.markFirstFrame(notes: true)
                 Log.app.error("回收站便签观察流非取消结束（应为故障信号）")
             } catch is CancellationError {
                 // 取消不算故障
             } catch {
-                // 观察流异常结束：与卡片观察流同一策略——记日志，不静默吞掉。
+                // 观察流异常结束：与卡片观察流同一策略——记日志，不静默吞掉；
+                // 同时翻转加载状态，视图不停在假空态（W2）。
+                self.markFirstFrame(notes: true)
                 Log.app.error("回收站便签观察流异常结束：\(String(describing: error), privacy: .public)")
             }
         }
@@ -110,12 +133,15 @@ final class TrashModel {
                 for try await todos in self.observeTodos() {
                     guard !Task.isCancelled else { return }
                     self.deletedTodos = todos
+                    self.markFirstFrame(notes: false)
                 }
                 guard !Task.isCancelled else { return }
+                self.markFirstFrame(notes: false)
                 Log.app.error("回收站待办观察流非取消结束（应为故障信号）")
             } catch is CancellationError {
                 // 取消不算故障
             } catch {
+                self.markFirstFrame(notes: false)
                 Log.app.error("回收站待办观察流异常结束：\(String(describing: error), privacy: .public)")
             }
         }
@@ -285,10 +311,13 @@ struct TrashView: View {
         .padding(.vertical, 10)
     }
 
-    /// 空态（两组皆空）：回收站是空的。
+    /// 空态（两组皆空）：回收站是空的。首帧未到渲染空白纸感底（W2）。
     @ViewBuilder
     private var content: some View {
-        if isTrashEmpty {
+        if !model.isLoaded {
+            // 首帧未到（W2）：此时的"空"只是未加载——不显示空态也不放转圈。
+            Color.clear
+        } else if isTrashEmpty {
             ContentUnavailableView(String(localized: .mainTrashEmpty), systemImage: "trash")
         } else {
             list

@@ -18,6 +18,11 @@ final class MainTodosModel {
     /// 观察流推送的待办全量（未删除，含已完成——与 TodoRepository.observeActive 同口径）。
     private(set) var todos: [Todo] = []
 
+    /// 首帧是否已送达（W2，含空数组帧；流失败/非取消结束时同样置 true——失败由
+    /// 反馈通道承接，不停在假空态）。视图空态分支以 `isLoaded && isEmpty` 分流，
+    /// 首帧前渲染空白纸感底，避免闪现"没有待办"。
+    private(set) var isLoaded = false
+
     /// 搜索关键词（03 §16.4）：按标题不区分大小写即时过滤；纯空白视为不过滤。
     var searchText: String = ""
 
@@ -117,11 +122,14 @@ final class MainTodosModel {
         do {
             for try await items in stream {
                 todos = items
+                isLoaded = true
             }
             guard !Task.isCancelled else { return }
+            isLoaded = true
             Log.app.error("主窗口待办观察流非取消结束（应为故障信号）")
         } catch {
             guard !(error is CancellationError) else { return }
+            isLoaded = true
             Log.app.error("主窗口待办观察流失败：\(String(describing: error), privacy: .public)")
         }
     }
@@ -218,11 +226,14 @@ struct MainTodosView: View {
     }
 
     /// 空态分流（与便签分区同口径）：真没有待办显示"没有待办"；快照非空但搜索
-    /// 过滤为空显示"没有找到 X"+ 一键清除。
+    /// 过滤为空显示"没有找到 X"+ 一键清除；首帧未到渲染空白纸感底（W2）。
     @ViewBuilder
     private var content: some View {
         let groups = model.groups
-        if model.todos.isEmpty {
+        if !model.isLoaded {
+            // 首帧未到（W2）：此时的"空"只是未加载——不显示空态也不放转圈。
+            Color.clear
+        } else if model.todos.isEmpty {
             ContentUnavailableView(String(localized: .mainTodosEmpty), systemImage: "checklist")
         } else if groups.hasNoActive && groups.completed.isEmpty {
             searchNoResults

@@ -35,6 +35,10 @@ final class MainNotesModel {
 
     /// 观察流最新快照（仓储序：updatedAt 降序）。
     private(set) var notes: [NoteListItem] = []
+    /// 首帧是否已送达（W2，含空数组帧；流失败/非取消结束时同样置 true——失败由
+    /// 反馈通道承接，不停在假空态）。视图空态分支以 `isLoaded && isEmpty` 分流，
+    /// 首帧前渲染空白纸感底，避免闪现"还没有便签"。
+    private(set) var isLoaded = false
     /// 搜索关键词（派生过滤见 filteredNotes；内存过滤，无需防抖）。
     var searchText: String = ""
     /// 正在原位编辑的便签（空则无编辑）。
@@ -105,6 +109,7 @@ final class MainNotesModel {
         do {
             for try await items in stream {
                 notes = items
+                isLoaded = true
                 // 正在编辑的行已从流中消失（如清空保存=删除后行被移除）：复位编辑态，
                 // 避免随后的防抖/失焦对已删行继续转发保存。
                 if let editingID = editingNoteID, !items.contains(where: { $0.id == editingID }) {
@@ -116,10 +121,12 @@ final class MainNotesModel {
             // data-layer.md「观察」：非取消的正常结束是故障信号——兜底记日志，
             // 防止数据层语义变化后静默失效（模式同 CardManager 的观察流收尾）。
             guard !Task.isCancelled else { return }
+            isLoaded = true
             Log.app.error("主窗口便签观察流非取消正常结束（应为故障信号）")
         } catch is CancellationError {
             // stop()/视图销毁的取消不算失败。
         } catch {
+            isLoaded = true
             Log.app.error("主窗口便签观察流异常结束：\(String(describing: error), privacy: .public)")
         }
     }
@@ -249,7 +256,11 @@ struct MainNotesView: View {
 
     @ViewBuilder
     private var content: some View {
-        if model.notes.isEmpty {
+        if !model.isLoaded {
+            // 首帧未到（W2）：空白纸感底——此时的"空"只是未加载，
+            // 不显示空态也不放 ProgressView（半秒的转圈比空白更吵）。
+            Color.clear
+        } else if model.notes.isEmpty {
             // 空态（S3.5-03 AC）：还没有便签，从菜单栏面板记一条吧。
             ContentUnavailableView {
                 Label(String(localized: .mainSectionNotes), systemImage: "note.text")
