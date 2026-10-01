@@ -19,7 +19,8 @@ enum SyncFlush {
         _ work: @escaping @Sendable () async -> Void
     ) {
         let semaphore = DispatchSemaphore(value: 0)
-        Task.detached {
+        // userInitiated：调用方（退出/接手播种）在同步等这个写，别让它排在后台队列尾。
+        Task.detached(priority: .userInitiated) {
             await work()
             semaphore.signal()
         }

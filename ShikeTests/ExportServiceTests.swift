@@ -26,7 +26,8 @@ struct ExportServiceTests {
         return calendar.date(from: components)!
     }()
     /// 导出实现的同款解析器（ISO8601 带小数秒=毫秒，与数据库时间戳精度对齐）。
-    /// ISO8601DateFormatter 非 Sendable，逐次创建（与 ExportService 的格式化入口同款）。
+    /// ISO8601DateFormatter 非 Sendable，测试内逐次创建（生产侧自 W5 起是共享
+    /// 实例，见 ExportService.iso8601Milliseconds；这里只做断言用途）。
     private static func makeISO8601Milliseconds() -> ISO8601DateFormatter {
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
