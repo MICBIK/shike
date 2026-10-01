@@ -2,6 +2,7 @@
 // Copyright (C) 2026 Shike contributors
 // SPDX-License-Identifier: GPL-3.0-only
 
+import AppKit
 import ShikeData
 import SwiftUI
 
@@ -147,6 +148,10 @@ struct CardContentView: View {
                     onEditingTextChange(newText)
                 }
                 .onExitCommand {
+                    // IME 组合态守卫（打磨 R5，与主窗口便签编辑器同款）：组合中
+                    // Esc 归输入法（取消候选），不收整卡编辑。SwiftUI 不暴露组合
+                    // 态，经键窗第一响应者 NSTextView 探测；非组合态行为不变。
+                    if (NSApp.keyWindow?.firstResponder as? NSTextView)?.hasMarkedText() == true { return }
                     // Esc：结束编辑（03 §10.2）；保存由控制器收尾
                     onEditEnd()
                 }
