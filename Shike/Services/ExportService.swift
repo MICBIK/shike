@@ -8,6 +8,14 @@ import ShikeData
 /// 导出服务（S3.5-06）：把便签与待办序列化成 Markdown / JSON 文档。
 /// 纯静态函数、无 IO——文件写入由主线程集成时接 NSSavePanel，本类型只产出字符串/字节。
 enum ExportService {
+    /// ISO8601 毫秒精度的共享 formatter（W5）：JSON 编码闭包逐日期 new 的构造
+    /// 开销在千条级导出不可忽视。线程安全（Apple 文档，见 json() 注释）。
+    nonisolated(unsafe) private static let iso8601Milliseconds: ISO8601DateFormatter = {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return formatter
+    }()
+
     // - MARK: Markdown
 
     /// Markdown 文档（S3.5-06）：标题 + 置顶/全部两节便签 + 五分组待办；
@@ -26,8 +34,14 @@ enum ExportService {
     }
 
     /// 时区注入版本（L2 测试固定时区；入口默认本地时区，NFR17 同款纯函数口径）。
+    /// W5：三个 formatter 在入口创建一次、作参数下传——千条级导出不再逐日期
+    /// new DateFormatter（构造是大头，格式化本身很便宜）；时区是导出级常量，
+    /// 不引入共享可变状态。
     static func markdown(notes: [Note], todos: [Todo], generatedAt: Date, timeZone: TimeZone) -> String {
-        var lines: [String] = ["# 拾刻导出（\(headerDate(generatedAt, timeZone: timeZone))）"]
+        let headerFormatter = makeFormatter(format: "yyyy'年'M'月'd'日'", timeZone: timeZone)
+        let dateTimeFormatter = makeFormatter(format: "yyyy-MM-dd HH:mm", timeZone: timeZone)
+        let dateOnlyFormatter = makeFormatter(format: "yyyy-MM-dd", timeZone: timeZone)
+        var lines: [String] = ["# 拾刻导出（\(headerFormatter.string(from: generatedAt))）"]
 
         // 便签两节：「全部」= 全量（含置顶），与界面「全部」组同口径；置顶单列一节，
         // 置顶便签在两节各出现一次（与界面两组各显示一次一致）。节内跟随数据原序。
@@ -52,7 +66,13 @@ enum ExportService {
         ]
         for section in sections where !section.todos.isEmpty {
             lines.append("## \(section.title)")
-            lines.append(contentsOf: section.todos.map { todoItemLine($0, timeZone: timeZone) })
+            lines.append(contentsOf: section.todos.map {
+                todoItemLine(
+                    $0,
+                    dateTimeFormatter: dateTimeFormatter,
+                    dateOnlyFormatter: dateOnlyFormatter
+                )
+            })
         }
 
         return lines.joined(separator: "\n") + "\n"
@@ -72,8 +92,12 @@ enum ExportService {
 
     /// 待办条目行（S3.5-06 的字面格式）：未完成 `- [ ] 标题（yyyy-MM-dd HH:mm）`
     /// （无 due 则无时间括号；全天待办与界面同口径只显日期 `（yyyy-MM-dd）`）；
-    /// 已完成 `- [x] 标题`（不带时间括号）。
-    private static func todoItemLine(_ todo: Todo, timeZone: TimeZone) -> String {
+    /// 已完成 `- [x] 标题`（不带时间括号）。formatter 由导出入口一次创建下传（W5）。
+    private static func todoItemLine(
+        _ todo: Todo,
+        dateTimeFormatter: DateFormatter,
+        dateOnlyFormatter: DateFormatter
+    ) -> String {
         if todo.completedAt != nil {
             return "- [x] \(todo.title)"
         }
@@ -81,9 +105,9 @@ enum ExportService {
             return "- [ ] \(todo.title)"
         }
         if due.hasTime {
-            return "- [ ] \(todo.title)（\(dateTimeText(due.date, timeZone: timeZone))）"
+            return "- [ ] \(todo.title)（\(dateTimeFormatter.string(from: due.date))）"
         }
-        return "- [ ] \(todo.title)（\(dateOnlyText(due.date, timeZone: timeZone))）"
+        return "- [ ] \(todo.title)（\(dateOnlyFormatter.string(from: due.date))）"
     }
 
     /// 待办五分组的导出实现（S3.5-06）：与 Shike/Panel/TodoGrouping.swift 的
@@ -126,31 +150,14 @@ enum ExportService {
 
     // - MARK: 日期文案（私有；固定 en_US_POSIX，防用户区域设置改写数字与字段序）
 
-    /// 导出标题日期：yyyy年M月d日（中文年月日字面量加引号，防被当作格式占位）。
-    private static func headerDate(_ date: Date, timeZone: TimeZone) -> String {
+    /// formatter 工厂（W5）：每次导出入口各格式创建一次；DateFormatter 构造是
+    /// 导出成本的大头，格式化调用本身便宜。
+    private static func makeFormatter(format: String, timeZone: TimeZone) -> DateFormatter {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "en_US_POSIX")
         formatter.timeZone = timeZone
-        formatter.dateFormat = "yyyy'年'M'月'd'日'"
-        return formatter.string(from: date)
-    }
-
-    /// 待办时间：yyyy-MM-dd HH:mm（24 小时制）。
-    private static func dateTimeText(_ date: Date, timeZone: TimeZone) -> String {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.timeZone = timeZone
-        formatter.dateFormat = "yyyy-MM-dd HH:mm"
-        return formatter.string(from: date)
-    }
-
-    /// 全天待办的日期：yyyy-MM-dd（与界面 TimeDisplay 的全天口径一致，只显日期）。
-    private static func dateOnlyText(_ date: Date, timeZone: TimeZone) -> String {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.timeZone = timeZone
-        formatter.dateFormat = "yyyy-MM-dd"
-        return formatter.string(from: date)
+        formatter.dateFormat = format
+        return formatter
     }
 
     // - MARK: JSON
@@ -189,12 +196,13 @@ enum ExportService {
         )
         let encoder = JSONEncoder()
         // ISO8601 带小数秒（毫秒）：.iso8601 策略只到秒，会丢数据库时间戳的毫秒位。
-        // 逐次创建 formatter，与本文件其余格式化入口同款。
+        // W5：共享实例替代逐日期 new（千条级导出构造开销不可忽视）——
+        // ISO8601DateFormatter 线程安全（Apple 文档：NSDateFormatter 自 macOS 10.9
+        // 起线程安全，ISO8601DateFormatter 亦然），nonisolated(unsafe) 只是让它
+        // 过并发检查的标注，安全性依据即该文档。
         encoder.dateEncodingStrategy = .custom { date, encoder in
-            let formatter = ISO8601DateFormatter()
-            formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
             var container = encoder.singleValueContainer()
-            try container.encode(formatter.string(from: date))
+            try container.encode(Self.iso8601Milliseconds.string(from: date))
         }
         // prettyPrinted：导出文件人也要读；sortedKeys：同版本输出字节稳定（利于比对）。
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
