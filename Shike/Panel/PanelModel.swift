@@ -1008,6 +1008,7 @@ final class PanelModel {
     }
 
     /// 生成提示条（app-shell.md：读取失败时"重试"会重新订阅）。
+    /// 写失败同时旁路给主窗口统一反馈（W3：面板收着时用户在主窗口可见）。
     func report(_ error: ShikeDataError, retry: @escaping () -> Void) {
         Log.data.info("面板提示条：\(error.classification, privacy: .public)")
         switch error {
@@ -1016,10 +1017,12 @@ final class PanelModel {
             bannerRetry = { [weak self] in self?.start() }
             pendingLoadBannerClear = false
         case .writeFailed(let reason):
+            writeFailureHandler(reason)
             banner = BannerState(kind: .saveFailed(reason))
             bannerRetry = retry
         case .openFailed(let reason), .backupFailed(let reason):
             // 阶段 0 的面板不会收到这两类；按保存失败展示，避免静默。
+            writeFailureHandler(reason)
             banner = BannerState(kind: .saveFailed(reason))
             bannerRetry = retry
         case .notFound:
@@ -1028,6 +1031,11 @@ final class PanelModel {
             bannerRetry = retry
         }
     }
+
+    /// 写失败旁路（W3）：report 的 writeFailed/openFailed/backupFailed 分支调用，
+    /// MainWindowController 接线为"主窗口可见时显示失败文案"；默认空实现。
+    /// 面板横幅保留不动——哪个窗口看得到就在哪个窗口有反馈，不算重复打扰。
+    @ObservationIgnored var writeFailureHandler: (DataFailureReason) -> Void = { _ in }
 
     /// 提示条上的"重试"按钮。
     func retryBanner() {

@@ -121,11 +121,67 @@ struct MainWindowWiringTests {
         model.requestEmptyAll()
         await model.confirm()
         #expect(model.statusMessage == String(localized: .mainTrashFailed))
+        // 统一反馈条同文案（W3 双通道：分区内部展示照旧 + 底部反馈条）
+        #expect(controller.feedback.message == String(localized: .mainTrashFailed))
         #expect(model.confirmTarget == nil)
 
         // notFound（幽灵 id）同样经 catch 转失败文案
         await model.requestRestoreNote(Note.ID(rawValue: 9999))
         #expect(model.statusMessage == String(localized: .mainTrashFailed))
+    }
+
+    // - MARK: 统一反馈（W3）
+
+    @Test("接线：面板写失败旁路主窗口——simulateWriteFailure 路径统一反馈条出现（真机 -ShikeSimulateWriteFailure）")
+    func writeFailureBypassShowsMainFeedback() async throws {
+        let (environment, suiteName) = try makeEnvironment(simulateWriteFailure: true)
+        defer { UserDefaults.standard.removePersistentDomain(forName: suiteName) }
+        let controller = MainWindowController(environment: environment)
+        let panelModel = environment.panelModel
+        // 开了 simulateWriteFailure 后一切写都抛：种子用 memberwise 直构（不落库——
+        // 只需要面板快照里有这一行，saveNoteContent 的未变跳过/清空删除守卫按快照走）。
+        let now = Date()
+        let seeded = Note(
+            id: Note.ID(rawValue: 1),
+            uuid: UUID(),
+            content: "写失败种子",
+            pinnedAt: nil,
+            createdAt: now,
+            updatedAt: now,
+            deletedAt: nil
+        )
+        await panelModel.runNotes(oneShotNotes([NoteListItem(note: seeded, isPinnedToDesktop: false)]))
+
+        // 经面板语义保存（fire-and-forget Task）→ 写失败 → report 旁路 → 统一反馈条
+        controller.notesModel.saveNoteContent(seeded.id, "新内容")
+        try await waitUntil("主窗口反馈条出现") {
+            controller.feedback.message != nil
+        }
+        #expect(controller.feedback.message == String(localized: .bannerSaveFailed(ErrorText.reason(.simulated))))
+    }
+
+    @Test("接线：读失败回调触发主窗口统一反馈（数据读取失败）")
+    func readFailureShowsMainFeedback() async throws {
+        let (environment, suiteName) = try makeEnvironment()
+        defer { UserDefaults.standard.removePersistentDomain(forName: suiteName) }
+        let controller = MainWindowController(environment: environment)
+        let failing = AsyncThrowingStream<[NoteListItem], any Error> { $0.finish(throwing: ShikeDataError.readFailed(.ioError)) }
+        await controller.notesModel.runNotes(failing)
+        #expect(controller.feedback.message == String(localized: .mainReadFailed))
+    }
+
+    @Test("统一反馈条：3 秒自清（注入缩短），连续 show 重启计时")
+    func mainFeedbackAutoClears() async throws {
+        let feedback = MainFeedbackModel()
+        feedback.hideDelay = .milliseconds(80)
+        feedback.show("第一条")
+        #expect(feedback.message == "第一条")
+        try await Task.sleep(for: .milliseconds(40))
+        feedback.show("第二条") // 重启计时
+        try await Task.sleep(for: .milliseconds(40))
+        #expect(feedback.message == "第二条") // 距第一条 80ms：未被清（计时已重启）
+        try await Task.sleep(for: .milliseconds(100))
+        #expect(feedback.message == nil)
     }
 
     // - MARK: 便签接线

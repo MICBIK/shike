@@ -42,6 +42,8 @@ struct MainRootView: View {
     var notesModel: MainNotesModel
     var todosModel: MainTodosModel
     var trashModel: TrashModel
+    /// 统一反馈条（W3）：导出成败、读失败、写失败旁路的唯一文案来源。
+    var feedbackModel: MainFeedbackModel
     /// 导出动作以闭包注入（S3.5-06）：快照与 NSSavePanel 的窗口挂载留在控制器层，视图保持可测。
     var exportMarkdown: () -> Void = {}
     var exportJSON: () -> Void = {}
@@ -50,12 +52,14 @@ struct MainRootView: View {
         notesModel: MainNotesModel,
         todosModel: MainTodosModel,
         trashModel: TrashModel,
+        feedbackModel: MainFeedbackModel,
         exportMarkdown: @escaping () -> Void = {},
         exportJSON: @escaping () -> Void = {}
     ) {
         self.notesModel = notesModel
         self.todosModel = todosModel
         self.trashModel = trashModel
+        self.feedbackModel = feedbackModel
         self.exportMarkdown = exportMarkdown
         self.exportJSON = exportJSON
     }
@@ -91,11 +95,11 @@ struct MainRootView: View {
                 }
             }
         }
-        // 底部反馈条：导出（S3.5-06）没有独立反馈位，借用回收站模型的状态通道
-        // （trashModel.showStatus，3 秒自清）——主窗口里唯一的通用反馈条。
-        // 回收站分区自身已在列表上方渲染同源文案，其余分区才在这里显示，避免重复。
+        // 底部统一反馈条（W3）：导出成功/失败、回收站写失败、三模型读失败、
+        // 面板写失败旁路都写 feedbackModel（3 秒自清）；回收站分区内部的
+        // 同源展示照旧（TrashView 顶部小字条）。
         .safeAreaInset(edge: .bottom) {
-            if section != .trash, let message = trashModel.statusMessage {
+            if let message = feedbackModel.message {
                 VStack(spacing: 0) {
                     Divider()
                     Text(message)
@@ -124,6 +128,8 @@ final class MainWindowController {
     let notesModel: MainNotesModel
     let todosModel: MainTodosModel
     let trashModel: TrashModel
+    /// 统一反馈条（W3）：底部 safeAreaInset 的唯一文案来源（MainRootView 渲染）。
+    let feedback: MainFeedbackModel
 
     /// 待办「编辑/设置时间」先呼出面板再定位（主窗口不做编辑器，03 §16.7）。
     /// 面板与状态项归 AppDelegate 所有，装配完成后注入（组合方式与通知定位
@@ -145,6 +151,14 @@ final class MainWindowController {
         let noteRepository = environment.noteRepository
         let todoRepository = environment.todoRepository
         let trashRepository = environment.trashRepository
+        let feedback = MainFeedbackModel()
+        self.feedback = feedback
+
+        // 读失败（W3）：三模型观察流失败经注入闭包上报（文案 main.read.failed）；
+        // 接线在下方三模型装配完成后统一挂（notesModel/todosModel/trashModel 皆是局部 let）。
+        let showReadFailure: () -> Void = { [weak feedback] in
+            feedback?.show(String(localized: .mainReadFailed))
+        }
 
         // —— 便签（S3.5-03）：观察流接仓储；async 动作一律 Task 包装，
         //    [weak panelModel] 防闭包随模型常驻而拉长面板生命周期。
@@ -188,7 +202,8 @@ final class MainWindowController {
         // 稍后提醒：面板待办行无此菜单项，主窗口同口径不提供，保持 nil。
 
         // —— 回收站（S3.5-05）：写路径接 TrashRepository；throws 失败转 main.trash.failed
-        //    文案经 showStatus 回传（模型的 token 机制保证默认成功文案不覆盖失败提示）。
+        //    文案：trashModel.showStatus 供回收站分区内部的同源展示（照旧），
+        //    feedback.show 供底部统一反馈条（W3——与分区展示同文案，双通道保证可见）。
         //    闭包存于 trashModel 自身，[weak trashModel] 防模型→闭包→模型循环引用。
         let trashModel = TrashModel()
         trashModel.observeNotes = { [trashRepository] in
@@ -197,45 +212,54 @@ final class MainWindowController {
         trashModel.observeTodos = { [trashRepository] in
             trashRepository.observeTodos()
         }
-        trashModel.restoreNote = { [weak trashModel, trashRepository] id in
+        trashModel.readFailureHandler = showReadFailure
+        trashModel.restoreNote = { [weak trashModel, trashRepository, feedback] id in
             do { try await trashRepository.restoreNote(id) }
             catch {
                 Log.app.error("恢复便签失败：\(String(describing: error), privacy: .public)")
                 trashModel?.showStatus(String(localized: .mainTrashFailed))
+                feedback.show(String(localized: .mainTrashFailed))
             }
         }
-        trashModel.restoreTodo = { [weak trashModel, trashRepository] id in
+        trashModel.restoreTodo = { [weak trashModel, trashRepository, feedback] id in
             do { try await trashRepository.restoreTodo(id) }
             catch {
                 Log.app.error("恢复待办失败：\(String(describing: error), privacy: .public)")
                 trashModel?.showStatus(String(localized: .mainTrashFailed))
+                feedback.show(String(localized: .mainTrashFailed))
             }
         }
-        trashModel.permanentlyDeleteNote = { [weak trashModel, trashRepository] id in
+        trashModel.permanentlyDeleteNote = { [weak trashModel, trashRepository, feedback] id in
             do { try await trashRepository.permanentlyDeleteNote(id) }
             catch {
                 Log.app.error("永久删除便签失败：\(String(describing: error), privacy: .public)")
                 trashModel?.showStatus(String(localized: .mainTrashFailed))
+                feedback.show(String(localized: .mainTrashFailed))
             }
         }
-        trashModel.permanentlyDeleteTodo = { [weak trashModel, trashRepository] id in
+        trashModel.permanentlyDeleteTodo = { [weak trashModel, trashRepository, feedback] id in
             do { try await trashRepository.permanentlyDeleteTodo(id) }
             catch {
                 Log.app.error("永久删除待办失败：\(String(describing: error), privacy: .public)")
                 trashModel?.showStatus(String(localized: .mainTrashFailed))
+                feedback.show(String(localized: .mainTrashFailed))
             }
         }
-        trashModel.emptyAll = { [weak trashModel, trashRepository] in
+        trashModel.emptyAll = { [weak trashModel, trashRepository, feedback] in
             do { try await trashRepository.emptyTrash() }
             catch {
                 Log.app.error("清空回收站失败：\(String(describing: error), privacy: .public)")
                 trashModel?.showStatus(String(localized: .mainTrashFailed))
+                feedback.show(String(localized: .mainTrashFailed))
             }
         }
         self.trashModel = trashModel
         // 时区统一走面板口径（阶段 1 恒 .current；Options.timeZone 接线时随面板一并改）。
         trashModel.timeZone = panelModel.timeZone
         notesModel.timeZone = panelModel.timeZone
+        // 读失败上报（W3）：三模型统一挂同一闭包（feedback 弱持有）。
+        notesModel.readFailureHandler = showReadFailure
+        todosModel.readFailureHandler = showReadFailure
 
         // 编辑/设置时间：呼出面板并沿用面板行菜单的同款行为（右键菜单与面板一致，
         // 03 §16.4）——编辑→面板行内编辑态；设置时间→面板时间弹层；定位高亮让用户
@@ -257,6 +281,15 @@ final class MainWindowController {
             _ = panelModel.endEditingIfNeeded()
             panelModel.locateTodo(uuid: todo.uuid)
             panelModel.editingTimeTarget = todo
+        }
+
+        // 写失败旁路（W3）：面板收着时主窗口也要可见。主窗口可见（或尚未创建——
+        // 3 秒自清保证不会留下过期文案）才显示；文案与面板横幅同源
+        // （banner.saveFailed + ErrorText.reason）。面板横幅保留不动。
+        // 放在 init 末尾：弱捕获 self 需存储属性全部初始化完成。
+        panelModel.writeFailureHandler = { [weak feedback, weak self] reason in
+            guard let feedback, self?.window?.isVisible != false else { return }
+            feedback.show(String(localized: .bannerSaveFailed(ErrorText.reason(reason))))
         }
     }
 
@@ -302,6 +335,7 @@ final class MainWindowController {
                 notesModel: notesModel,
                 todosModel: todosModel,
                 trashModel: trashModel,
+                feedbackModel: feedback,
                 exportMarkdown: { [weak self] in self?.runExport(.markdown) },
                 exportJSON: { [weak self] in self?.runExport(.json) }
             )
@@ -318,11 +352,11 @@ final class MainWindowController {
     // - MARK: 导出（S3.5-06）
 
     /// 导出：取观察流首帧快照（订阅即推当前值，首帧即全量）→ NSSavePanel 以 sheet
-    /// 挂主窗口 → 写盘。成功/失败反馈经 trashModel.showStatus 走主窗口反馈条
-    /// （与回收站动作同一条通道，3 秒自清）；用户取消保存面板则无操作无反馈。
+    /// 挂主窗口 → 写盘。成功/失败反馈经统一反馈条 feedback（W3，3 秒自清）；
+    /// 用户取消保存面板则无操作无反馈。
     private func runExport(_ format: ExportFormat) {
         guard let window else { return }
-        Task {
+        Task { [feedback] in
             do {
                 let notes = try await snapshotNotes()
                 let todos = try await snapshotTodos()
@@ -354,14 +388,14 @@ final class MainWindowController {
                 guard response == .OK, let url = panel.url else { return }
                 do {
                     try content.write(to: url, options: .atomic)
-                    trashModel.showStatus(String(localized: .mainExportDone(url.path)))
+                    feedback.show(String(localized: .mainExportDone(url.path)))
                 } catch {
                     Log.app.error("导出写盘失败：\(String(describing: error), privacy: .public)")
-                    trashModel.showStatus(String(localized: .mainExportFailed))
+                    feedback.show(String(localized: .mainExportFailed))
                 }
             } catch {
                 Log.app.error("导出失败：\(String(describing: error), privacy: .public)")
-                trashModel.showStatus(String(localized: .mainExportFailed))
+                feedback.show(String(localized: .mainExportFailed))
             }
         }
     }

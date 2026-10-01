@@ -58,6 +58,8 @@ final class MainTodosModel {
     /// "设置时间…"：集成接面板 `PanelModel.editingTimeTarget`（把该条交给面板的时间弹层）
     /// 或后续主窗口自己的时间编辑器；默认空实现。
     @ObservationIgnored var setTime: (Todo.ID) -> Void = { _ in }
+    /// 观察流失败上报接缝（W3）：非取消结束与异常结束调用；集成接主窗口统一反馈。
+    @ObservationIgnored var readFailureHandler: () -> Void = {}
     /// 稍后提醒（可选）：集成接 `PanelModel.snoozeTodo(uuid:until:)` 同语义（按 uuid 写
     /// snoozedUntil，已完成/已删除由仓储忽略）。面板待办行没有该菜单项，主窗口同样暂不
     /// 展示入口；接缝留作可选项，默认 nil 不产生任何调用。
@@ -126,10 +128,12 @@ final class MainTodosModel {
             }
             guard !Task.isCancelled else { return }
             isLoaded = true
+            readFailureHandler()
             Log.app.error("主窗口待办观察流非取消结束（应为故障信号）")
         } catch {
             guard !(error is CancellationError) else { return }
             isLoaded = true
+            readFailureHandler()
             Log.app.error("主窗口待办观察流失败：\(String(describing: error), privacy: .public)")
         }
     }

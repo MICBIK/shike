@@ -2003,6 +2003,17 @@
         }
       }
     },
+    "main.read.failed": {
+      "extractionState": "manual",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "数据读取失败"
+          }
+        }
+      }
+    },
     "main.todos.empty": {
       "extractionState": "manual",
       "localizations": {

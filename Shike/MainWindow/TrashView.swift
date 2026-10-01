@@ -85,6 +85,8 @@ final class TrashModel {
     @ObservationIgnored var permanentlyDeleteTodo: (Todo.ID) async -> Void = { _ in }
     /// 清空回收站：集成接 `trashRepository.emptyTrash()`。
     @ObservationIgnored var emptyAll: () async -> Void = {}
+    /// 观察流失败上报接缝（W3）：任一流非取消结束/异常结束调用；集成接主窗口统一反馈。
+    @ObservationIgnored var readFailureHandler: () -> Void = {}
 
     /// 观察消费与反馈清除任务（nonisolated(unsafe) 供 deinit 取消；deinit 与
     /// start/stop 不会并发发生，PanelModel 同款）。
@@ -117,6 +119,7 @@ final class TrashModel {
                 // 防止数据层语义变化后静默失效（MainNotesModel/MainTodosModel 同款）。
                 guard !Task.isCancelled else { return }
                 self.markFirstFrame(notes: true)
+                self.readFailureHandler()
                 Log.app.error("回收站便签观察流非取消结束（应为故障信号）")
             } catch is CancellationError {
                 // 取消不算故障
@@ -124,6 +127,7 @@ final class TrashModel {
                 // 观察流异常结束：与卡片观察流同一策略——记日志，不静默吞掉；
                 // 同时翻转加载状态，视图不停在假空态（W2）。
                 self.markFirstFrame(notes: true)
+                self.readFailureHandler()
                 Log.app.error("回收站便签观察流异常结束：\(String(describing: error), privacy: .public)")
             }
         }
@@ -137,11 +141,13 @@ final class TrashModel {
                 }
                 guard !Task.isCancelled else { return }
                 self.markFirstFrame(notes: false)
+                self.readFailureHandler()
                 Log.app.error("回收站待办观察流非取消结束（应为故障信号）")
             } catch is CancellationError {
                 // 取消不算故障
             } catch {
                 self.markFirstFrame(notes: false)
+                self.readFailureHandler()
                 Log.app.error("回收站待办观察流异常结束：\(String(describing: error), privacy: .public)")
             }
         }

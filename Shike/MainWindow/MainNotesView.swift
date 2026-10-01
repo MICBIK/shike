@@ -30,6 +30,8 @@ final class MainNotesModel {
     @ObservationIgnored var unpinNoteFromDesktop: (Note.ID) -> Void = { _ in }
     /// 删除便签（软删除；撤销提示条语义在接收方）。
     @ObservationIgnored var deleteNote: (Note.ID) -> Void = { _ in }
+    /// 观察流失败上报接缝（W3）：非取消结束与异常结束调用；集成接主窗口统一反馈。
+    @ObservationIgnored var readFailureHandler: () -> Void = {}
 
     // MARK: 状态
 
@@ -122,11 +124,13 @@ final class MainNotesModel {
             // 防止数据层语义变化后静默失效（模式同 CardManager 的观察流收尾）。
             guard !Task.isCancelled else { return }
             isLoaded = true
+            readFailureHandler()
             Log.app.error("主窗口便签观察流非取消正常结束（应为故障信号）")
         } catch is CancellationError {
             // stop()/视图销毁的取消不算失败。
         } catch {
             isLoaded = true
+            readFailureHandler()
             Log.app.error("主窗口便签观察流异常结束：\(String(describing: error), privacy: .public)")
         }
     }
