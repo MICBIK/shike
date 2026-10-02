@@ -104,7 +104,7 @@ public final class AppDatabase: Sendable {
 | Todo · `create(title:due:)` | 新 uuid；due 规范化（见下） | 设为当前时间 |
 | Todo · `updateTitle(_:to:)` | title | 更新 |
 | Todo · `setDue(_:_:)` | dueAt、dueHasTime；snoozedUntil 设为 nil | 更新 |
-| Todo · `setCompleted(_:_:)` | 完成：completedAt 设为当前时间，snoozedUntil 设为 nil；取消完成：completedAt 设为 nil；已是目标状态时不改动 | 更新 |
+| Todo · `setCompleted(_:_:)` | 完成：completedAt 设为当前时间，snoozedUntil 设为 nil；取消完成：completedAt 设为 nil；已是目标状态时不改动；软删除的行不受影响（回收站行不被迟到的完成/取消写改动，C3 修复 2026-10-03） | 更新 |
 | Todo · `snooze(_:until:)` | snoozedUntil | 更新 |
 | Card · `pin(_:frame:options:)` | 新建卡片；便签已钉时返回现有卡片，不做改动；便签不存在或已软删除时抛出 `notFound` | 卡片的 createdAt = updatedAt = 当前时间 |
 | Card · `updateFrame(_:_:)`、`updateOptions(_:_:)` | 对应的列 | 更新卡片的 updatedAt |

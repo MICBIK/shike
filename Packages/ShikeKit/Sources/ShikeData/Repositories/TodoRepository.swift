@@ -71,18 +71,19 @@ public struct TodoRepository: Sendable {
     }
 
     /// 完成或取消完成：完成时 completedAt = 当前时间、snoozedUntil 清空；
-    /// 取消时 completedAt = nil。已是目标状态时不改动。更新 updatedAt（状态变化时）。
+    /// 取消时 completedAt = nil。已是目标状态时不改动。软删除的行不受影响
+    /// （C3：待移入窗内删除后迟到的完成写不得标完成回收站行）。更新 updatedAt（状态变化时）。
     public func setCompleted(_ id: Todo.ID, _ completed: Bool) async throws {
         try await database.performWrite { database in
             if completed {
                 let now = try database.transactionDate
                 try database.execute(
-                    sql: "UPDATE todo SET completedAt = ?, snoozedUntil = NULL WHERE id = ? AND completedAt IS NULL",
+                    sql: "UPDATE todo SET completedAt = ?, snoozedUntil = NULL WHERE id = ? AND completedAt IS NULL AND deletedAt IS NULL",
                     arguments: [now, id.rawValue]
                 )
             } else {
                 try database.execute(
-                    sql: "UPDATE todo SET completedAt = NULL WHERE id = ? AND completedAt IS NOT NULL",
+                    sql: "UPDATE todo SET completedAt = NULL WHERE id = ? AND completedAt IS NOT NULL AND deletedAt IS NULL",
                     arguments: [id.rawValue]
                 )
             }
