@@ -2014,13 +2014,13 @@
         }
       }
     },
-    "main.todos.empty": {
+    "main.todos.empty.guide": {
       "extractionState": "manual",
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "没有待办"
+            "value": "还没有待办，从菜单栏面板记一条吧"
           }
         }
       }

@@ -315,7 +315,10 @@ struct TrashView: View {
                 Text(String(localized: .commonCancel))
             }
         }
-        // 纸感底（三分区统一，见 paperSurface）。
+        // 纸感底（三分区统一，见 paperSurface）。frame 与 MainNotesView 同款：
+        // 空态分支（ContentUnavailableView）不贪婪，无此 frame 时 VStack 只取理想
+        // 高度被居中、四周露出窗口白底（打磨二轮·卡A 项4）。
+        .frame(minWidth: 320, maxWidth: .infinity, maxHeight: .infinity)
         .paperSurface()
         // 订阅由视图挂载时启动（集成层装配时也可 start()，重复调用幂等）；
         // 不在 onDisappear 停——切换左栏入口不断流，与面板/主窗口其余入口同口径。
@@ -348,7 +351,14 @@ struct TrashView: View {
             if model.isLoadFailed {
                 readFailedView
             } else {
-                ContentUnavailableView(String(localized: .mainTrashEmpty), systemImage: "trash")
+                // 空态与便签/待办分区同构（打磨二轮·卡A 项4）：Label=分区名 + 描述。
+                // frame 让空态分支贪婪填充：顶栏钉在顶部，CUV 在剩余空间居中。
+                ContentUnavailableView {
+                    Label(String(localized: .mainSectionTrash), systemImage: "trash")
+                } description: {
+                    Text(String(localized: .mainTrashEmpty))
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         } else {
             list
@@ -373,12 +383,14 @@ struct TrashView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
-    /// 两组列表：便签组在前、待办组在后（组内为流的降序）；组头与便签/待办分区的
-    /// GroupHeader（带计数）同款。
+    /// 两组列表：便签组在前、待办组在后（组内为流的降序）。手工排版与便签/待办分区
+    /// 同节奏（组头 16/14/6、行水平 12/垂直 3，打磨二轮·卡A 项1）——List(.inset) 的
+    /// 系统组头底色带与行分隔线同纸感风格不符，且行边距与另两分区不一致。
     private var list: some View {
-        List {
-            if !model.deletedNotes.isEmpty {
-                Section {
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 0) {
+                if !model.deletedNotes.isEmpty {
+                    sectionHeader(title: String(localized: .mainTrashNotes), count: model.deletedNotes.count)
                     ForEach(model.deletedNotes) { note in
                         row(
                             preview: Text(note.content),
@@ -387,12 +399,9 @@ struct TrashView: View {
                             onDelete: { model.requestDeleteNote(note.id) }
                         )
                     }
-                } header: {
-                    GroupHeader(title: String(localized: .mainTrashNotes), count: model.deletedNotes.count)
                 }
-            }
-            if !model.deletedTodos.isEmpty {
-                Section {
+                if !model.deletedTodos.isEmpty {
+                    sectionHeader(title: String(localized: .mainTrashTodos), count: model.deletedTodos.count)
                     ForEach(model.deletedTodos) { todo in
                         row(
                             preview: Text(todo.title),
@@ -401,18 +410,26 @@ struct TrashView: View {
                             onDelete: { model.requestDeleteTodo(todo.id) }
                         )
                     }
-                } header: {
-                    GroupHeader(title: String(localized: .mainTrashTodos), count: model.deletedTodos.count)
                 }
             }
+            .padding(.bottom, 16)
         }
-        .listStyle(.inset)
-        // 露出纸感底（与待办分区的 List 同款处理）。
-        .scrollContentBackground(.hidden)
+    }
+
+    /// 组头（与便签/待办分区同款手工边距：领先 16 / 上 14 / 下 6）。
+    private func sectionHeader(title: String, count: Int) -> some View {
+        GroupHeader(title: title, count: count)
+            .padding(.leading, 16)
+            .padding(.top, 14)
+            .padding(.bottom, 6)
+            .padding(.trailing, 16)
     }
 
     /// 回收站行：内容预览（最多约 2 行）+ 删除时间 + 行尾动作按钮。
     /// 相对时间随数据变化刷新；回收站低频访问，不引入计时刷新。
+    /// 行内按钮与主窗口其它行内按钮同重量（打磨二轮·卡A 项5）：11pt 幽灵图标
+    /// （xmark.circle.fill 同款），恢复=回箭头，永久删除=垃圾桶（红色承担警示；
+    /// 不可逆动作仍有确认弹窗兜底）。按钮常显（前轮裁定保留）。
     private func row(
         preview: Text,
         deletedAt: Date,
@@ -430,10 +447,23 @@ struct TrashView: View {
                     .foregroundStyle(.secondary)
             }
             Spacer(minLength: 8)
-            Button(String(localized: .mainTrashRestore), action: onRestore)
-            Button(String(localized: .mainTrashDelete), role: .destructive, action: onDelete)
+            Button(action: onRestore) {
+                Image(systemName: "arrow.counterclockwise")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(Text(String(localized: .mainTrashRestore)))
+            Button(action: onDelete) {
+                Image(systemName: "trash")
+                    .font(.system(size: 11))
+                    .foregroundStyle(Color.red)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(Text(String(localized: .mainTrashDelete)))
         }
-        .padding(.vertical, 2)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 3)
     }
 
     private var isTrashEmpty: Bool {
