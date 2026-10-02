@@ -59,6 +59,14 @@ struct MainWindowWiringTests {
         }
     }
 
+    /// 一次性流（播种面板待办快照用）：runTodos 消费完即返回。
+    private func oneShotTodos(_ items: [Todo]) -> AsyncThrowingStream<[Todo], any Error> {
+        AsyncThrowingStream { continuation in
+            continuation.yield(items)
+            continuation.finish()
+        }
+    }
+
     /// 轮询直到 async 条件成立或超时（写路径是 fire-and-forget Task，无可等待句柄）。
     private func waitUntil(
         _ label: String,
@@ -301,5 +309,158 @@ struct MainWindowWiringTests {
 
         #expect(MainWindowController.fileDate(date, timeZone: TimeZone(identifier: "America/New_York")!) == "2026-10-01")
         #expect(MainWindowController.fileDate(date, timeZone: TimeZone(identifier: "Asia/Shanghai")!) == "2026-10-02")
+    }
+
+    // - MARK: 主窗口删除反馈与撤销（打磨二轮卡B，03 §16.8）
+
+    @Test("删除反馈：主窗口删便签→反馈条出现已删除文案+撤销，撤销恢复落库并收条")
+    func noteDeleteShowsFeedbackWithUndoAndRestores() async throws {
+        let (environment, suiteName) = try makeEnvironment()
+        defer { UserDefaults.standard.removePersistentDomain(forName: suiteName) }
+        let panelModel = environment.panelModel
+        let controller = MainWindowController(environment: environment)
+        // 面板快照播种（deleteNote 的摘要按面板快照取；反馈文案复用撤销条同款截断）
+        let note = try await environment.noteRepository.create(content: "主窗口删除反馈")
+        await panelModel.runNotes(oneShotNotes([NoteListItem(note: note, isPinnedToDesktop: false)]))
+
+        controller.notesModel.deleteNote(note.id)
+        try await waitUntil("删除反馈出现") {
+            controller.feedback.message == String(localized: .undoBarDeleted("主窗口删除反馈"))
+        }
+        guard case .undo? = controller.feedback.action else {
+            Issue.record("删除反馈应携带撤销动作")
+            return
+        }
+
+        // 撤销：调面板同一撤销栈，恢复落库，反馈条收起
+        controller.feedback.performAction()
+        try await waitUntil("撤销恢复") {
+            try await self.activeNotes(environment).map(\.id) == [note.id]
+        }
+        #expect(controller.feedback.message == nil)
+        #expect(controller.feedback.action == nil)
+    }
+
+    @Test("删除反馈：清空保存=删除同样带撤销（主窗口清空便签不再无感）；普通编辑不出删除反馈")
+    func clearToDeleteShowsDeletionFeedbackWithUndo() async throws {
+        let (environment, suiteName) = try makeEnvironment()
+        defer { UserDefaults.standard.removePersistentDomain(forName: suiteName) }
+        let panelModel = environment.panelModel
+        let controller = MainWindowController(environment: environment)
+        let note = try await environment.noteRepository.create(content: "清空即删除的便签")
+        await panelModel.runNotes(oneShotNotes([NoteListItem(note: note, isPinnedToDesktop: false)]))
+
+        // 普通编辑（非删除）不得触发删除反馈：先改内容，反馈条应保持为空
+        controller.notesModel.saveNoteContent(note.id, "改了内容")
+        try await Task.sleep(for: .milliseconds(80))
+        #expect(controller.feedback.message == nil)
+
+        // 清空保存=删除：反馈条出现已删除文案（摘要为删除前内容）
+        controller.notesModel.saveNoteContent(note.id, "")
+        try await waitUntil("清空删除反馈出现") {
+            controller.feedback.message == String(localized: .undoBarDeleted("清空即删除的便签"))
+        }
+        guard case .undo? = controller.feedback.action else {
+            Issue.record("清空删除反馈应携带撤销动作")
+            return
+        }
+
+        controller.feedback.performAction()
+        // 恢复的是最后一次落库内容（先改内容再清空，软删除发生在"改了内容"的行上）；
+        // 这里只断言回到活跃流（原文完整断言归属 DeleteUndoTests 的面板语义）。
+        try await waitUntil("撤销恢复") {
+            try await self.activeNotes(environment).map(\.id) == [note.id]
+        }
+        #expect(controller.feedback.message == nil)
+    }
+
+    @Test("删除反馈：主窗口删待办同样带撤销，撤销后待办回活跃流")
+    func todoDeleteShowsFeedbackWithUndoAndRestores() async throws {
+        let (environment, suiteName) = try makeEnvironment()
+        defer { UserDefaults.standard.removePersistentDomain(forName: suiteName) }
+        let panelModel = environment.panelModel
+        let controller = MainWindowController(environment: environment)
+        let todo = try await environment.todoRepository.create(title: "主窗口删的待办", due: nil)
+        await panelModel.runTodos(oneShotTodos([todo]))
+
+        controller.todosModel.delete(todo.id)
+        try await waitUntil("待办删除反馈出现") {
+            controller.feedback.message == String(localized: .undoBarDeleted("主窗口删的待办"))
+        }
+        guard case .undo? = controller.feedback.action else {
+            Issue.record("待办删除反馈应携带撤销动作")
+            return
+        }
+
+        controller.feedback.performAction()
+        try await waitUntil("待办撤销恢复") {
+            try await self.activeTodos(environment).map(\.id) == [todo.id]
+        }
+        #expect(controller.feedback.message == nil)
+    }
+
+    @Test("删除反馈：删除失败不出已删除文案——写失败旁路反馈带重试动作（复用面板重试闭包）")
+    func failedDeleteShowsRetryNotDeleted() async throws {
+        let (environment, suiteName) = try makeEnvironment(simulateWriteFailure: true)
+        defer { UserDefaults.standard.removePersistentDomain(forName: suiteName) }
+        let controller = MainWindowController(environment: environment)
+        let panelModel = environment.panelModel
+        // 写必抛：种子 memberwise 直构（只需面板快照里有这一行）
+        let now = Date()
+        let seeded = Note(
+            id: Note.ID(rawValue: 1),
+            uuid: UUID(),
+            content: "删不掉的便签",
+            pinnedAt: nil,
+            createdAt: now,
+            updatedAt: now,
+            deletedAt: nil
+        )
+        await panelModel.runNotes(oneShotNotes([NoteListItem(note: seeded, isPinnedToDesktop: false)]))
+
+        controller.notesModel.deleteNote(seeded.id)
+        try await waitUntil("写失败旁路反馈出现") {
+            controller.feedback.message != nil
+        }
+        #expect(controller.feedback.message == String(localized: .bannerSaveFailed(ErrorText.reason(.simulated))))
+        guard case .retry? = controller.feedback.action else {
+            Issue.record("写失败反馈应携带重试动作")
+            return
+        }
+        // 撤销栈未变（软删除没成功）：绝不出"已删除"文案与撤销动作
+        #expect(panelModel.deletedStack.isEmpty)
+    }
+
+    @Test("反馈条动作：撤销用 5 秒窗口、重试用 3 秒窗口（注入缩短区分），perform 收条并执行")
+    func feedbackActionDelaysAndPerform() async throws {
+        let feedback = MainFeedbackModel()
+        feedback.hideDelay = .seconds(2)
+        feedback.undoHideDelay = .milliseconds(80)
+
+        var undoCount = 0
+        feedback.show("已删除「x」", action: .undo { undoCount += 1 })
+        try await Task.sleep(for: .milliseconds(40))
+        #expect(feedback.message == "已删除「x」") // 80ms 窗口内仍在
+        try await Task.sleep(for: .milliseconds(80))
+        #expect(feedback.message == nil) // 走撤销窗口（若误用 2 秒通道此处不成立）
+        #expect(feedback.action == nil) // 隐藏时动作一并清除
+
+        // perform：先收条再执行
+        var retryCount = 0
+        feedback.show("保存失败：x", action: .retry { retryCount += 1 })
+        guard case .retry? = feedback.action else {
+            Issue.record("应携带重试动作")
+            return
+        }
+        feedback.performAction()
+        #expect(retryCount == 1)
+        #expect(feedback.message == nil)
+        #expect(feedback.action == nil)
+
+        // 纯文案：无动作，perform 空操作
+        feedback.show("导出完成")
+        #expect(feedback.action == nil)
+        feedback.performAction()
+        #expect(feedback.message == "导出完成")
     }
 }
