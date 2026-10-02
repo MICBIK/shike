@@ -256,6 +256,8 @@ struct MainNotesView: View {
             TextField(String(localized: .mainNotesSearch), text: $model.searchText)
                 .textFieldStyle(.plain)
                 .font(.system(size: 13))
+                // ⌘F 聚焦搜索（打磨二轮 B4，卡B 移交卡A 实施；面板 ⌘F 同语义）。
+                .keyboardShortcut("f", modifiers: .command)
             if !model.searchText.isEmpty {
                 Button {
                     model.searchText = ""

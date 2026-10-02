@@ -63,6 +63,13 @@ final class MainTodosModel {
     @ObservationIgnored var setTime: (Todo.ID) -> Void = { _ in }
     /// 观察流失败上报接缝（W3）：非取消结束与异常结束调用；集成接主窗口统一反馈。
     @ObservationIgnored var readFailureHandler: () -> Void = {}
+    /// 面板引用（打磨二轮 B3 由卡B 移交卡A 实施）：主窗口行渲染"待移入窗"内的勾选
+    /// 即时反馈——面板行按 pendingCompletionIDs 立即划线变灰，主窗口此前只等观察流
+    /// 推送（点击后约 1 秒无任何视觉变化）。引用由集成层注入（MainWindowController）；
+    /// nil 时行为同旧（仅 completedAt），L2 直组不受影响。@ObservationIgnored：引用
+    /// 装配期一次赋值；视图追踪的是 panel.pendingCompletionIDs 的读取（PanelModel
+    /// 自身可观察），不需要对引用本身建观察。
+    @ObservationIgnored var panel: PanelModel?
     /// 稍后提醒（可选）：集成接 `PanelModel.snoozeTodo(uuid:until:)` 同语义（按 uuid 写
     /// snoozedUntil，已完成/已删除由仓储忽略）。面板待办行没有该菜单项，主窗口同样暂不
     /// 展示入口；接缝留作可选项，默认 nil 不产生任何调用。
@@ -212,6 +219,8 @@ struct MainTodosView: View {
             )
             .textFieldStyle(.plain)
             .font(.system(size: 13))
+            // ⌘F 聚焦搜索（打磨二轮 B4，卡B 移交卡A 实施；面板 ⌘F 同语义）。
+            .keyboardShortcut("f", modifiers: .command)
             if !model.searchText.isEmpty {
                 Button {
                     model.searchText = ""
@@ -381,8 +390,11 @@ private struct MainTodoRow: View {
     /// hover 抬描边与投影。
     @State private var isHovered = false
 
-    private var isCompleted: Bool {
-        todo.completedAt != nil
+    /// 视觉上的完成态（打磨二轮 B3）：勾选后立即生效——含面板"待移入窗"内的
+    /// 勾选（pendingCompletionIDs，与面板 TodoListView 同款判定），不再等约 1 秒
+    /// 的观察流推送；勾回同理即时恢复。
+    private var isVisuallyCompleted: Bool {
+        todo.completedAt != nil || (model.panel?.pendingCompletionIDs.contains(todo.id) ?? false)
     }
 
     /// 行尾时间文案（03 §6，与面板同一 TodoGrouping.timeText）；读取 tick 建立跨天重算依赖。
@@ -394,19 +406,19 @@ private struct MainTodoRow: View {
     /// 该行是否按逾期红字显示：逾期组的行，或未完成但 due 已过。
     private var showsOverdueTime: Bool {
         _ = model.timeContextTick
-        return isOverdue || (!isCompleted && TodoGrouping.isOverdue(todo, now: model.now(), timeZone: model.timeZone))
+        return isOverdue || (!isVisuallyCompleted && TodoGrouping.isOverdue(todo, now: model.now(), timeZone: model.timeZone))
     }
 
     /// 左色边颜色：完成灰 / 逾期红 / 其余青绿（与面板同）。
     private var edgeColor: Color {
-        if isCompleted { return Color.secondary.opacity(0.35) }
+        if isVisuallyCompleted { return Color.secondary.opacity(0.35) }
         if showsOverdueTime { return Color.red.opacity(0.85) }
         return Color.accentColor
     }
 
     /// 行尾时间颜色：逾期红；完成态回灰；其余青绿加重（与面板同）。
     private var timeColor: Color {
-        if isCompleted { return Color("CardMeta") }
+        if isVisuallyCompleted { return Color("CardMeta") }
         if showsOverdueTime { return Color.red }
         return Color.accentColor.opacity(0.9)
     }
@@ -416,15 +428,15 @@ private struct MainTodoRow: View {
             Button {
                 model.toggleCompletion(todo)
             } label: {
-                Image(systemName: isCompleted ? "checkmark.circle.fill" : "circle")
-                    .foregroundStyle(isCompleted ? Color.secondary : Color.accentColor)
+                Image(systemName: isVisuallyCompleted ? "checkmark.circle.fill" : "circle")
+                    .foregroundStyle(isVisuallyCompleted ? Color.secondary : Color.accentColor)
             }
             .buttonStyle(.plain)
 
             Text(todo.title)
                 .font(.system(size: 13, weight: .medium))
-                .strikethrough(isCompleted)
-                .foregroundStyle(isCompleted ? Color.secondary : Color.primary)
+                .strikethrough(isVisuallyCompleted)
+                .foregroundStyle(isVisuallyCompleted ? Color.secondary : Color.primary)
 
             if let timeText {
                 Text(timeText)
@@ -444,7 +456,7 @@ private struct MainTodoRow: View {
         )
         .padding(.horizontal, 12)
         .padding(.vertical, 3)
-        .animation(Motion.gentle(0.2), value: isCompleted)
+        .animation(Motion.gentle(0.2), value: isVisuallyCompleted)
         .animation(Motion.gentle(0.1), value: isHovered)
         .onHover { isHovered = $0 }
         .contentShape(Rectangle())
