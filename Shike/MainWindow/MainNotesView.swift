@@ -256,6 +256,8 @@ struct MainNotesView: View {
             TextField(String(localized: .mainNotesSearch), text: $model.searchText)
                 .textFieldStyle(.plain)
                 .font(.system(size: 13))
+                // ⌘F 聚焦搜索（打磨二轮 B4，卡B 移交卡A 实施；面板 ⌘F 同语义）。
+                .keyboardShortcut("f", modifiers: .command)
             if !model.searchText.isEmpty {
                 Button {
                     model.searchText = ""
@@ -297,11 +299,14 @@ struct MainNotesView: View {
                 readFailedView
             } else {
                 // 空态（S3.5-03 AC）：还没有便签，从菜单栏面板记一条吧。
+                // frame 让空态分支贪婪填充（打磨二轮·卡A 项4）：搜索框钉顶，
+                // CUV 在剩余空间居中——否则 VStack 取理想高度被外层居中。
                 ContentUnavailableView {
                     Label(String(localized: .mainSectionNotes), systemImage: "note.text")
                 } description: {
                     Text(String(localized: .mainNotesEmpty))
                 }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         } else {
             noteList
@@ -376,7 +381,8 @@ struct MainNotesView: View {
             .buttonStyle(.bordered)
             .controlSize(.small)
         }
-        .frame(maxWidth: .infinity)
+        // 顶部对齐贪婪填充（打磨二轮·卡A 项4）：分支不贪婪时外层 frame 会把整组居中。
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .padding(.top, 48)
     }
 }
@@ -414,10 +420,12 @@ private struct MainNoteRow: View {
                 edge: .binding
             )
         )
-        .padding(.horizontal, 12)
-        .padding(.vertical, 3)
+        // hover 命中区域对齐卡片本体（打磨二轮·卡A 项3）：放在 padding 之前，
+        // 与待办行/面板行同语义——行间距不参与 hover。
         .contentShape(Rectangle())
         .onHover { isHovered = $0 }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 3)
         .contextMenu { menu }
         .onChange(of: model.editingNoteID) { _, _ in
             if isEditing && allowsEditing {

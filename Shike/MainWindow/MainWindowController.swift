@@ -236,6 +236,9 @@ final class MainWindowController {
         todosModel.toggleComplete = { [weak panelModel] id, _ in
             panelModel?.toggleTodoCompletion(id)
         }
+        // 勾选即时反馈（打磨二轮 B3，卡B 移交卡A 实施）：主窗口行读 panel.pendingCompletionIDs
+        // 渲染待移入窗内的划线变灰，与面板行同节奏（方案见审查审计-打磨二轮 卡B节 B3）。
+        todosModel.panel = panelModel
         todosModel.delete = { [weak panelModel] id in
             Task {
                 guard let panelModel else { return }

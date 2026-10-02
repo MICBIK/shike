@@ -63,6 +63,13 @@ final class MainTodosModel {
     @ObservationIgnored var setTime: (Todo.ID) -> Void = { _ in }
     /// 观察流失败上报接缝（W3）：非取消结束与异常结束调用；集成接主窗口统一反馈。
     @ObservationIgnored var readFailureHandler: () -> Void = {}
+    /// 面板引用（打磨二轮 B3 由卡B 移交卡A 实施）：主窗口行渲染"待移入窗"内的勾选
+    /// 即时反馈——面板行按 pendingCompletionIDs 立即划线变灰，主窗口此前只等观察流
+    /// 推送（点击后约 1 秒无任何视觉变化）。引用由集成层注入（MainWindowController）；
+    /// nil 时行为同旧（仅 completedAt），L2 直组不受影响。@ObservationIgnored：引用
+    /// 装配期一次赋值；视图追踪的是 panel.pendingCompletionIDs 的读取（PanelModel
+    /// 自身可观察），不需要对引用本身建观察。
+    @ObservationIgnored var panel: PanelModel?
     /// 稍后提醒（可选）：集成接 `PanelModel.snoozeTodo(uuid:until:)` 同语义（按 uuid 写
     /// snoozedUntil，已完成/已删除由仓储忽略）。面板待办行没有该菜单项，主窗口同样暂不
     /// 展示入口；接缝留作可选项，默认 nil 不产生任何调用。
@@ -189,7 +196,10 @@ struct MainTodosView: View {
             Divider()
             content
         }
-        // 纸感底（三分区统一，见 paperSurface）。
+        // 纸感底（三分区统一，见 paperSurface）。frame 与 MainNotesView 同款：
+        // 空态分支（ContentUnavailableView）不贪婪，无此 frame 时 VStack 只取理想
+        // 高度被居中、四周露出窗口白底（打磨二轮·卡A 项4）。
+        .frame(minWidth: 320, maxWidth: .infinity, maxHeight: .infinity)
         .paperSurface()
         // 订阅由视图挂载时启动（集成层装配时也可 start()，重复调用幂等）；
         // 不在 onDisappear 停——切换左栏入口不断流，与面板常驻订阅同口径。
@@ -209,6 +219,8 @@ struct MainTodosView: View {
             )
             .textFieldStyle(.plain)
             .font(.system(size: 13))
+            // ⌘F 聚焦搜索（打磨二轮 B4，卡B 移交卡A 实施；面板 ⌘F 同语义）。
+            .keyboardShortcut("f", modifiers: .command)
             if !model.searchText.isEmpty {
                 Button {
                     model.searchText = ""
@@ -248,7 +260,14 @@ struct MainTodosView: View {
                 // 读取失败（打磨 R2）：不显示"没有待办"（谎话），给重试出口。
                 readFailedView
             } else {
-                ContentUnavailableView(String(localized: .mainTodosEmpty), systemImage: "checklist")
+                // 空态与便签分区同构（打磨二轮·卡A 项4）：Label=分区名 + 引导句描述。
+                // frame 让空态分支贪婪填充：搜索框钉在顶部，CUV 在剩余空间居中。
+                ContentUnavailableView {
+                    Label(String(localized: .mainSectionTodos), systemImage: "checklist")
+                } description: {
+                    Text(String(localized: .mainTodosEmptyGuide))
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         } else if groups.hasNoActive && groups.completed.isEmpty {
             searchNoResults
@@ -287,33 +306,35 @@ struct MainTodosView: View {
             .buttonStyle(.bordered)
             .controlSize(.small)
         }
-        .frame(maxWidth: .infinity)
+        // 顶部对齐贪婪填充（打磨二轮·卡A 项4）：分支不贪婪时外层 frame 会把整组居中。
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .padding(.top, 48)
     }
 
+    /// 手工排版（打磨二轮·卡A 项1）：与便签分区同一 LazyVStack 节奏（组头 16/14/6、
+    /// 行水平 12/垂直 3）——List(.sidebar) 的系统行内边距无法用 listRowInsets 完全
+    /// 中和（实测待办卡片比便签深约 16pt），改手工排版后三视图共享同一几何常量；
+    /// 待办行无 List 特性依赖（无选择/滑动/行锚定弹层），行为零变化。
     private func list(groups: TodoGroups) -> some View {
-        List {
-            section(title: String(localized: .listGroupOverdue), todos: groups.overdue, isOverdue: true)
-            section(title: String(localized: .listGroupToday), todos: groups.today)
-            section(title: String(localized: .listGroupLater), todos: groups.later)
-            section(title: String(localized: .listGroupNoDate), todos: groups.noDate)
-            completedSection(groups.completed)
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 0) {
+                section(title: String(localized: .listGroupOverdue), todos: groups.overdue, isOverdue: true)
+                section(title: String(localized: .listGroupToday), todos: groups.today)
+                section(title: String(localized: .listGroupLater), todos: groups.later)
+                section(title: String(localized: .listGroupNoDate), todos: groups.noDate)
+                completedSection(groups.completed)
+            }
+            .padding(.bottom, 16)
         }
-        .listStyle(.sidebar)
-        // 去掉 List 自带的半透明底（与面板 TodoListView 同款处理），露出窗口实心底。
-        .scrollContentBackground(.hidden)
     }
 
     /// 普通组：空组不显示（03 §6 同面板）。
     @ViewBuilder
     private func section(title: String, todos: [Todo], isOverdue: Bool = false) -> some View {
         if !todos.isEmpty {
-            Section {
-                ForEach(todos) { todo in
-                    MainTodoRow(model: model, todo: todo, isOverdue: isOverdue)
-                }
-            } header: {
-                GroupHeader(title: title, count: todos.count, isOverdue: isOverdue)
+            sectionHeader(title: title, count: todos.count, isOverdue: isOverdue)
+            ForEach(todos) { todo in
+                MainTodoRow(model: model, todo: todo, isOverdue: isOverdue)
             }
         }
     }
@@ -322,28 +343,38 @@ struct MainTodosView: View {
     @ViewBuilder
     private func completedSection(_ todos: [Todo]) -> some View {
         if !todos.isEmpty {
-            Section {
-                if model.isCompletedExpanded {
-                    ForEach(todos) { todo in
-                        MainTodoRow(model: model, todo: todo)
-                    }
+            Button {
+                model.isCompletedExpanded.toggle()
+            } label: {
+                HStack(spacing: 4) {
+                    Image(systemName: model.isCompletedExpanded ? "chevron.down" : "chevron.right")
+                        .font(.system(size: 9, weight: .semibold))
+                    Text(String(localized: .listGroupCompleted(todos.count)))
+                        .font(.system(size: 11, weight: .semibold))
+                        .tracking(0.6)
                 }
-            } header: {
-                Button {
-                    model.isCompletedExpanded.toggle()
-                } label: {
-                    HStack(spacing: 4) {
-                        Image(systemName: model.isCompletedExpanded ? "chevron.down" : "chevron.right")
-                            .font(.system(size: 9, weight: .semibold))
-                        Text(String(localized: .listGroupCompleted(todos.count)))
-                            .font(.system(size: 11, weight: .semibold))
-                            .tracking(0.6)
-                    }
-                    .foregroundStyle(Color.secondary)
+                .foregroundStyle(Color.secondary)
+            }
+            .buttonStyle(.plain)
+            .padding(.leading, 16)
+            .padding(.top, 14)
+            .padding(.bottom, 6)
+            .padding(.trailing, 16)
+            if model.isCompletedExpanded {
+                ForEach(todos) { todo in
+                    MainTodoRow(model: model, todo: todo)
                 }
-                .buttonStyle(.plain)
             }
         }
+    }
+
+    /// 组头（与便签分区 section 同款手工边距：领先 16 / 上 14 / 下 6）。
+    private func sectionHeader(title: String, count: Int, isOverdue: Bool = false) -> some View {
+        GroupHeader(title: title, count: count, isOverdue: isOverdue)
+            .padding(.leading, 16)
+            .padding(.top, 14)
+            .padding(.bottom, 6)
+            .padding(.trailing, 16)
     }
 }
 
@@ -359,8 +390,11 @@ private struct MainTodoRow: View {
     /// hover 抬描边与投影。
     @State private var isHovered = false
 
-    private var isCompleted: Bool {
-        todo.completedAt != nil
+    /// 视觉上的完成态（打磨二轮 B3）：勾选后立即生效——含面板"待移入窗"内的
+    /// 勾选（pendingCompletionIDs，与面板 TodoListView 同款判定），不再等约 1 秒
+    /// 的观察流推送；勾回同理即时恢复。
+    private var isVisuallyCompleted: Bool {
+        todo.completedAt != nil || (model.panel?.pendingCompletionIDs.contains(todo.id) ?? false)
     }
 
     /// 行尾时间文案（03 §6，与面板同一 TodoGrouping.timeText）；读取 tick 建立跨天重算依赖。
@@ -372,19 +406,19 @@ private struct MainTodoRow: View {
     /// 该行是否按逾期红字显示：逾期组的行，或未完成但 due 已过。
     private var showsOverdueTime: Bool {
         _ = model.timeContextTick
-        return isOverdue || (!isCompleted && TodoGrouping.isOverdue(todo, now: model.now(), timeZone: model.timeZone))
+        return isOverdue || (!isVisuallyCompleted && TodoGrouping.isOverdue(todo, now: model.now(), timeZone: model.timeZone))
     }
 
     /// 左色边颜色：完成灰 / 逾期红 / 其余青绿（与面板同）。
     private var edgeColor: Color {
-        if isCompleted { return Color.secondary.opacity(0.35) }
+        if isVisuallyCompleted { return Color.secondary.opacity(0.35) }
         if showsOverdueTime { return Color.red.opacity(0.85) }
         return Color.accentColor
     }
 
     /// 行尾时间颜色：逾期红；完成态回灰；其余青绿加重（与面板同）。
     private var timeColor: Color {
-        if isCompleted { return Color("CardMeta") }
+        if isVisuallyCompleted { return Color("CardMeta") }
         if showsOverdueTime { return Color.red }
         return Color.accentColor.opacity(0.9)
     }
@@ -394,15 +428,15 @@ private struct MainTodoRow: View {
             Button {
                 model.toggleCompletion(todo)
             } label: {
-                Image(systemName: isCompleted ? "checkmark.circle.fill" : "circle")
-                    .foregroundStyle(isCompleted ? Color.secondary : Color.accentColor)
+                Image(systemName: isVisuallyCompleted ? "checkmark.circle.fill" : "circle")
+                    .foregroundStyle(isVisuallyCompleted ? Color.secondary : Color.accentColor)
             }
             .buttonStyle(.plain)
 
             Text(todo.title)
                 .font(.system(size: 13, weight: .medium))
-                .strikethrough(isCompleted)
-                .foregroundStyle(isCompleted ? Color.secondary : Color.primary)
+                .strikethrough(isVisuallyCompleted)
+                .foregroundStyle(isVisuallyCompleted ? Color.secondary : Color.primary)
 
             if let timeText {
                 Text(timeText)
@@ -420,10 +454,9 @@ private struct MainTodoRow: View {
                 edge: .leftEdge(edgeColor)
             )
         )
-        .listRowInsets(EdgeInsets(top: 3, leading: 12, bottom: 3, trailing: 12))
-        .listRowSeparator(.hidden)
-        .listRowBackground(Color.clear)
-        .animation(Motion.gentle(0.2), value: isCompleted)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 3)
+        .animation(Motion.gentle(0.2), value: isVisuallyCompleted)
         .animation(Motion.gentle(0.1), value: isHovered)
         .onHover { isHovered = $0 }
         .contentShape(Rectangle())
