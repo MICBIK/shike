@@ -632,7 +632,10 @@ final class PanelModel {
     /// 原位编辑的自动保存（0.5 秒防抖/失焦/结束编辑三个时机共用）：
     /// 内容未变不写库；清空内容视为删除（03 §5/§7，撤销提示条在 Story 2.8 接入）。
     func saveNoteContent(_ id: Note.ID, _ text: String) async {
-        guard let item = notes.first(where: { $0.note.id == id }) else { return }
+        guard let item = notes.first(where: { $0.note.id == id }) else {
+            await saveNoteContentWithoutSnapshot(id, text)
+            return
+        }
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         do {
             if trimmed.isEmpty {
@@ -642,6 +645,28 @@ final class PanelModel {
                 guard deleted else { return }
                 recordDeletion(kind: .note(id), summary: item.note.content)
             } else if item.note.content != text {
+                try await noteRepository.updateContent(id, to: text)
+            }
+        } catch let error as ShikeDataError {
+            report(error, retry: { [weak self] in Task { await self?.saveNoteContent(id, text) } })
+        } catch {
+            report(.writeFailed(.ioError), retry: { [weak self] in Task { await self?.saveNoteContent(id, text) } })
+        }
+    }
+
+    /// 快照缺 id 的便签内容兜底直写（数据安全 C4）：面板观察流失败而主窗口流健康时
+    /// （同一仓储两个独立订阅），守卫直接 return 会把主窗口的编辑/清空无写入、
+    /// 无报错、无横幅地丢弃——违反产品原则 1（宁可报错不能静默丢失）。
+    /// 空内容仍走"清空即删"：softDelete 幂等（已删除返回 false 即已删，静默收尾；
+    /// 无快照取不到删除摘要，不入撤销栈）；非空直写（无快照可比，跳过"未变跳过"；
+    /// 仓储对软删行也允许更新，竞态语义不变）。notFound 走提示条诚实报错。
+    /// 重试走公开入口：期间快照恢复则自动回到常规守卫路径。
+    private func saveNoteContentWithoutSnapshot(_ id: Note.ID, _ text: String) async {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        do {
+            if trimmed.isEmpty {
+                _ = try await noteRepository.softDelete(id)
+            } else {
                 try await noteRepository.updateContent(id, to: text)
             }
         } catch let error as ShikeDataError {
@@ -825,9 +850,28 @@ final class PanelModel {
 
     /// 待办标题编辑的保存（内容未变不写库；空标题不保存——回退到原标题）。
     func saveTodoTitle(_ id: Todo.ID, _ text: String) async {
-        guard let todo = todos.first(where: { $0.id == id }) else { return }
+        guard let todo = todos.first(where: { $0.id == id }) else {
+            await saveTodoTitleWithoutSnapshot(id, text)
+            return
+        }
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty, todo.title != text else { return }
+        do {
+            try await todoRepository.updateTitle(id, to: text)
+        } catch let error as ShikeDataError {
+            report(error, retry: { [weak self] in Task { await self?.saveTodoTitle(id, text) } })
+        } catch {
+            report(.writeFailed(.ioError), retry: { [weak self] in Task { await self?.saveTodoTitle(id, text) } })
+        }
+    }
+
+    /// 快照缺 id 的待办标题兜底直写（数据安全 C4）：面板观察流失败而主窗口流健康时
+    /// （同一仓储两个独立订阅），守卫直接 return 会把编辑无写入、无报错地丢弃——
+    /// 违反产品原则 1（宁可报错不能静默丢失）。空标题仍回退不保存（与快照命中路径
+    /// 一致：标题不可清空）；非空直写（无快照可比，跳过"未变跳过"）；notFound 走
+    /// 提示条诚实报错。重试走公开入口：期间快照恢复则自动回到常规守卫路径。
+    private func saveTodoTitleWithoutSnapshot(_ id: Todo.ID, _ text: String) async {
+        guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
         do {
             try await todoRepository.updateTitle(id, to: text)
         } catch let error as ShikeDataError {
@@ -842,6 +886,12 @@ final class PanelModel {
         let summary = todos.first { $0.id == id }?.title ?? ""
         do {
             try await todoRepository.softDelete(id)
+            // 数据安全 C3：待移入窗内删除必须取消该条的完成计时器——否则计时器到点
+            // 对软删行写 completedAt（回收站行被静默标完成），窗内撤销恢复的待办也会
+            // 在无操作下"自己完成"。清理语义对齐 toggleTodoCompletion 的取消分支。
+            completionTimers[id]?.cancel()
+            completionTimers[id] = nil
+            pendingCompletionIDs.remove(id)
             recordDeletion(kind: .todo(id), summary: summary)
         } catch let error as ShikeDataError {
             report(error, retry: { [weak self] in Task { await self?.deleteTodo(id) } })

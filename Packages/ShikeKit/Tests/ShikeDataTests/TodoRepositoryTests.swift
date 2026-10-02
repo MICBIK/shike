@@ -189,6 +189,39 @@ struct TodoRepositoryTests {
         await #expect(throws: ShikeDataError.notFound) { try await repository.permanentlyDelete(ghost) }
     }
 
+    @Test("C3：软删除的行不受 setCompleted 影响（回收站行不被迟到的完成/取消写改动）")
+    func setCompletedSkipsSoftDeletedRows() async throws {
+        let (database, repository) = try makeRepository()
+
+        // 完成后删除：迟到的取消完成不得清掉回收站行展示的 completedAt
+        let completed = try await repository.create(title: "完成后删除", due: nil)
+        try await repository.setCompleted(completed.id, true)
+        try await repository.softDelete(completed.id)
+        var fresh = try await fetchTodo(database, id: completed.id)
+        let completedAtInTrash = fresh?.completedAt
+        #expect(completedAtInTrash != nil)
+        try await repository.setCompleted(completed.id, false)
+        fresh = try await fetchTodo(database, id: completed.id)
+        #expect(fresh?.completedAt == completedAtInTrash)
+        #expect(fresh?.deletedAt != nil)
+
+        // 未完成即删除：迟到的完成写不得标完成回收站行，snoozedUntil 也不被清
+        let pending = try await repository.create(title: "删除后迟到完成", due: nil)
+        try await repository.snooze(pending.id, until: dueNormalizedMidnight)
+        try await repository.softDelete(pending.id)
+        try await repository.setCompleted(pending.id, true)
+        fresh = try await fetchTodo(database, id: pending.id)
+        #expect(fresh?.completedAt == nil)
+        #expect(fresh?.snoozedUntil == dueNormalizedMidnight)
+
+        // 软删行改动被跳过但不抛 notFound（行仍在）；恢复后可正常完成
+        try await repository.restore(pending.id)
+        try await repository.setCompleted(pending.id, true)
+        fresh = try await fetchTodo(database, id: pending.id)
+        #expect(fresh?.completedAt == TestClock.t0)
+        #expect(fresh?.snoozedUntil == nil)
+    }
+
     @Test("观察：初始值按 createdAt 降序、id 降序，包含已完成的；写入推送")
     func observationLifecycle() async throws {
         let (_, repository) = try makeRepository()
