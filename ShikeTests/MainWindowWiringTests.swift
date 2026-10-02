@@ -374,6 +374,62 @@ struct MainWindowWiringTests {
         #expect(controller.feedback.message == nil)
     }
 
+    @Test("删除反馈：撤销定点恢复条上所指条目——5 秒窗口内面板另删别的条目时不再错恢复栈顶（卡C 审查修复）")
+    func undoRestoresTheItemTheBarNamesNotStackTop() async throws {
+        let (environment, suiteName) = try makeEnvironment()
+        defer { UserDefaults.standard.removePersistentDomain(forName: suiteName) }
+        let panelModel = environment.panelModel
+        let controller = MainWindowController(environment: environment)
+        let note = try await environment.noteRepository.create(content: "主窗口删的便签")
+        await panelModel.runNotes(oneShotNotes([NoteListItem(note: note, isPinnedToDesktop: false)]))
+        let otherTodo = try await environment.todoRepository.create(title: "面板后删的待办", due: nil)
+        await panelModel.runTodos(oneShotTodos([otherTodo]))
+
+        // 主窗口删便签 → 条面"已删除「主窗口删的便签」"
+        controller.notesModel.deleteNote(note.id)
+        try await waitUntil("删除反馈出现") {
+            controller.feedback.message == String(localized: .undoBarDeleted("主窗口删的便签"))
+        }
+        // 5 秒窗口内面板又删了另一条（栈顶易主）
+        await panelModel.deleteTodo(otherTodo.id)
+        #expect(panelModel.deletedStack.count == 2)
+
+        // 主窗口条撤销：恢复条上所指的便签，而不是栈顶的待办
+        controller.feedback.performAction()
+        try await waitUntil("定点恢复便签") {
+            try await self.activeNotes(environment).map(\.id) == [note.id]
+        }
+        let activeTodosAfterUndo = try await activeTodos(environment)
+        #expect(activeTodosAfterUndo.isEmpty) // 待办仍在回收站（未被误恢复）
+        #expect(controller.feedback.message == nil)
+    }
+
+    @Test("删除反馈：面板编辑态中主窗口撤销仍可达（显式点击不受 ⌘Z 键路径守卫约束）")
+    func mainWindowUndoReachableWhilePanelEditing() async throws {
+        let (environment, suiteName) = try makeEnvironment()
+        defer { UserDefaults.standard.removePersistentDomain(forName: suiteName) }
+        let panelModel = environment.panelModel
+        let controller = MainWindowController(environment: environment)
+        let note = try await environment.noteRepository.create(content: "编辑态中删的便签")
+        await panelModel.runNotes(oneShotNotes([NoteListItem(note: note, isPinnedToDesktop: false)]))
+
+        controller.notesModel.deleteNote(note.id)
+        try await waitUntil("删除反馈出现") {
+            controller.feedback.message != nil
+        }
+
+        // 面板行编辑态 + 快速输入框焦点态：⌘Z 会被守卫让路（既有语义），显式按钮不得
+        panelModel.editingNoteID = note.id
+        panelModel.isCaptureFocused = true
+        #expect(panelModel.undoLastDeleteIfNeeded() == false) // 键盘路径仍被仲裁
+
+        controller.feedback.performAction()
+        try await waitUntil("编辑态下定点恢复") {
+            try await self.activeNotes(environment).map(\.id) == [note.id]
+        }
+        #expect(controller.feedback.message == nil)
+    }
+
     @Test("删除反馈：主窗口删待办同样带撤销，撤销后待办回活跃流")
     func todoDeleteShowsFeedbackWithUndoAndRestores() async throws {
         let (environment, suiteName) = try makeEnvironment()

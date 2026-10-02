@@ -182,18 +182,27 @@ final class MainWindowController {
             noteRepository.observeActive()
         })
         // 主窗口删除反馈（打磨二轮卡B，03 §16.8）：删除成功时把"已删除「…」+撤销"
-        // 写进主窗口反馈条——面板收着时主窗口不再对删除无感。撤销调面板同一撤销栈
-        // （undoLastDelete），5 秒窗口与面板撤销条一致。成功判定用撤销栈深度差
+        // 写进主窗口反馈条——面板收着时主窗口不再对删除无感。撤销走定点撤销
+        // （undoDeleteFromBar，卡C 审查修复）：恢复本条所指条目而非栈顶——5 秒窗口
+        // 内面板又删了别的条目时，栈顶已不是文案所指；且不被面板编辑态/焦点守卫
+        // 吞掉（守卫是 ⌘Z 键路径仲裁，条按钮是显式点击）。成功判定用撤销栈深度差
         // （recordDeletion 仅在软删除成功路径调用；失败路径由写失败旁路承接，不出此反馈）；
-        // 摘要复用面板撤销条的截断文案（deletedBar），不重复实现截断。
-        // 面板与主窗口毫秒级并发删除的摘要错位在单用户下可忽略（记台账）。
-        func showDeletionFeedbackIfRecorded(_ panelModel: PanelModel?, depthBefore: Int) {
+        // 摘要取栈内本条自身的截断文案（recordDeletion 已截断，不重复实现）。
+        func showDeletionFeedbackIfRecorded(
+            _ panelModel: PanelModel?,
+            depthBefore: Int,
+            kind: PanelModel.DeletedItem.Kind
+        ) {
             guard let panelModel,
                   panelModel.deletedStack.count > depthBefore,
-                  case .deleted(let summary)? = panelModel.deletedBar else { return }
+                  let item = panelModel.deletedStack.last(where: { $0.kind == kind }) else { return }
+            // 摘要取栈内本条自身的截断文案（不读 deletedBar——交错删除时条面可能已指向
+            // 别的条目），保证"条上写谁、撤销恢复谁"。
             feedback.show(
-                String(localized: .undoBarDeleted(summary)),
-                action: .undo { [weak panelModel] in panelModel?.undoLastDelete() }
+                String(localized: .undoBarDeleted(item.summary)),
+                action: .undo { [weak panelModel] in
+                    panelModel?.undoDeleteFromBar(kind: kind)
+                }
             )
         }
         // 清空保存=删除（03 §5）：同样产生软删除，主窗口行消失同属"无感"面，一并反馈。
@@ -202,7 +211,9 @@ final class MainWindowController {
                 guard let panelModel else { return }
                 let depthBefore = panelModel.deletedStack.count
                 await panelModel.saveNoteContent(id, text)
-                showDeletionFeedbackIfRecorded(panelModel, depthBefore: depthBefore)
+                showDeletionFeedbackIfRecorded(
+                    panelModel, depthBefore: depthBefore, kind: .note(id)
+                )
             }
         }
         notesModel.setNotePinned = { [weak panelModel] id, pinned in
@@ -220,7 +231,9 @@ final class MainWindowController {
                 guard let panelModel else { return }
                 let depthBefore = panelModel.deletedStack.count
                 await panelModel.deleteNote(id)
-                showDeletionFeedbackIfRecorded(panelModel, depthBefore: depthBefore)
+                showDeletionFeedbackIfRecorded(
+                    panelModel, depthBefore: depthBefore, kind: .note(id)
+                )
             }
         }
         self.notesModel = notesModel
@@ -244,7 +257,9 @@ final class MainWindowController {
                 guard let panelModel else { return }
                 let depthBefore = panelModel.deletedStack.count
                 await panelModel.deleteTodo(id)
-                showDeletionFeedbackIfRecorded(panelModel, depthBefore: depthBefore)
+                showDeletionFeedbackIfRecorded(
+                    panelModel, depthBefore: depthBefore, kind: .todo(id)
+                )
             }
         }
         self.todosModel = todosModel

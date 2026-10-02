@@ -133,6 +133,41 @@ final class PanelModel {
         _ = undoLastDeleteIfNeeded()
     }
 
+    /// 反馈条按钮的定点撤销（打磨二轮卡C 审查修复，03 §16.8）：不受 ⌘Z 的
+    /// 编辑态/输入焦点守卫约束——那两个守卫是键盘撤销的仲裁（编辑中 ⌘Z 让路
+    /// 文字撤销），条上按钮是显式点击、语义无歧义，静默吞掉会让用户以为撤销失败。
+    /// 条上文案指向具体条目，撤销必须恢复该条目而非栈顶——5 秒窗口内另一面
+    /// 又删了别的条目时，栈顶已不是文案所指（restore 失败回栈机制照旧）。
+    /// 主窗口条按删除时的 kind 定点；面板条展示的恒为栈顶，取 last。
+    func undoLastDeleteFromBar() {
+        guard let last = deletedStack.last else { return } // 栈空（⌘Z 已先行恢复）：静默收条
+        undoFromBar(last)
+    }
+
+    /// 主窗口反馈条的定点撤销：恢复 kind 指向的那条删除（不论其在栈中的位置）；
+    /// 条目已不在栈内（被 ⌘Z 先行恢复）则静默收条，不重复恢复、不报 notFound。
+    func undoDeleteFromBar(kind: DeletedItem.Kind) {
+        guard let item = deletedStack.last(where: { $0.kind == kind }) else { return }
+        undoFromBar(item)
+    }
+
+    /// 定点撤销的公共实现：先出栈再恢复（失败由 restore 按序回栈并上报），
+    /// 成功切「已恢复」视角、失败回「已删除」视角——语义与 undoLastDeleteIfNeeded
+    /// 的成功/失败收尾一致，只是不做键盘仲裁守卫、不限定栈顶。
+    private func undoFromBar(_ item: DeletedItem) {
+        deletedStack.removeAll { $0.kind == item.kind }
+        Task {
+            let restored = await restore(item)
+            await MainActor.run {
+                if restored {
+                    self.showBar(.recovered(item.summary, remaining: self.deletedStack.count))
+                } else {
+                    self.refreshDeletedBar()
+                }
+            }
+        }
+    }
+
     /// 是否处于任一编辑态（Esc/⌘Z 的分级依据）。
     var isEditingAny: Bool {
         editingNoteID != nil || editingTodoID != nil

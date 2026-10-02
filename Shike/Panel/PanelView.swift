@@ -31,7 +31,9 @@ struct PanelView: View {
                 statsBar
             }
             if let bar = model.deletedBar {
-                UndoBar(state: bar) { model.undoLastDelete() }
+                // 条按钮走守卫外定点撤销（打磨二轮卡C 审查修复）：显式点击不被
+                // 编辑态/焦点仲裁吞掉（那是 ⌘Z 键路径的守卫）；条展示的恒为栈顶。
+                UndoBar(state: bar) { model.undoLastDeleteFromBar() }
                     .id(String(describing: bar)) // 视角切换即重建：倒计时与出入场重启
                     .transition(.move(edge: .bottom).combined(with: .opacity))
             }

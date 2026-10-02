@@ -138,6 +138,46 @@ struct DeleteUndoTests {
         #expect(model.notes[0].note.content == "将被清空的便签") // 内容不变
     }
 
+    @Test("定点撤销（条按钮路径）：恢复 kind 指向条目而非栈顶；编辑态不被守卫吞掉；kind 不在栈内静默收条")
+    func targetedBarUndoRestoresNamedItem() async throws {
+        let (environment, suiteName) = try makeEnvironment()
+        defer { UserDefaults.standard.removePersistentDomain(forName: suiteName) }
+        let model = environment.panelModel
+        model.start()
+
+        let note = try await environment.noteRepository.create(content: "定点撤销的便签")
+        let todo = try await environment.todoRepository.create(title: "后删的待办", due: nil)
+        try await waitUntilList(model, "两组非空") { !$0.notes.isEmpty && !$0.todos.isEmpty }
+
+        await model.deleteNote(note.id)
+        await model.deleteTodo(todo.id)
+        #expect(model.deletedStack.count == 2)
+        #expect(model.deletedBar == .deleted("后删的待办")) // 栈顶/条面是待办
+
+        // 编辑态中点条按钮：不被 ⌘Z 的守卫吞掉（守卫只仲裁键盘撤销），定点恢复便签
+        model.editingNoteID = note.id
+        model.undoDeleteFromBar(kind: .note(note.id))
+        try await waitUntilList(model, "定点恢复便签") { $0.notes.count == 1 }
+        #expect(model.deletedStack.count == 1) // 待办仍在栈内
+        try await waitUntilList(model) {
+            $0.deletedBar == .recovered("定点撤销的便签", remaining: 1)
+        }
+        model.editingNoteID = nil
+
+        // kind 已不在栈内（已被恢复）：静默收条语义——不重复恢复、不动剩余栈、不报 notFound
+        model.undoDeleteFromBar(kind: .note(note.id))
+        try await Task.sleep(for: .milliseconds(100))
+        #expect(model.deletedStack.count == 1) // 待办未被动过
+        #expect(model.banner == nil) // 无 notFound 横幅
+
+        // 面板条按钮（恒为栈顶）：恢复待办
+        model.undoLastDeleteFromBar()
+        try await waitUntilList(model, "条按钮恢复待办") { $0.todos.count == 1 }
+        try await waitUntilList(model) {
+            $0.deletedBar == .recovered("后删的待办", remaining: 0)
+        }
+    }
+
     @Test("反馈条计时：延迟注入后到时消失；连续删除重置；撤销先切「已恢复」视角再重启计时")
     func deletedBarTimer() async throws {
         let (environment, suiteName) = try makeEnvironment()
