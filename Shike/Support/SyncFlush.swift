@@ -31,18 +31,20 @@ enum SyncFlush {
         }
     }
 
-    /// 便签内容的冲刷（同 PanelModel.saveNoteContent 数据语义）：行不在接收方
-    /// 快照跳过、trim 后为空→软删除、内容未变跳过；失败记日志（不含内容，Log 纪律）。
-    /// snapshotContent 取调用方自己的快照——面板与主窗口各看各的，卡片路径同
-    /// 既有写路径取面板快照。
+    /// 便签内容的冲刷（同 PanelModel.saveNoteContent 数据语义）：trim 后为空→软删除
+    /// （幂等，已删除返回 false 静默）、内容未变跳过；行不在调用方快照时兜底直写
+    /// （打磨轮 2026-10-03，C4 对齐：面板观察流失败而行健在时，在线保存已兜底直写、
+    /// 冲刷再静默跳过=最后一次编辑无声丢失；无快照可比，跳过"未变跳过"）。
+    /// 失败记日志（不含内容，Log 纪律）。snapshotContent 取调用方自己的快照——
+    /// 面板与主窗口各看各的，卡片路径同既有写路径取面板快照。
     static func noteContent(
         _ id: Note.ID,
         text: String,
         snapshotContent: String?,
         repository: NoteRepository
     ) {
-        guard let snapshotContent else { return }
-        if text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty {
             perform {
                 do {
                     _ = try await repository.softDelete(id)
@@ -61,16 +63,16 @@ enum SyncFlush {
         }
     }
 
-    /// 待办标题的冲刷（同 PanelModel.saveTodoTitle 数据语义）：行不在接收方
-    /// 快照跳过、空标题不保存（回退原标题）、内容未变跳过；失败记日志。
+    /// 待办标题的冲刷（同 PanelModel.saveTodoTitle 数据语义）：空标题不保存
+    /// （回退原标题）、内容未变跳过；行不在调用方快照时兜底直写（C4 对齐，
+    /// 同 noteContent）。失败记日志。
     static func todoTitle(
         _ id: Todo.ID,
         text: String,
         snapshotTitle: String?,
         repository: TodoRepository
     ) {
-        guard let snapshotTitle,
-              !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+        guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
               snapshotTitle != text
         else { return }
         perform {

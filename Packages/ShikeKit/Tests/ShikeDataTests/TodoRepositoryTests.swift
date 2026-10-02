@@ -222,6 +222,26 @@ struct TodoRepositoryTests {
         #expect(fresh?.snoozedUntil == nil)
     }
 
+    @Test("C3 家族防御：snooze 对软删除的行抛 notFound 且行不变（回收站行不被直连写改 snoozedUntil）")
+    func snoozeThrowsOnSoftDeletedRows() async throws {
+        let (database, repository) = try makeRepository()
+        let todo = try await repository.create(title: "删除后稍后提醒", due: nil)
+        try await repository.softDelete(todo.id)
+
+        await #expect(throws: ShikeDataError.notFound) {
+            try await repository.snooze(todo.id, until: dueNormalizedMidnight)
+        }
+        let fresh = try await fetchTodo(database, id: todo.id)
+        #expect(fresh?.snoozedUntil == nil)
+        #expect(fresh?.deletedAt != nil)
+
+        // 恢复后可正常稍后提醒（守卫只挡软删行）
+        try await repository.restore(todo.id)
+        try await repository.snooze(todo.id, until: dueNormalizedMidnight)
+        let restored = try await fetchTodo(database, id: todo.id)
+        #expect(restored?.snoozedUntil == dueNormalizedMidnight)
+    }
+
     @Test("观察：初始值按 createdAt 降序、id 降序，包含已完成的；写入推送")
     func observationLifecycle() async throws {
         let (_, repository) = try makeRepository()

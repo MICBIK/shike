@@ -96,11 +96,13 @@ public struct TodoRepository: Sendable {
     }
 
     /// 稍后提醒：snoozedUntil 存为传入的时间。更新 updatedAt。
+    /// 软删除的行抛 notFound（C3 家族防御，2026-10-03：回收站行不被直连写改
+    /// snoozedUntil；通知路径经 uuid 包装的前置检查，行为不变）。
     public func snooze(_ id: Todo.ID, until date: Date) async throws {
         try await database.performWrite { database in
             let now = try database.transactionDate
             try database.execute(
-                sql: "UPDATE todo SET snoozedUntil = ?, updatedAt = ? WHERE id = ? AND completedAt IS NULL",
+                sql: "UPDATE todo SET snoozedUntil = ?, updatedAt = ? WHERE id = ? AND completedAt IS NULL AND deletedAt IS NULL",
                 arguments: [date, now, id.rawValue]
             )
             if database.changesCount == 0 {

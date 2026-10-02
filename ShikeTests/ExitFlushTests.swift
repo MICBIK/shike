@@ -107,7 +107,7 @@ struct ExitFlushTests {
         #expect(elapsed < 2)
     }
 
-    @Test("SyncFlush.noteContent：未变跳过（updatedAt 不动）、变化落库（updatedAt 前进）、行不在快照跳过")
+    @Test("SyncFlush.noteContent：未变跳过（updatedAt 不动）、变化落库（updatedAt 前进）、行不在快照兜底直写（C4 对齐）")
     func noteContentSkipsUnchangedAndMissing() async throws {
         let (environment, suiteName, _) = try makeTickingEnvironment()
         defer { UserDefaults.standard.removePersistentDomain(forName: suiteName) }
@@ -125,10 +125,27 @@ struct ExitFlushTests {
         #expect(rows.first?.note.content == "换了文字")
         #expect(rows.first!.note.updatedAt > note.updatedAt)
 
-        // 行不在快照（nil）：跳过（同 saveNoteContent 的守卫语义）
+        // 行不在快照（nil）：兜底直写（打磨 2026-10-03，C4 对齐——在线保存已直写，
+        // 冲刷静默跳过=最后一次编辑无声丢失；此前为跳过语义）
         SyncFlush.noteContent(note.id, text: "又改", snapshotContent: nil, repository: environment.noteRepository)
         rows = try await activeNotes(environment)
-        #expect(rows.first?.note.content == "换了文字")
+        #expect(rows.first?.note.content == "又改")
+    }
+
+    @Test("SyncFlush.noteContent：行不在快照且空内容→软删除（幂等静默）")
+    func noteContentMissingSnapshotEmptySoftDeletes() async throws {
+        let (environment, suiteName) = try makeEnvironment()
+        defer { UserDefaults.standard.removePersistentDomain(forName: suiteName) }
+        let note = try await environment.noteRepository.create(content: "快照外清空")
+
+        // 行健在：软删除落库
+        SyncFlush.noteContent(note.id, text: "  ", snapshotContent: nil, repository: environment.noteRepository)
+        #expect(try await activeNotes(environment).isEmpty)
+        #expect(try await deletedNotes(environment).map(\.id) == [note.id])
+
+        // 行已删除：幂等（softDelete 返回 false 静默，不抛错）
+        SyncFlush.noteContent(note.id, text: "", snapshotContent: nil, repository: environment.noteRepository)
+        #expect(try await deletedNotes(environment).map(\.id) == [note.id])
     }
 
     @Test("SyncFlush.noteContent：空内容→软删除入回收站")
@@ -142,7 +159,7 @@ struct ExitFlushTests {
         #expect(try await deletedNotes(environment).map(\.id) == [note.id])
     }
 
-    @Test("SyncFlush.todoTitle：变化落库；空标题不保存（回退原标题）；未变 updatedAt 不动")
+    @Test("SyncFlush.todoTitle：变化落库；空标题不保存（回退原标题）；未变 updatedAt 不动；行不在快照兜底直写")
     func todoTitleFlushSemantics() async throws {
         let (environment, suiteName, _) = try makeTickingEnvironment()
         defer { UserDefaults.standard.removePersistentDomain(forName: suiteName) }
@@ -165,6 +182,14 @@ struct ExitFlushTests {
         rows = try await activeTodos(environment)
         #expect(rows.first?.title == "新标题")
         #expect(rows.first?.updatedAt == beforeSkip)
+
+        // 行不在快照（nil）且非空：兜底直写（C4 对齐）；空标题仍回退不保存
+        SyncFlush.todoTitle(todo.id, text: "快照外的新标题", snapshotTitle: nil, repository: environment.todoRepository)
+        rows = try await activeTodos(environment)
+        #expect(rows.first?.title == "快照外的新标题")
+        SyncFlush.todoTitle(todo.id, text: "  ", snapshotTitle: nil, repository: environment.todoRepository)
+        rows = try await activeTodos(environment)
+        #expect(rows.first?.title == "快照外的新标题")
     }
 
     // - MARK: 面板（PanelModel）
@@ -229,6 +254,32 @@ struct ExitFlushTests {
         model.flushPendingEditsSynchronously()
         rows = try await activeTodos(environment)
         #expect(rows.first?.title == "面板新标题")
+    }
+
+    @Test("面板退出冲刷：面板流失败（行不在快照）时兜底直写，编辑不静默丢失（C4 对齐）")
+    func panelFlushWritesThroughWhenRowAbsentFromSnapshot() async throws {
+        let (environment, suiteName) = try makeEnvironment()
+        defer { UserDefaults.standard.removePersistentDomain(forName: suiteName) }
+        let model = environment.panelModel
+        let note = try await environment.noteRepository.create(content: "面板看不到的便签")
+        let todo = try await environment.todoRepository.create(title: "面板看不到的待办", due: nil)
+        // 空快照一次性流 = 面板观察流已失败（runNotes 语义）：行健在、面板快照没有
+        await model.runNotes(oneShotNotes([]))
+        await model.runTodos(oneShotTodos([]))
+
+        // 便签：编辑态可以来自流失败前的残留（beginNoteEditing 不依赖快照）
+        model.beginNoteEditing(note.id, content: note.content)
+        model.editingNoteText = "流失败期间的最后一次编辑"
+        // 待办：直接置编辑态（同面板行编辑的落点）
+        model.editingTodoID = todo.id
+        model.editingTodoText = "流失败期间的新标题"
+
+        model.flushPendingEditsSynchronously()
+
+        #expect(try await activeNotes(environment).first(where: { $0.note.id == note.id })?.note.content == "流失败期间的最后一次编辑")
+        #expect(try await activeTodos(environment).first(where: { $0.id == todo.id })?.title == "流失败期间的新标题")
+        #expect(model.editingNoteID == nil)
+        #expect(model.editingTodoID == nil)
     }
 
     // - MARK: 主窗口（MainNotesModel + MainWindowController）
