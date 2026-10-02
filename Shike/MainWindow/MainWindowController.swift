@@ -100,18 +100,30 @@ struct MainRootView: View {
         // 同源展示照旧（TrashView 顶部小字条）——同一条失败在回收站分区
         // 两处同文案时底部条让位（打磨 R3：同屏不重复显示同一句话，
         // 两通道同一 tick 写入、同时长自清，去重窗口即显示窗口）。
+        // 条尾动作（打磨二轮卡B）：删除反馈带「撤销」、写失败反馈带「重试」，
+        // 纯文案（导出/回收站等）不带按钮。
         .safeAreaInset(edge: .bottom) {
             if let message = feedbackModel.message,
                !(section == .trash && message == trashModel.statusMessage)
             {
                 VStack(spacing: 0) {
                     Divider()
-                    Text(message)
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 6)
+                    HStack(spacing: 10) {
+                        Text(message)
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        if let action = feedbackModel.action {
+                            Button(action.label) {
+                                feedbackModel.performAction()
+                            }
+                            .buttonStyle(.plain)
+                            .font(.footnote.weight(.medium))
+                            .foregroundStyle(Color.accentColor)
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 6)
                 }
             }
         }
@@ -169,8 +181,29 @@ final class MainWindowController {
         let notesModel = MainNotesModel(observeNotes: { [noteRepository] in
             noteRepository.observeActive()
         })
+        // 主窗口删除反馈（打磨二轮卡B，03 §16.8）：删除成功时把"已删除「…」+撤销"
+        // 写进主窗口反馈条——面板收着时主窗口不再对删除无感。撤销调面板同一撤销栈
+        // （undoLastDelete），5 秒窗口与面板撤销条一致。成功判定用撤销栈深度差
+        // （recordDeletion 仅在软删除成功路径调用；失败路径由写失败旁路承接，不出此反馈）；
+        // 摘要复用面板撤销条的截断文案（deletedBar），不重复实现截断。
+        // 面板与主窗口毫秒级并发删除的摘要错位在单用户下可忽略（记台账）。
+        func showDeletionFeedbackIfRecorded(_ panelModel: PanelModel?, depthBefore: Int) {
+            guard let panelModel,
+                  panelModel.deletedStack.count > depthBefore,
+                  case .deleted(let summary)? = panelModel.deletedBar else { return }
+            feedback.show(
+                String(localized: .undoBarDeleted(summary)),
+                action: .undo { [weak panelModel] in panelModel?.undoLastDelete() }
+            )
+        }
+        // 清空保存=删除（03 §5）：同样产生软删除，主窗口行消失同属"无感"面，一并反馈。
         notesModel.saveNoteContent = { [weak panelModel] id, text in
-            Task { await panelModel?.saveNoteContent(id, text) }
+            Task {
+                guard let panelModel else { return }
+                let depthBefore = panelModel.deletedStack.count
+                await panelModel.saveNoteContent(id, text)
+                showDeletionFeedbackIfRecorded(panelModel, depthBefore: depthBefore)
+            }
         }
         notesModel.setNotePinned = { [weak panelModel] id, pinned in
             Task { await panelModel?.setNotePinned(id, pinned) }
@@ -183,7 +216,12 @@ final class MainWindowController {
             Task { await panelModel?.unpinNoteFromDesktop(id) }
         }
         notesModel.deleteNote = { [weak panelModel] id in
-            Task { await panelModel?.deleteNote(id) }
+            Task {
+                guard let panelModel else { return }
+                let depthBefore = panelModel.deletedStack.count
+                await panelModel.deleteNote(id)
+                showDeletionFeedbackIfRecorded(panelModel, depthBefore: depthBefore)
+            }
         }
         self.notesModel = notesModel
 
@@ -199,7 +237,12 @@ final class MainWindowController {
             panelModel?.toggleTodoCompletion(id)
         }
         todosModel.delete = { [weak panelModel] id in
-            Task { await panelModel?.deleteTodo(id) }
+            Task {
+                guard let panelModel else { return }
+                let depthBefore = panelModel.deletedStack.count
+                await panelModel.deleteTodo(id)
+                showDeletionFeedbackIfRecorded(panelModel, depthBefore: depthBefore)
+            }
         }
         self.todosModel = todosModel
 
@@ -292,10 +335,15 @@ final class MainWindowController {
         // 写失败旁路（W3）：面板收着时主窗口也要可见。主窗口可见（或尚未创建——
         // 3 秒自清保证不会留下过期文案）才显示；文案与面板横幅同源
         // （banner.saveFailed + ErrorText.reason）。面板横幅保留不动。
+        // 反馈条带「重试」（打磨二轮卡B，03 §16.8）：复用面板横幅的同一重试闭包
+        // （retryBanner），面板收着时不必先呼出面板才能重试。
         // 放在 init 末尾：弱捕获 self 需存储属性全部初始化完成。
-        panelModel.writeFailureHandler = { [weak feedback, weak self] reason in
+        panelModel.writeFailureHandler = { [weak feedback, weak self, weak panelModel] reason in
             guard let feedback, self?.window?.isVisible != false else { return }
-            feedback.show(String(localized: .bannerSaveFailed(ErrorText.reason(reason))))
+            feedback.show(
+                String(localized: .bannerSaveFailed(ErrorText.reason(reason))),
+                action: .retry { [weak panelModel] in panelModel?.retryBanner() }
+            )
         }
     }
 
