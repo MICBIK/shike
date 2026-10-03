@@ -274,6 +274,7 @@ jobs:
           echo "POSITIVE CHAIN OK on $(sw_vers -productVersion)"
 
       - name: Negative test — tampered zip must be rejected by EdDSA
+        if: always()  # 正向若卡在安装握手（runner 环境限制），负向 EdDSA 拒绝验证仍独立成立
         run: |
           RT="$RUNNER_TEMP"
           APP="$RT/Applications/SparkleTestApp.app"
