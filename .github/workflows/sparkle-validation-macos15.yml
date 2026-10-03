@@ -198,14 +198,28 @@ jobs:
           : > "$RT/logs/launch-pos.log"
           log stream --level debug --style compact --predicate 'subsystem == "com.sparkle-project.Sparkle"' > "$RT/logs/sparkle-pos.log" 2>&1 &
           LOGPID=$!
-          ( cd "$RT/serve" && exec python3 -m http.server 8765 ) > "$RT/logs/httpd.log" 2>&1 &
+          # python3 -m http.server 在 macos-15 镜像上零输出不服务（跑2/跑3 实证），改用 node 静态服务器
+          node -e '
+          const http=require("http"),fs=require("fs"),path=require("path");
+          const root=process.argv[1];
+          http.createServer((req,res)=>{
+            const rel=decodeURIComponent(req.url.split("?")[0]);
+            const p=path.join(root,rel);
+            fs.readFile(p,(e,d)=>{
+              if(e){ console.log("404",req.url); res.writeHead(404); res.end(); return; }
+              console.log("200",req.url,d.length);
+              res.writeHead(200,{"Content-Type":"application/octet-stream","Content-Length":d.length});
+              res.end(d);
+            });
+          }).listen(8765,"127.0.0.1",()=>console.log("serving",root,"on 127.0.0.1:8765"));
+          ' "$RT/serve" > "$RT/logs/httpd.log" 2>&1 &
           HTTPD_PID=$!
-          sleep 1
+          sleep 2
+          lsof -nP -iTCP:8765 -sTCP:LISTEN || echo "NO LISTENER on 8765"
           echo "== firewall / proxy diagnostics =="
           /usr/libexec/ApplicationFirewall/socketfilterfw --getglobalstate 2>&1 || true
-          scutil --proxy 2>&1 | sed -n '1,12p' || true
-          sudo /usr/libexec/ApplicationFirewall/socketfilterfw --setglobalstate off 2>&1 || echo "(socketfilterfw off failed, continuing)"
-          curl -s --max-time 5 http://127.0.0.1:8765/appcast.xml >/dev/null && echo "loopback HTTP probe OK" || { echo "loopback HTTP probe FAILED — 看上方防火墙/代理诊断"; exit 1; }
+          curl -sv --max-time 5 http://127.0.0.1:8765/appcast.xml -o /dev/null 2>&1 | tail -3
+          curl -s --max-time 5 http://127.0.0.1:8765/appcast.xml >/dev/null && echo "loopback HTTP probe OK" || { echo "loopback HTTP probe FAILED"; cat "$RT/logs/httpd.log"; exit 1; }
           SPARKLE_TEST_LOG="$RT/logs/launch-pos.log" "$APP/Contents/MacOS/SparkleTestApp" > "$RT/logs/app-pos-stdout.log" 2>&1 &
           OK=0
           for i in $(seq 1 170); do
@@ -240,9 +254,23 @@ jobs:
           cp "$RT/serve/SparkleTestApp-2.zip" "$RT/logs/zip-backup.zip"
           printf '\x7f' | dd of="$RT/serve/SparkleTestApp-2.zip" bs=1 seek=1000 count=1 conv=notrunc 2>/dev/null
           : > "$RT/logs/launch-neg.log"
-          ( cd "$RT/serve" && exec python3 -m http.server 8765 ) > "$RT/logs/httpd-neg.log" 2>&1 &
+          node -e '
+          const http=require("http"),fs=require("fs"),path=require("path");
+          const root=process.argv[1];
+          http.createServer((req,res)=>{
+            const rel=decodeURIComponent(req.url.split("?")[0]);
+            const p=path.join(root,rel);
+            fs.readFile(p,(e,d)=>{
+              if(e){ console.log("404",req.url); res.writeHead(404); res.end(); return; }
+              console.log("200",req.url,d.length);
+              res.writeHead(200,{"Content-Type":"application/octet-stream","Content-Length":d.length});
+              res.end(d);
+            });
+          }).listen(8765,"127.0.0.1",()=>console.log("serving",root,"on 127.0.0.1:8765"));
+          ' "$RT/serve" > "$RT/logs/httpd-neg.log" 2>&1 &
           HTTPD_PID=$!
-          sleep 1
+          sleep 2
+          lsof -nP -iTCP:8765 -sTCP:LISTEN || echo "NO LISTENER on 8765"
           curl -s --max-time 5 http://127.0.0.1:8765/appcast.xml >/dev/null && echo "loopback HTTP probe OK" || echo "loopback HTTP probe FAILED (continuing — 期望链路拒绝)"
           SPARKLE_TEST_LOG="$RT/logs/launch-neg.log" "$APP/Contents/MacOS/SparkleTestApp" > "$RT/logs/app-neg-stdout.log" 2>&1 &
           REJECTED=0
