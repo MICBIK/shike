@@ -1,7 +1,7 @@
 # 拾刻 Shike · 阶段 4 朋友内测 · 故事拆解草案（Epic 6）
 
 > 状态：**草案（2026-10-03 夜产出），待产品负责人确认**。确认后按 06 §8 ①② 正式产出 `specs/spec-stage-4-*/SPEC.md` 并落定本文件，再进实现；规格未确认前不开工（本次只写规格，零实现代码）。
-> 来源：docs/02 阶段 4 能力表（S4-00～S4-09，v0.5）；docs/03 §9（设置窗口）/§12（首次引导）/§13（快捷键）/§14（状态与提示）；docs/04 §6.11（自动更新与发布）、§5.5（偏好键）、§6.1（启动顺序）；ADR-021（热键链路）、ADR-032（S4-00 结论，卡A 产出中）。
+> 来源：docs/02 阶段 4 能力表（S4-00～S4-09，v0.5）；docs/03 §9（设置窗口）/§12（首次引导）/§13（快捷键）/§14（状态与提示）；docs/04 §6.11（自动更新与发布）、§5.5（偏好键）、§6.1（启动顺序）；ADR-021（热键链路）、ADR-032（S4-00 结论，已定案：可行）。
 > 编号：阶段 N = Epic N+1；阶段 3.5 插队占用 Epic 5，故本阶段为 **Epic 6**，故事 6.1～6.10 对应 S4-00～S4-09。
 
 ## Overview
@@ -19,7 +19,7 @@
 
 | 故事 | 能力 | 状态 | 依赖 | 规模 |
 |---|---|---|---|---|
-| 6.1（S4-00） | 更新链路技术验证 | **2026-10-03 夜卡A 执行中**，结论 → ADR-032 | 无 | 小 |
+| 6.1（S4-00） | 更新链路技术验证 | ✅ 完成（ADR-032 可行，2026-10-03 夜卡A） | 无 | 小 |
 | 6.4（S4-03） | 打包发布一条命令 | 待确认后开工 | S4-00 | 中 |
 | 6.2（S4-01） | 设置窗口完整 | 待确认后开工 | 无硬依赖（数据页小节随 6.6/6.8/6.7 点亮） | 中 |
 | 6.3（S4-02） | 自动更新 | 待确认后开工 | S4-00（ADR-032）+ S4-03（真实 appcast 端到端验收） | 中 |
@@ -52,7 +52,7 @@ S4-00 → S4-03 →（S4-01 ‖ S4-02）→（S4-04 ‖ S4-05 ‖ S4-07）→ S4
 我希望在写正式集成代码前验证"ad-hoc 签名 + Sparkle EdDSA"完整链路可行，
 以便 S4-02/S4-03 不在错误假设上返工。
 
-**状态：**2026-10-03 夜由卡A 执行（临时原型 SparkleTestApp，不碰 Shike 工程），结论记入 docs/07 **ADR-032**（可行/不可行/限制三态 + 阶段 4 集成建议）。
+**状态：**✅ 完成（2026-10-03 夜卡A，临时原型 SparkleTestApp，零 Shike 工程改动）。结论：**可行**，记入 docs/07 **ADR-032**——macOS 27.0.1 双轮全链走通 + 篡改负向拒绝；Gatekeeper 无二次拦截；两条边界限制（静默更新时序 Sparkle 内部调度 0–60s；首次分发放行不归本链路，随 ADR-003）。
 
 **依据：**docs/02 S4-00；docs/04 §6.11；交接 §1。
 
@@ -103,7 +103,7 @@ S4-00 → S4-03 →（S4-01 ‖ S4-02）→（S4-04 ‖ S4-05 ‖ S4-07）→ S4
 
 **依据：**docs/02 S4-02；docs/03 §9 关于页两行；docs/04 §6.11（Sparkle 2、`SUFeedURL`、`SUPublicEDKey`）、§6.1 启动顺序（"检查更新（阶段 4）"插槽已预留）。
 
-> **TODO(卡A/ADR-032)：**本故事技术要点待 ADR-032 出后对齐回填——①Gatekeeper 是否二次拦截决定更新确认文案与 S4-04 联动；②macOS 15 实测口径；③Sparkle"无开发者 ID"官方支持口径决定配置面；④最小配置面参数直接采用。
+> **已回填（ADR-032，2026-10-03）：**①Gatekeeper 无二次拦截（Sparkle 下载不落 quarantine、替换后 178ms 自动重启零弹窗）——更新确认文案按常规写，S4-04 无"可能被拦"联动负担；②本机 macOS 27.0.1 双轮全通，macOS 15 口径由临时 workflow 在 GitHub runner 复跑（结论见晨报卡A 节）；③官方口径：Developer ID + 公证是 "if possible" 建议项，**EdDSA 必配**（无 EdDSA 更新已被 Sparkle 弃用）；④最小配置面：Info.plist 仅 `SUFeedURL` + `SUPublicEDKey` 两项必配，检查间隔默认即每日（86400s），`SUAutomaticallyUpdate` 控静默。两条工程细节：本地 http 测试源需 `NSAllowsLocalNetworking`（生产 https 免）；Sparkle 委托方法 2.10 有更名（`didFinishLoading`、`SPUUserUpdateState`）。
 
 **验收标准：**
 
@@ -128,7 +128,7 @@ S4-00 → S4-03 →（S4-01 ‖ S4-02）→（S4-04 ‖ S4-05 ‖ S4-07）→ S4
 
 **依据：**docs/02 S4-03；docs/04 §6.11（appcast 托管 `https://micbik.github.io/shike/appcast.xml`、EdDSA 私钥只在开发者钥匙串）。
 
-> **TODO(卡A/ADR-032)：**zip/appcast 参数与"是否可行"结论待 ADR-032 对齐；Sparkle 签名工具（sign_update）的获取方式随原型经验回填。
+> **已回填（ADR-032，2026-10-03）：**可行定案。打包链参数：`zip -qry`（保框架符号链接，`-x "*.DS_Store"`）→ `sign_update -p` 输出 `sparkle:edSignature` + `length` 写入 enclosure → appcast 的 `sparkle:version` 用 CFBundleVersion 单调整数。工具获取：无需 brew——SPM resolve 后预编译工具在 `.build/artifacts/sparkle/Sparkle/bin/`（generate_keys / sign_update / generate_appcast）；私钥经 `--ed-key-file`（文件式，配合 `SPARKLE_PRIVATE_KEY_FILE` 环境变量）或 generate_keys 钥匙串注入，**绝不入仓**。增量更新（BinaryDelta + generate_appcast）可选优化，不进首版。
 
 **验收标准：**
 
