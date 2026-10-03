@@ -1,0 +1,48 @@
+# 问题报告模板（S4-09 仓库侧一半；App 侧"反馈问题"按钮预填 version-info 字段）。
+name: 问题报告（Bug）
+description: 拾刻出了问题——报一个 Bug
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢反馈。提交前请先搜索[已有 issue](https://github.com/MICBIK/shike/issues?q=is%3Aissue)，避免重复。
+        **请勿粘贴便签与待办的内容**——拾刻的数据只属于你。
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: 发生了什么？
+      description: 描述问题现象；如涉及错误提示，请附提示原文。
+    validations:
+      required: true
+  - type: textarea
+    id: repro-steps
+    attributes:
+      label: 复现步骤
+      description: 从打开拾刻到问题出现，逐步列出；偶发问题请说明出现的频率。
+      placeholder: |
+        1. …
+        2. …
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: 期望的表现
+    validations:
+      required: true
+  - type: textarea
+    id: version-info
+    attributes:
+      label: 版本与环境
+      description: 拾刻版本与构建号（菜单栏右键 → 关于，或设置 → 关于页）、macOS 版本、机型。
+      placeholder: "拾刻 0.5.0（1），macOS 26.1，MacBook Pro (M-series)"
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: 日志（可选）
+      description: 如涉及"保存失败"等错误，可打开"控制台"App 搜索 io.github.micbik.shike，复制相关行。只复制错误分类与原因，**不要粘贴便签/待办内容**。
+    validations:
+      required: false

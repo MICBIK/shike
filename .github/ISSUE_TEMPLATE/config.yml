@@ -1,0 +1,5 @@
+# 问题反馈入口配置：只保留结构化模板（问题报告 / 功能想法），
+# 隐藏空白 issue，降低来回补充信息的成本。
+# 注意：模板中 id 为 version-info 的字段与 S4-09"反馈问题"按钮的 URL 预填耦合，
+# 改动字段 id 需同步 App 侧（epics-stage-4.md Story 6.10）。
+blank_issues_enabled: false

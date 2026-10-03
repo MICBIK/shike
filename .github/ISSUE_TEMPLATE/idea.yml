@@ -1,0 +1,37 @@
+# 功能想法模板（S4-09 仓库侧一半）。想法在阶段结束时统一评估排期（idea 标签口径）。
+name: 功能想法（Idea）
+description: 提一个让拾刻更好用的想法
+labels: ["idea"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢提想法。拾刻的定位是"菜单栏速记 + 桌面卡片 + 本地私密"（见 [产品定义](https://github.com/MICBIK/shike/blob/main/docs/01-%E4%BA%A7%E5%93%81%E5%AE%9A%E4%B9%89.md)），想法会在阶段结束时统一评估是否排期。
+  - type: textarea
+    id: scenario
+    attributes:
+      label: 使用场景
+      description: 你在什么情况下想要这个功能？现在是怎么解决的？
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: 期望的方案
+      description: 希望拾刻怎么做？
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: 备选方案（可选）
+      description: 其他产品是怎么做这件事的？
+    validations:
+      required: false
+  - type: textarea
+    id: extra
+    attributes:
+      label: 补充（可选）
+      description: 截图、先例等。
+    validations:
+      required: false
