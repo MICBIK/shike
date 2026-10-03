@@ -1,0 +1,10 @@
+[11:16:52] [s750] tmp=/tmp/shike-perf-night-s750.CENqRR
+seeded notes=750 todos=750
+[s750 loadonly] Shike [50855]: 64-bit    Footprint: 38323232 B (16384 bytes per page)
+[s750 loadonly] Shike [50855]: 64-bit    Footprint: 38290464 B (16384 bytes per page)
+[s750 loadonly] Shike [50855]: 64-bit    Footprint: 38208544 B (16384 bytes per page)
+count 0
+[s750 windowopen] Shike [50855]: 64-bit    Footprint: 38274080 B (16384 bytes per page)
+[s750 windowopen] Shike [50855]: 64-bit    Footprint: 38274080 B (16384 bytes per page)
+[s750 windowopen] Shike [50855]: 64-bit    Footprint: 38274080 B (16384 bytes per page)
+[11:18:27] [s750] done

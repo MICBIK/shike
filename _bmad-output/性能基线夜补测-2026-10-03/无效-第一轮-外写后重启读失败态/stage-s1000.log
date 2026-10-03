@@ -1,0 +1,11 @@
+[11:18:27] [s1000] tmp=/tmp/shike-perf-night-s1000.C4bOBS
+seeded notes=1000 todos=1000
+[s1000 loadonly] Shike [57903]: 64-bit    Footprint: 36963336 B (16384 bytes per page)
+[s1000 loadonly] Shike [57903]: 64-bit    Footprint: 37045256 B (16384 bytes per page)
+[s1000 loadonly] Shike [57903]: 64-bit    Footprint: 36979720 B (16384 bytes per page)
+count 1
+window 582 273 760 604
+[s1000 windowopen] Shike [57903]: 64-bit    Footprint: 50381880 B (16384 bytes per page)
+[s1000 windowopen] Shike [57903]: 64-bit    Footprint: 50365496 B (16384 bytes per page)
+[s1000 windowopen] Shike [57903]: 64-bit    Footprint: 50381880 B (16384 bytes per page)
+[11:20:01] [s1000] done

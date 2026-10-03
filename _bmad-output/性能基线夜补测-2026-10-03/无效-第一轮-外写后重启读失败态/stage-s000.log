@@ -1,0 +1,10 @@
+[11:11:33] [s000] tmp=/tmp/shike-perf-night-s000.8CEF8i
+[s000 loadonly] Shike [39289]: 64-bit    Footprint: 37110816 B (16384 bytes per page)
+[s000 loadonly] Shike [39289]: 64-bit    Footprint: 37094432 B (16384 bytes per page)
+[s000 loadonly] Shike [39289]: 64-bit    Footprint: 37094432 B (16384 bytes per page)
+count 1
+window 898 340 760 604
+[s000 windowopen] Shike [39289]: 64-bit    Footprint: 49808416 B (16384 bytes per page)
+[s000 windowopen] Shike [39289]: 64-bit    Footprint: 49693728 B (16384 bytes per page)
+[s000 windowopen] Shike [39289]: 64-bit    Footprint: 49824800 B (16384 bytes per page)
+[11:13:08] [s000] done

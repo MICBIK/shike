@@ -1,0 +1,11 @@
+[11:15:06] [s500] tmp=/tmp/shike-perf-night-s500.sUSurO
+seeded notes=500 todos=500
+[s500 loadonly] Shike [42779]: 64-bit    Footprint: 38126552 B (16384 bytes per page)
+[s500 loadonly] Shike [42779]: 64-bit    Footprint: 38077400 B (16384 bytes per page)
+[s500 loadonly] Shike [42779]: 64-bit    Footprint: 38077400 B (16384 bytes per page)
+count 1
+window 898 340 760 604
+[s500 windowopen] Shike [42779]: 64-bit    Footprint: 50136072 B (16384 bytes per page)
+[s500 windowopen] Shike [42779]: 64-bit    Footprint: 50070536 B (16384 bytes per page)
+[s500 windowopen] Shike [42779]: 64-bit    Footprint: 50250760 B (16384 bytes per page)
+[11:16:40] [s500] done

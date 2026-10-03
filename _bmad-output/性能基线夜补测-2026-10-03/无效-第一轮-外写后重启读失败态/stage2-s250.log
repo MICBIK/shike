@@ -1,0 +1,15 @@
+[11:45:09] [s250] tmp=/tmp/shike-perf2-night-s250.zIAquz
+[s250] 空库态 readFailed 计数=0
+seeded notes=250 todos=250
+[s250] 灌入后 readFailed 计数=0
+count 1
+window 10 80 680 827
+[s250] Shike [78052]: 64-bit    Footprint: 37520440 B (16384 bytes per page)
+[s250] Shike [78052]: 64-bit    Footprint: 36635704 B (16384 bytes per page)
+[s250] Shike [78052]: 64-bit    Footprint: 36635704 B (16384 bytes per page)
+[s250] Shike [78052]: 64-bit    Footprint: 36635704 B (16384 bytes per page)
+[s250] Shike [78052]: 64-bit    Footprint: 36635704 B (16384 bytes per page)
+[s250] Shike [78052]: 64-bit    Footprint: 36635704 B (16384 bytes per page)
+[s250] Shike [78052]: 64-bit    Footprint: 49644600 B (16384 bytes per page)
+[s250] Shike [78052]: 64-bit    Footprint: 49595448 B (16384 bytes per page)
+[s250] Shike [78052]: 64-bit    Footprint: 49595448 B (16384 bytes per page)

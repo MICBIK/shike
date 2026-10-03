@@ -1,0 +1,20 @@
+[12:19:57] [pilot] tmp=/tmp/shike-typed-pilot.6ACRlW notes=5 todos=3
+popover 907 28 386 546
+[12:21:19] [pilot] tmp=/tmp/shike-typed-pilot.pBvIjb notes=5 todos=3
+popover 907 28 386 546
+[pilot] 便签录入完成：库中 0 / 5，用时 4s
+[pilot] 待办录入完成：库中 5 / 3（含日期 0），用时 2s
+[12:27:40] [pilot] tmp=/tmp/shike-typed-pilot.xpdBQh notes=5 todos=3
+popover 907 28 386 546
+[pilot] mode=UNKNOWN（哨兵两次都未落库）
+[12:29:43] [pilot] tmp=/tmp/shike-typed-pilot.k9niJz notes=5 todos=3
+popover NONE
+[pilot] mode=UNKNOWN（哨兵三次都未落库）
+[12:31:05] [pilot] tmp=/tmp/shike-typed-pilot.ZWQlPx notes=5 todos=3
+[pilot] 第1次未开成面板，重试
+[pilot] 第2次未开成面板，重试
+[pilot] 第3次未开成面板，重试
+[pilot] 面板三次未开成，放弃
+[12:32:58] [pilot] tmp=/tmp/shike-typed-pilot.lBnUee notes=5 todos=3
+[pilot] popover(第1次尝试): popover 907 28 386 546
+[pilot] mode=UNKNOWN（哨兵三次都未落库）

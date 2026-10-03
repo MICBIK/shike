@@ -1,0 +1,11 @@
+[11:20:31] [s750b] tmp=/tmp/shike-perf-night-s750b.I7AGi8
+seeded notes=750 todos=750
+[s750b loadonly] Shike [61935]: 64-bit    Footprint: 35619848 B (16384 bytes per page)
+[s750b loadonly] Shike [61935]: 64-bit    Footprint: 35505160 B (16384 bytes per page)
+[s750b loadonly] Shike [61935]: 64-bit    Footprint: 35505160 B (16384 bytes per page)
+count 1
+window 582 273 760 604
+[s750b windowopen] Shike [61935]: 64-bit    Footprint: 48137272 B (16384 bytes per page)
+[s750b windowopen] Shike [61935]: 64-bit    Footprint: 48088120 B (16384 bytes per page)
+[s750b windowopen] Shike [61935]: 64-bit    Footprint: 48088120 B (16384 bytes per page)
+[11:22:06] [s750b] done

@@ -1,0 +1,627 @@
+== full empty sample 1 ==
+======================================================================
+Shike [85308]: 64-bit    Footprint: 37340168 B (16384 bytes per page)
+======================================================================
+
+      Dirty         Clean   Reclaimable    Regions    Category
+        ---           ---           ---        ---    ---
+ 23429120 B           0 B           0 B         13    Malloc Small
+  3286603 B       16384 B           0 B       1064    __DATA
+  2670592 B           0 B       32768 B         24    Untagged
+  2485840 B           0 B           0 B        942    __DATA_DIRTY
+  1081344 B           0 B           0 B         13    Malloc Metadata
+   965398 B           0 B           0 B        702    __AUTH
+   721928 B           0 B           0 B          1    page table
+   668951 B           0 B           0 B       2848    unused dyld shared cache area
+   294912 B           0 B           0 B          1    Malloc Tiny
+   278528 B           0 B           0 B          8    Stack
+   278528 B           0 B           0 B          2    CoreUI Image Data
+   245760 B           0 B           0 B         15    CoreAnimation
+   163840 B           0 B       16384 B          1    Dispatch Continuations
+   131072 B           0 B           0 B          1    Accelerate Framework
+    98304 B           0 B           0 B          5    CG Image
+    98232 B           0 B           0 B          4    __TPRO_CONST
+    81920 B      196608 B           0 B       1064    __DATA_CONST
+    65536 B           0 B           0 B          2    IOAccelerator
+    49152 B           0 B           0 B          1    Dyld Private Memory
+    49152 B           0 B           0 B          3    IOKit
+    48000 B           0 B           0 B          1    __OBJC_RW
+    32768 B           0 B           0 B          1    Activity Tracing
+    32768 B           0 B           0 B          2    CoreGraphics
+    16384 B           0 B           0 B          1    Deferred Reclaim
+    16384 B           0 B           0 B          1    OS Alloc Once
+    16384 B           0 B           0 B          2    IOAccelerator (graphics)
+    16384 B           0 B           0 B          1    Foundation
+    16384 B           0 B           0 B          1    ColorSync
+        0 B           0 B      147456 B          3    SQLite Page Cache
+        0 B    17268736 B           0 B         35    mapped file
+        0 B     4505600 B           0 B       1150    __TEXT
+        0 B      540672 B           0 B          6    __LINKEDIT
+        0 B           0 B           0 B          1    __OBJC_RO
+        0 B           0 B           0 B          1    __FONT_DATA
+        0 B           0 B           0 B          1    __CTF
+        0 B           0 B           0 B       1054    __AUTH_CONST
+        ---           ---           ---        ---    ---
+ 37340168 B    22528000 B      196608 B       8977    TOTAL
+
+Auxiliary data:
+    phys_footprint: 37340168 B
+    phys_footprint_peak: 37602312 B
+
+== full empty sample 2 ==
+======================================================================
+Shike [85308]: 64-bit    Footprint: 37340168 B (16384 bytes per page)
+======================================================================
+
+      Dirty         Clean   Reclaimable    Regions    Category
+        ---           ---           ---        ---    ---
+ 23429120 B           0 B           0 B         13    Malloc Small
+  3286603 B       16384 B           0 B       1064    __DATA
+  2670592 B           0 B       32768 B         24    Untagged
+  2485840 B           0 B           0 B        942    __DATA_DIRTY
+  1081344 B           0 B           0 B         13    Malloc Metadata
+   965398 B           0 B           0 B        702    __AUTH
+   721928 B           0 B           0 B          1    page table
+   668951 B           0 B           0 B       2848    unused dyld shared cache area
+   294912 B           0 B           0 B          1    Malloc Tiny
+   278528 B           0 B           0 B          8    Stack
+   278528 B           0 B           0 B          2    CoreUI Image Data
+   245760 B           0 B           0 B         15    CoreAnimation
+   163840 B           0 B       16384 B          1    Dispatch Continuations
+   131072 B           0 B           0 B          1    Accelerate Framework
+    98304 B           0 B           0 B          5    CG Image
+    98232 B           0 B           0 B          4    __TPRO_CONST
+    81920 B      196608 B           0 B       1064    __DATA_CONST
+    65536 B           0 B           0 B          2    IOAccelerator
+    49152 B           0 B           0 B          1    Dyld Private Memory
+    49152 B           0 B           0 B          3    IOKit
+    48000 B           0 B           0 B          1    __OBJC_RW
+    32768 B           0 B           0 B          1    Activity Tracing
+    32768 B           0 B           0 B          2    CoreGraphics
+    16384 B           0 B           0 B          1    Deferred Reclaim
+    16384 B           0 B           0 B          1    OS Alloc Once
+    16384 B           0 B           0 B          2    IOAccelerator (graphics)
+    16384 B           0 B           0 B          1    Foundation
+    16384 B           0 B           0 B          1    ColorSync
+        0 B           0 B      147456 B          3    SQLite Page Cache
+        0 B    17268736 B           0 B         35    mapped file
+        0 B     4505600 B           0 B       1150    __TEXT
+        0 B      540672 B           0 B          6    __LINKEDIT
+        0 B           0 B           0 B          1    __OBJC_RO
+        0 B           0 B           0 B          1    __FONT_DATA
+        0 B           0 B           0 B          1    __CTF
+        0 B           0 B           0 B       1054    __AUTH_CONST
+        ---           ---           ---        ---    ---
+ 37340168 B    22528000 B      196608 B       8977    TOTAL
+
+Auxiliary data:
+    phys_footprint: 37340168 B
+    phys_footprint_peak: 37602312 B
+
+== full empty sample 3 ==
+======================================================================
+Shike [85308]: 64-bit    Footprint: 37323784 B (16384 bytes per page)
+======================================================================
+
+      Dirty         Clean   Reclaimable    Regions    Category
+        ---           ---           ---        ---    ---
+ 23429120 B           0 B           0 B         13    Malloc Small
+  3286603 B       16384 B           0 B       1064    __DATA
+  2670592 B           0 B       32768 B         24    Untagged
+  2485840 B           0 B           0 B        942    __DATA_DIRTY
+  1081344 B           0 B           0 B         13    Malloc Metadata
+   965398 B           0 B           0 B        702    __AUTH
+   721928 B           0 B           0 B          1    page table
+   668951 B           0 B           0 B       2848    unused dyld shared cache area
+   294912 B           0 B           0 B          1    Malloc Tiny
+   278528 B           0 B           0 B          2    CoreUI Image Data
+   262144 B           0 B           0 B          6    Stack
+   245760 B           0 B           0 B         15    CoreAnimation
+   163840 B           0 B       16384 B          1    Dispatch Continuations
+   131072 B           0 B           0 B          1    Accelerate Framework
+    98304 B           0 B           0 B          5    CG Image
+    98232 B           0 B           0 B          4    __TPRO_CONST
+    81920 B      196608 B           0 B       1064    __DATA_CONST
+    65536 B           0 B           0 B          2    IOAccelerator
+    49152 B           0 B           0 B          1    Dyld Private Memory
+    49152 B           0 B           0 B          3    IOKit
+    48000 B           0 B           0 B          1    __OBJC_RW
+    32768 B           0 B           0 B          1    Activity Tracing
+    32768 B           0 B           0 B          2    CoreGraphics
+    16384 B           0 B           0 B          1    Deferred Reclaim
+    16384 B           0 B           0 B          1    OS Alloc Once
+    16384 B           0 B           0 B          2    IOAccelerator (graphics)
+    16384 B           0 B           0 B          1    Foundation
+    16384 B           0 B           0 B          1    ColorSync
+        0 B           0 B      147456 B          3    SQLite Page Cache
+        0 B    17268736 B           0 B         35    mapped file
+        0 B     4505600 B           0 B       1150    __TEXT
+        0 B      540672 B           0 B          6    __LINKEDIT
+        0 B           0 B           0 B          1    __OBJC_RO
+        0 B           0 B           0 B          1    __FONT_DATA
+        0 B           0 B           0 B          1    __CTF
+        0 B           0 B           0 B       1054    __AUTH_CONST
+        ---           ---           ---        ---    ---
+ 37323784 B    22528000 B      196608 B       8975    TOTAL
+
+Auxiliary data:
+    phys_footprint: 37323784 B
+    phys_footprint_peak: 37602312 B
+
+== full loaded-closed sample 1 ==
+======================================================================
+Shike [87048]: 64-bit    Footprint: 108070016 B (16384 bytes per page)
+======================================================================
+
+      Dirty         Clean   Reclaimable    Regions    Category
+        ---           ---           ---        ---    ---
+ 67026944 B           0 B    17465344 B         28    Malloc Small
+ 11927552 B           0 B           0 B          4    IOSurface
+ 11157504 B           0 B           0 B         31    Untagged
+  3620864 B           0 B       65536 B         28    IOAccelerator (graphics)
+  3613780 B       16384 B           0 B       1069    __DATA
+  2694118 B           0 B           0 B        946    __DATA_DIRTY
+  1327104 B           0 B           0 B         13    Malloc Metadata
+  1163264 B           0 B      180224 B         80    CoreAnimation
+  1093478 B           0 B           0 B        707    __AUTH
+   824616 B           0 B           0 B       2865    unused dyld shared cache area
+   803968 B           0 B           0 B          1    page table
+   589824 B           0 B    66650112 B         42    Owned physical footprint (unmapped) (graphics)
+   425984 B           0 B       81920 B          1    Dispatch Continuations
+   327680 B           0 B      131072 B         16    Stack
+   294912 B           0 B           0 B          1    Malloc Tiny
+   278528 B           0 B           0 B          2    CoreUI Image Data
+   131072 B           0 B           0 B          1    Accelerate Framework
+    98304 B           0 B           0 B          4    CG Image
+    98232 B           0 B           0 B          4    __TPRO_CONST
+    81920 B           0 B     1441792 B         16    Owned physical footprint (unmapped)
+    81920 B      196608 B           0 B       1069    __DATA_CONST
+    65536 B           0 B           0 B          2    IOAccelerator
+    65536 B           0 B           0 B          4    IOKit
+    49152 B           0 B           0 B          1    Activity Tracing
+    49152 B           0 B           0 B          1    Dyld Private Memory
+    48000 B           0 B           0 B          1    __OBJC_RW
+    32768 B           0 B           0 B          1    Deferred Reclaim
+    32768 B           0 B           0 B          2    CoreGraphics
+    32768 B           0 B           0 B          2    ColorSync
+    16384 B           0 B       32768 B          2    Foundation
+    16384 B           0 B           0 B          1    OS Alloc Once
+        0 B           0 B     1212416 B         11    SQLite Page Cache
+        0 B    32915456 B           0 B         63    mapped file
+        0 B     5177344 B           0 B       1155    __TEXT
+        0 B      540672 B           0 B          6    __LINKEDIT
+        0 B           0 B           0 B          1    __OBJC_RO
+        0 B           0 B           0 B          1    __FONT_DATA
+        0 B           0 B           0 B          1    __CTF
+        0 B           0 B           0 B       1059    __AUTH_CONST
+        ---           ---           ---        ---    ---
+108070016 B    38846464 B    87261184 B       9244    TOTAL
+
+Auxiliary data:
+    phys_footprint: 108070016 B
+    phys_footprint_peak: 176505984 B
+
+== full loaded-closed sample 2 ==
+======================================================================
+Shike [87048]: 64-bit    Footprint: 105710720 B (16384 bytes per page)
+======================================================================
+
+      Dirty         Clean   Reclaimable    Regions    Category
+        ---           ---           ---        ---    ---
+ 67026944 B           0 B    17465344 B         28    Malloc Small
+ 11927552 B           0 B           0 B          4    IOSurface
+ 11157504 B           0 B           0 B         31    Untagged
+  3613780 B       16384 B           0 B       1069    __DATA
+  2694118 B           0 B           0 B        946    __DATA_DIRTY
+  1327104 B           0 B           0 B         13    Malloc Metadata
+  1277952 B           0 B     2408448 B         28    IOAccelerator (graphics)
+  1093478 B           0 B           0 B        707    __AUTH
+  1064960 B           0 B      180224 B         74    CoreAnimation
+   824616 B           0 B           0 B       2865    unused dyld shared cache area
+   803968 B           0 B           0 B          1    page table
+   589824 B           0 B    18415616 B         19    Owned physical footprint (unmapped) (graphics)
+   425984 B           0 B       81920 B          1    Dispatch Continuations
+   311296 B           0 B       98304 B         14    Stack
+   294912 B           0 B           0 B          1    Malloc Tiny
+   278528 B           0 B           0 B          2    CoreUI Image Data
+   180224 B           0 B     1441792 B         22    Owned physical footprint (unmapped)
+   131072 B           0 B           0 B          1    Accelerate Framework
+    98304 B           0 B           0 B          4    CG Image
+    98232 B           0 B           0 B          4    __TPRO_CONST
+    81920 B      196608 B           0 B       1069    __DATA_CONST
+    65536 B           0 B           0 B          2    IOAccelerator
+    65536 B           0 B           0 B          4    IOKit
+    49152 B           0 B           0 B          1    Activity Tracing
+    49152 B           0 B           0 B          1    Dyld Private Memory
+    48000 B           0 B           0 B          1    __OBJC_RW
+    32768 B           0 B           0 B          1    Deferred Reclaim
+    32768 B           0 B           0 B          2    CoreGraphics
+    32768 B           0 B           0 B          2    ColorSync
+    16384 B           0 B       32768 B          2    Foundation
+    16384 B           0 B           0 B          1    OS Alloc Once
+        0 B           0 B     1212416 B         11    SQLite Page Cache
+        0 B    32915456 B           0 B         63    mapped file
+        0 B     5177344 B           0 B       1155    __TEXT
+        0 B      540672 B           0 B          6    __LINKEDIT
+        0 B           0 B           0 B          1    __OBJC_RO
+        0 B           0 B           0 B          1    __FONT_DATA
+        0 B           0 B           0 B          1    __CTF
+        0 B           0 B           0 B       1059    __AUTH_CONST
+        ---           ---           ---        ---    ---
+105710720 B    38846464 B    41336832 B       9219    TOTAL
+
+Auxiliary data:
+    phys_footprint: 105710720 B
+    phys_footprint_peak: 176505984 B
+
+== full loaded-closed sample 3 ==
+======================================================================
+Shike [87048]: 64-bit    Footprint: 105710720 B (16384 bytes per page)
+======================================================================
+
+      Dirty         Clean   Reclaimable    Regions    Category
+        ---           ---           ---        ---    ---
+ 67026944 B           0 B    17465344 B         28    Malloc Small
+ 11927552 B           0 B           0 B          4    IOSurface
+ 11157504 B           0 B           0 B         31    Untagged
+  3613780 B       16384 B           0 B       1069    __DATA
+  2694118 B           0 B           0 B        946    __DATA_DIRTY
+  1327104 B           0 B           0 B         13    Malloc Metadata
+  1277952 B           0 B     2342912 B         27    IOAccelerator (graphics)
+  1093478 B           0 B           0 B        707    __AUTH
+  1064960 B           0 B      180224 B         74    CoreAnimation
+   824616 B           0 B           0 B       2865    unused dyld shared cache area
+   803968 B           0 B           0 B          1    page table
+   589824 B           0 B           0 B         11    Owned physical footprint (unmapped) (graphics)
+   425984 B           0 B       81920 B          1    Dispatch Continuations
+   311296 B           0 B       98304 B         14    Stack
+   294912 B           0 B           0 B          1    Malloc Tiny
+   278528 B           0 B           0 B          2    CoreUI Image Data
+   180224 B           0 B           0 B         22    Owned physical footprint (unmapped)
+   131072 B           0 B           0 B          1    Accelerate Framework
+    98304 B           0 B           0 B          4    CG Image
+    98232 B           0 B           0 B          4    __TPRO_CONST
+    81920 B      196608 B           0 B       1069    __DATA_CONST
+    65536 B           0 B           0 B          2    IOAccelerator
+    65536 B           0 B           0 B          4    IOKit
+    49152 B           0 B           0 B          1    Activity Tracing
+    49152 B           0 B           0 B          1    Dyld Private Memory
+    48000 B           0 B           0 B          1    __OBJC_RW
+    32768 B           0 B           0 B          1    Deferred Reclaim
+    32768 B           0 B           0 B          2    ColorSync
+    32768 B           0 B           0 B          2    CoreGraphics
+    16384 B           0 B       32768 B          2    Foundation
+    16384 B           0 B           0 B          1    OS Alloc Once
+        0 B           0 B     1212416 B         11    SQLite Page Cache
+        0 B    32915456 B           0 B         63    mapped file
+        0 B     5177344 B           0 B       1155    __TEXT
+        0 B      540672 B           0 B          6    __LINKEDIT
+        0 B           0 B           0 B          1    __OBJC_RO
+        0 B           0 B           0 B          1    __FONT_DATA
+        0 B           0 B           0 B          1    __CTF
+        0 B           0 B           0 B       1059    __AUTH_CONST
+        ---           ---           ---        ---    ---
+105710720 B    38846464 B    21413888 B       9210    TOTAL
+
+Auxiliary data:
+    phys_footprint: 105710720 B
+    phys_footprint_peak: 176505984 B
+
+== full loaded-windowopen sample 1 ==
+======================================================================
+Shike [87048]: 64-bit    Footprint: 122455168 B (16384 bytes per page)
+======================================================================
+
+      Dirty         Clean   Reclaimable    Regions    Category
+        ---           ---           ---        ---    ---
+ 81723392 B           0 B     6881280 B         30    Malloc Small
+ 12058624 B           0 B       65536 B         19    IOSurface
+ 11583488 B           0 B           0 B         33    Untagged
+  3846056 B       16384 B           0 B       1086    __DATA
+  2725590 B           0 B           0 B        962    __DATA_DIRTY
+  2146304 B           0 B      180224 B        100    CoreAnimation
+  1359872 B           0 B           0 B         13    Malloc Metadata
+  1277952 B           0 B     2342912 B         27    IOAccelerator (graphics)
+  1108582 B           0 B           0 B        719    __AUTH
+   807908 B           0 B           0 B       2904    unused dyld shared cache area
+   803968 B           0 B           0 B          1    page table
+   589824 B           0 B           0 B         11    Owned physical footprint (unmapped) (graphics)
+   458752 B           0 B       49152 B          1    Dispatch Continuations
+   344064 B           0 B       49152 B         10    Stack
+   327680 B           0 B           0 B          3    CoreUI Image Data
+   294912 B           0 B           0 B          1    Malloc Tiny
+   180224 B           0 B           0 B         22    Owned physical footprint (unmapped)
+   147456 B           0 B           0 B          6    CG Image
+   131072 B           0 B           0 B          1    Accelerate Framework
+    98232 B           0 B           0 B          4    __TPRO_CONST
+    65536 B           0 B           0 B          2    IOAccelerator
+    65536 B           0 B           0 B          5    IOKit
+    49152 B           0 B           0 B          1    Activity Tracing
+    49152 B           0 B           0 B          1    Dyld Private Memory
+    49152 B           0 B           0 B          3    CoreGraphics
+    48000 B           0 B           0 B          1    __OBJC_RW
+    32768 B           0 B           0 B          1    Deferred Reclaim
+    32768 B           0 B           0 B          2    ColorSync
+    16384 B           0 B       32768 B          2    Foundation
+    16384 B      196608 B           0 B       1084    __DATA_CONST
+    16384 B           0 B           0 B          1    OS Alloc Once
+        0 B           0 B     1032192 B         12    SQLite Page Cache
+        0 B    34537472 B           0 B         68    mapped file
+        0 B     5242880 B           0 B       1171    __TEXT
+        0 B      540672 B           0 B          6    __LINKEDIT
+        0 B           0 B           0 B          1    __OBJC_RO
+        0 B           0 B           0 B          1    __FONT_DATA
+        0 B           0 B           0 B          1    __CTF
+        0 B           0 B           0 B       1075    __AUTH_CONST
+        ---           ---           ---        ---    ---
+122455168 B    40534016 B    10633216 B       9393    TOTAL
+
+Auxiliary data:
+    phys_footprint: 122455168 B
+    phys_footprint_peak: 176505984 B
+
+== full loaded-windowopen sample 2 ==
+======================================================================
+Shike [87048]: 64-bit    Footprint: 122455168 B (16384 bytes per page)
+======================================================================
+
+      Dirty         Clean   Reclaimable    Regions    Category
+        ---           ---           ---        ---    ---
+ 81723392 B           0 B     6881280 B         30    Malloc Small
+ 12058624 B           0 B       65536 B         19    IOSurface
+ 11583488 B           0 B           0 B         33    Untagged
+  3846056 B       16384 B           0 B       1086    __DATA
+  2725590 B           0 B           0 B        962    __DATA_DIRTY
+  2146304 B           0 B      180224 B        100    CoreAnimation
+  1359872 B           0 B           0 B         13    Malloc Metadata
+  1277952 B           0 B     2342912 B         27    IOAccelerator (graphics)
+  1108582 B           0 B           0 B        719    __AUTH
+   807908 B           0 B           0 B       2904    unused dyld shared cache area
+   803968 B           0 B           0 B          1    page table
+   589824 B           0 B           0 B         11    Owned physical footprint (unmapped) (graphics)
+   458752 B           0 B       49152 B          1    Dispatch Continuations
+   344064 B           0 B       49152 B         10    Stack
+   327680 B           0 B           0 B          3    CoreUI Image Data
+   294912 B           0 B           0 B          1    Malloc Tiny
+   180224 B           0 B           0 B         22    Owned physical footprint (unmapped)
+   147456 B           0 B           0 B          6    CG Image
+   131072 B           0 B           0 B          1    Accelerate Framework
+    98232 B           0 B           0 B          4    __TPRO_CONST
+    65536 B           0 B           0 B          2    IOAccelerator
+    65536 B           0 B           0 B          5    IOKit
+    49152 B           0 B           0 B          1    Activity Tracing
+    49152 B           0 B           0 B          1    Dyld Private Memory
+    49152 B           0 B           0 B          3    CoreGraphics
+    48000 B           0 B           0 B          1    __OBJC_RW
+    32768 B           0 B           0 B          1    Deferred Reclaim
+    32768 B           0 B           0 B          2    ColorSync
+    16384 B           0 B       32768 B          2    Foundation
+    16384 B      196608 B           0 B       1084    __DATA_CONST
+    16384 B           0 B           0 B          1    OS Alloc Once
+        0 B           0 B     1032192 B         12    SQLite Page Cache
+        0 B    34537472 B           0 B         68    mapped file
+        0 B     5242880 B           0 B       1171    __TEXT
+        0 B      540672 B           0 B          6    __LINKEDIT
+        0 B           0 B           0 B          1    __OBJC_RO
+        0 B           0 B           0 B          1    __FONT_DATA
+        0 B           0 B           0 B          1    __CTF
+        0 B           0 B           0 B       1075    __AUTH_CONST
+        ---           ---           ---        ---    ---
+122455168 B    40534016 B    10633216 B       9393    TOTAL
+
+Auxiliary data:
+    phys_footprint: 122455168 B
+    phys_footprint_peak: 176505984 B
+
+== full loaded-windowopen sample 3 ==
+======================================================================
+Shike [87048]: 64-bit    Footprint: 122455168 B (16384 bytes per page)
+======================================================================
+
+      Dirty         Clean   Reclaimable    Regions    Category
+        ---           ---           ---        ---    ---
+ 81723392 B           0 B     6881280 B         30    Malloc Small
+ 12058624 B           0 B       65536 B         19    IOSurface
+ 11583488 B           0 B           0 B         33    Untagged
+  3846056 B       16384 B           0 B       1086    __DATA
+  2725590 B           0 B           0 B        962    __DATA_DIRTY
+  2146304 B           0 B      180224 B        100    CoreAnimation
+  1359872 B           0 B           0 B         13    Malloc Metadata
+  1277952 B           0 B     2342912 B         27    IOAccelerator (graphics)
+  1108582 B           0 B           0 B        719    __AUTH
+   807908 B           0 B           0 B       2904    unused dyld shared cache area
+   803968 B           0 B           0 B          1    page table
+   589824 B           0 B           0 B         11    Owned physical footprint (unmapped) (graphics)
+   458752 B           0 B       49152 B          1    Dispatch Continuations
+   344064 B           0 B       49152 B         10    Stack
+   327680 B           0 B           0 B          3    CoreUI Image Data
+   294912 B           0 B           0 B          1    Malloc Tiny
+   180224 B           0 B           0 B         22    Owned physical footprint (unmapped)
+   147456 B           0 B           0 B          6    CG Image
+   131072 B           0 B           0 B          1    Accelerate Framework
+    98232 B           0 B           0 B          4    __TPRO_CONST
+    65536 B           0 B           0 B          2    IOAccelerator
+    65536 B           0 B           0 B          5    IOKit
+    49152 B           0 B           0 B          1    Activity Tracing
+    49152 B           0 B           0 B          1    Dyld Private Memory
+    49152 B           0 B           0 B          3    CoreGraphics
+    48000 B           0 B           0 B          1    __OBJC_RW
+    32768 B           0 B           0 B          1    Deferred Reclaim
+    32768 B           0 B           0 B          2    ColorSync
+    16384 B           0 B       32768 B          2    Foundation
+    16384 B      196608 B           0 B       1084    __DATA_CONST
+    16384 B           0 B           0 B          1    OS Alloc Once
+        0 B           0 B     1032192 B         12    SQLite Page Cache
+        0 B    34537472 B           0 B         68    mapped file
+        0 B     5242880 B           0 B       1171    __TEXT
+        0 B      540672 B           0 B          6    __LINKEDIT
+        0 B           0 B           0 B          1    __OBJC_RO
+        0 B           0 B           0 B          1    __FONT_DATA
+        0 B           0 B           0 B          1    __CTF
+        0 B           0 B           0 B       1075    __AUTH_CONST
+        ---           ---           ---        ---    ---
+122455168 B    40534016 B    10633216 B       9393    TOTAL
+
+Auxiliary data:
+    phys_footprint: 122455168 B
+    phys_footprint_peak: 176505984 B
+
+== full postscroll sample 1 ==
+======================================================================
+Shike [87048]: 64-bit    Footprint: 141214872 B (16384 bytes per page)
+======================================================================
+
+      Dirty         Clean   Reclaimable    Regions    Category
+        ---           ---           ---        ---    ---
+ 95584256 B           0 B       32768 B         32    Malloc Small
+ 15548416 B           0 B           0 B         32    Untagged
+ 12058624 B           0 B           0 B         19    IOSurface
+  3846056 B       16384 B           0 B       1086    __DATA
+  2725590 B           0 B           0 B        962    __DATA_DIRTY
+  2555904 B           0 B      163840 B        166    CoreAnimation
+  1392640 B           0 B           0 B         13    Malloc Metadata
+  1277952 B           0 B           0 B         27    IOAccelerator (graphics)
+  1108582 B           0 B           0 B        719    __AUTH
+   820376 B           0 B           0 B          1    page table
+   807908 B           0 B           0 B       2904    unused dyld shared cache area
+   802816 B           0 B           0 B          7    CoreUI Image Data
+   589824 B           0 B           0 B         11    Owned physical footprint (unmapped) (graphics)
+   475136 B           0 B       32768 B          1    Dispatch Continuations
+   360448 B           0 B           0 B          8    Stack
+   294912 B           0 B           0 B          1    Malloc Tiny
+   180224 B           0 B           0 B         22    Owned physical footprint (unmapped)
+   131072 B           0 B           0 B          1    Accelerate Framework
+   114688 B           0 B           0 B          5    CG Image
+    98232 B           0 B           0 B          4    __TPRO_CONST
+    65536 B           0 B           0 B          2    IOAccelerator
+    65536 B           0 B           0 B          5    IOKit
+    49152 B           0 B           0 B          1    Activity Tracing
+    49152 B           0 B           0 B          1    Dyld Private Memory
+    49152 B           0 B           0 B          3    CoreGraphics
+    48000 B           0 B           0 B          1    __OBJC_RW
+    32768 B           0 B           0 B          1    Deferred Reclaim
+    32768 B           0 B           0 B          2    ColorSync
+    16384 B      196608 B           0 B       1084    __DATA_CONST
+    16384 B           0 B           0 B          1    OS Alloc Once
+    16384 B           0 B           0 B          2    Foundation
+        0 B           0 B      786432 B         13    SQLite Page Cache
+        0 B    34717696 B           0 B         68    mapped file
+        0 B     5275648 B           0 B       1171    __TEXT
+        0 B      540672 B           0 B          6    __LINKEDIT
+        0 B           0 B           0 B          1    __OBJC_RO
+        0 B           0 B           0 B          1    __FONT_DATA
+        0 B           0 B           0 B          1    __CTF
+        0 B           0 B           0 B       1075    __AUTH_CONST
+        ---           ---           ---        ---    ---
+141214872 B    40747008 B     1015808 B       9462    TOTAL
+
+Auxiliary data:
+    phys_footprint: 141214872 B
+    phys_footprint_peak: 176505984 B
+
+== full postscroll sample 2 ==
+======================================================================
+Shike [87048]: 64-bit    Footprint: 141214872 B (16384 bytes per page)
+======================================================================
+
+      Dirty         Clean   Reclaimable    Regions    Category
+        ---           ---           ---        ---    ---
+ 95584256 B           0 B       32768 B         32    Malloc Small
+ 15548416 B           0 B           0 B         32    Untagged
+ 12058624 B           0 B           0 B         19    IOSurface
+  3846056 B       16384 B           0 B       1086    __DATA
+  2725590 B           0 B           0 B        962    __DATA_DIRTY
+  2555904 B           0 B      163840 B        166    CoreAnimation
+  1392640 B           0 B           0 B         13    Malloc Metadata
+  1277952 B           0 B           0 B         27    IOAccelerator (graphics)
+  1108582 B           0 B           0 B        719    __AUTH
+   820376 B           0 B           0 B          1    page table
+   807908 B           0 B           0 B       2904    unused dyld shared cache area
+   802816 B           0 B           0 B          7    CoreUI Image Data
+   589824 B           0 B           0 B         11    Owned physical footprint (unmapped) (graphics)
+   475136 B           0 B       32768 B          1    Dispatch Continuations
+   360448 B           0 B           0 B          8    Stack
+   294912 B           0 B           0 B          1    Malloc Tiny
+   180224 B           0 B           0 B         22    Owned physical footprint (unmapped)
+   131072 B           0 B           0 B          1    Accelerate Framework
+   114688 B           0 B           0 B          5    CG Image
+    98232 B           0 B           0 B          4    __TPRO_CONST
+    65536 B           0 B           0 B          2    IOAccelerator
+    65536 B           0 B           0 B          5    IOKit
+    49152 B           0 B           0 B          1    Activity Tracing
+    49152 B           0 B           0 B          1    Dyld Private Memory
+    49152 B           0 B           0 B          3    CoreGraphics
+    48000 B           0 B           0 B          1    __OBJC_RW
+    32768 B           0 B           0 B          1    Deferred Reclaim
+    32768 B           0 B           0 B          2    ColorSync
+    16384 B      196608 B           0 B       1084    __DATA_CONST
+    16384 B           0 B           0 B          1    OS Alloc Once
+    16384 B           0 B           0 B          2    Foundation
+        0 B           0 B      786432 B         13    SQLite Page Cache
+        0 B    34717696 B           0 B         68    mapped file
+        0 B     5275648 B           0 B       1171    __TEXT
+        0 B      540672 B           0 B          6    __LINKEDIT
+        0 B           0 B           0 B          1    __OBJC_RO
+        0 B           0 B           0 B          1    __FONT_DATA
+        0 B           0 B           0 B          1    __CTF
+        0 B           0 B           0 B       1075    __AUTH_CONST
+        ---           ---           ---        ---    ---
+141214872 B    40747008 B     1015808 B       9462    TOTAL
+
+Auxiliary data:
+    phys_footprint: 141214872 B
+    phys_footprint_peak: 176505984 B
+
+== full postscroll sample 3 ==
+======================================================================
+Shike [87048]: 64-bit    Footprint: 141214872 B (16384 bytes per page)
+======================================================================
+
+      Dirty         Clean   Reclaimable    Regions    Category
+        ---           ---           ---        ---    ---
+ 95584256 B           0 B       32768 B         32    Malloc Small
+ 15548416 B           0 B           0 B         32    Untagged
+ 12058624 B           0 B           0 B         19    IOSurface
+  3846056 B       16384 B           0 B       1086    __DATA
+  2725590 B           0 B           0 B        962    __DATA_DIRTY
+  2555904 B           0 B      163840 B        166    CoreAnimation
+  1392640 B           0 B           0 B         13    Malloc Metadata
+  1277952 B           0 B           0 B         27    IOAccelerator (graphics)
+  1108582 B           0 B           0 B        719    __AUTH
+   820376 B           0 B           0 B          1    page table
+   807908 B           0 B           0 B       2904    unused dyld shared cache area
+   802816 B           0 B           0 B          7    CoreUI Image Data
+   589824 B           0 B           0 B         11    Owned physical footprint (unmapped) (graphics)
+   475136 B           0 B       32768 B          1    Dispatch Continuations
+   360448 B           0 B           0 B          8    Stack
+   294912 B           0 B           0 B          1    Malloc Tiny
+   180224 B           0 B           0 B         22    Owned physical footprint (unmapped)
+   131072 B           0 B           0 B          1    Accelerate Framework
+   114688 B           0 B           0 B          5    CG Image
+    98232 B           0 B           0 B          4    __TPRO_CONST
+    65536 B           0 B           0 B          2    IOAccelerator
+    65536 B           0 B           0 B          5    IOKit
+    49152 B           0 B           0 B          1    Activity Tracing
+    49152 B           0 B           0 B          1    Dyld Private Memory
+    49152 B           0 B           0 B          3    CoreGraphics
+    48000 B           0 B           0 B          1    __OBJC_RW
+    32768 B           0 B           0 B          1    Deferred Reclaim
+    32768 B           0 B           0 B          2    ColorSync
+    16384 B      196608 B           0 B       1084    __DATA_CONST
+    16384 B           0 B           0 B          1    OS Alloc Once
+    16384 B           0 B           0 B          2    Foundation
+        0 B           0 B      786432 B         13    SQLite Page Cache
+        0 B    34717696 B           0 B         68    mapped file
+        0 B     5275648 B           0 B       1171    __TEXT
+        0 B      540672 B           0 B          6    __LINKEDIT
+        0 B           0 B           0 B          1    __OBJC_RO
+        0 B           0 B           0 B          1    __FONT_DATA
+        0 B           0 B           0 B          1    __CTF
+        0 B           0 B           0 B       1075    __AUTH_CONST
+        ---           ---           ---        ---    ---
+141214872 B    40747008 B     1015808 B       9462    TOTAL
+
+Auxiliary data:
+    phys_footprint: 141214872 B
+    phys_footprint_peak: 176505984 B
+

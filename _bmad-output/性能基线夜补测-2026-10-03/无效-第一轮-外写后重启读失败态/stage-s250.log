@@ -1,0 +1,11 @@
+[11:13:28] [s250] tmp=/tmp/shike-perf-night-s250.9x8k1D
+seeded notes=250 todos=250
+[s250 loadonly] Shike [40305]: 64-bit    Footprint: 38880312 B (16384 bytes per page)
+[s250 loadonly] Shike [40305]: 64-bit    Footprint: 37569592 B (16384 bytes per page)
+[s250 loadonly] Shike [40305]: 64-bit    Footprint: 37569592 B (16384 bytes per page)
+count 1
+window 898 340 760 604
+[s250 windowopen] Shike [40305]: 64-bit    Footprint: 51446840 B (16384 bytes per page)
+[s250 windowopen] Shike [40305]: 64-bit    Footprint: 51020856 B (16384 bytes per page)
+[s250 windowopen] Shike [40305]: 64-bit    Footprint: 51135544 B (16384 bytes per page)
+[11:15:06] [s250] done

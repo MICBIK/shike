@@ -1,0 +1,17 @@
+[11:47:57] [s500] tmp=/tmp/shike-perf2-night-s500.Bwc8Qf
+[s500] 空库态 readFailed 计数=0
+seeded notes=500 todos=500
+[s500] 灌入后 readFailed 计数=0
+count 1
+window 10 80 680 827
+[s500] 收尾 readFailed 总计数=1（>0 即 INVALID）
+[s500] Shike [78421]: 64-bit    Footprint: 37667848 B (16384 bytes per page)
+[s500] Shike [78421]: 64-bit    Footprint: 37651464 B (16384 bytes per page)
+[s500] Shike [78421]: 64-bit    Footprint: 37651464 B (16384 bytes per page)
+[s500] Shike [78421]: 64-bit    Footprint: 36570120 B (16384 bytes per page)
+[s500] Shike [78421]: 64-bit    Footprint: 36570120 B (16384 bytes per page)
+[s500] Shike [78421]: 64-bit    Footprint: 36570120 B (16384 bytes per page)
+[s500] Shike [78421]: 64-bit    Footprint: 50447392 B (16384 bytes per page)
+[s500] Shike [78421]: 64-bit    Footprint: 49841184 B (16384 bytes per page)
+[s500] Shike [78421]: 64-bit    Footprint: 49841184 B (16384 bytes per page)
+[11:50:07] [s500] done，临时目录已删除

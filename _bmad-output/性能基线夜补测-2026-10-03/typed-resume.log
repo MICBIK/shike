@@ -1,0 +1,50 @@
+[12:54:18] [resume] tmp=/tmp/shike-typed-full.xbYSB2
+[resume] 续跑前便签=918 待办=0
+[resume] popover(第1次尝试): popover 907 28 386 546
+[resume] mode=note(直接确认)
+progress 50/87 rate=2.2/s
+done 87 in 40s (2.2/s)
+[resume] 便签补齐后=997
+[resume] mode=todo(Tab纠偏)
+progress 50/1000 rate=2.2/s
+progress 100/1000 rate=2.2/s
+progress 150/1000 rate=2.2/s
+progress 200/1000 rate=2.2/s
+progress 250/1000 rate=2.2/s
+progress 300/1000 rate=2.2/s
+progress 350/1000 rate=2.2/s
+progress 400/1000 rate=2.2/s
+progress 450/1000 rate=2.2/s
+progress 500/1000 rate=2.2/s
+progress 550/1000 rate=2.2/s
+progress 600/1000 rate=2.2/s
+progress 650/1000 rate=2.2/s
+progress 700/1000 rate=2.2/s
+progress 750/1000 rate=2.2/s
+progress 800/1000 rate=2.2/s
+progress 850/1000 rate=2.2/s
+progress 900/1000 rate=2.2/s
+progress 950/1000 rate=2.2/s
+progress 1000/1000 rate=2.2/s
+done 1000 in 456s (2.2/s)
+[resume] 待办完成：1001（含日期 333）
+[resume] 开窗后 readFailed=0（像素 typed-full-window.png）
+posted 397 scroll events
+[resume] notes 滚动帧唯一哈希: 12/12
+[resume] 侧栏定位待办: 29 181
+posted 395 scroll events
+[resume] todos 滚动帧唯一哈希: 12
+[full] Shike [85308]: 64-bit    Footprint: 37340168 B (16384 bytes per page)
+[full] Shike [85308]: 64-bit    Footprint: 37340168 B (16384 bytes per page)
+[full] Shike [85308]: 64-bit    Footprint: 37323784 B (16384 bytes per page)
+[full] Shike [87048]: 64-bit    Footprint: 108070016 B (16384 bytes per page)
+[full] Shike [87048]: 64-bit    Footprint: 105710720 B (16384 bytes per page)
+[full] Shike [87048]: 64-bit    Footprint: 105710720 B (16384 bytes per page)
+[full] Shike [87048]: 64-bit    Footprint: 122455168 B (16384 bytes per page)
+[full] Shike [87048]: 64-bit    Footprint: 122455168 B (16384 bytes per page)
+[full] Shike [87048]: 64-bit    Footprint: 122455168 B (16384 bytes per page)
+[full] Shike [87048]: 64-bit    Footprint: 141214872 B (16384 bytes per page)
+[full] Shike [87048]: 64-bit    Footprint: 141214872 B (16384 bytes per page)
+[full] Shike [87048]: 64-bit    Footprint: 141214872 B (16384 bytes per page)
+[resume] 全程 readFailed=0
+[13:04:52] [resume] done，临时目录已删除

@@ -1,0 +1,25 @@
+[12:42:08] [full] tmp=/tmp/shike-typed-full.xbYSB2 notes=1000 todos=1000
+[full] popover(第1次尝试): popover 907 28 386 546
+[full] mode=note(直接确认)
+progress 50/1000 rate=2.2/s
+progress 100/1000 rate=2.2/s
+progress 150/1000 rate=2.2/s
+progress 200/1000 rate=2.2/s
+progress 250/1000 rate=2.2/s
+progress 300/1000 rate=2.2/s
+progress 350/1000 rate=2.2/s
+progress 400/1000 rate=2.2/s
+progress 450/1000 rate=2.2/s
+progress 500/1000 rate=2.2/s
+progress 550/1000 rate=2.2/s
+progress 600/1000 rate=2.2/s
+progress 650/1000 rate=2.2/s
+progress 700/1000 rate=2.2/s
+progress 750/1000 rate=2.2/s
+progress 800/1000 rate=2.2/s
+progress 850/1000 rate=2.2/s
+progress 900/1000 rate=2.2/s
+progress 950/1000 rate=2.2/s
+progress 1000/1000 rate=2.2/s
+done 1000 in 457s (2.2/s)
+[full] mode=UNKNOWN（哨兵三次都未落库）
