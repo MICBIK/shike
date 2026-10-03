@@ -285,6 +285,9 @@ jobs:
           # 篡改 zip 一个字节，appcast 签名不变
           cp "$RT/serve/SparkleTestApp-2.zip" "$RT/logs/zip-backup.zip"
           printf '\x7f' | dd of="$RT/serve/SparkleTestApp-2.zip" bs=1 seek=1000 count=1 conv=notrunc 2>/dev/null
+          # 清 Sparkle 运行态（defaults/缓存含已下载更新缓存），否则复用正向缓存不触发重新校验
+          defaults delete io.micbik.sparkletest 2>/dev/null || true
+          rm -rf ~/Library/Caches/io.micbik.sparkletest "$HOME/Library/Application Support/io.micbik.sparkletest" 2>/dev/null || true
           : > "$RT/logs/launch-neg.log"
           node -e '
           const http=require("http"),fs=require("fs"),path=require("path");
