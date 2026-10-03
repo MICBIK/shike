@@ -111,14 +111,17 @@ jobs:
           } > "$RUNNER_TEMP/proto/Sources/SparkleTestApp/main.swift"
           cd "$RUNNER_TEMP/proto"
           swift build -c release 2>&1 | tail -2
-          test -x ".build/out/Products/Release/SparkleTestApp" || { echo "binary missing"; exit 1; }
+          # 产物布局随工具链不同（SwiftPM 新布局 .build/out/ / 经典 .build/release/），用 find 自适应
+          find .build -type f -name SparkleTestApp -perm -u+x -not -path "*/checkouts/*" | head -1 | grep -q . || { echo "binary missing"; find .build -name "SparkleTestApp*" | head; exit 1; }
 
       - name: Assemble v2 release (zip + EdDSA + appcast), then install v1
         run: |
           RT="$RUNNER_TEMP"
           TOOLS="$RT/proto/.build/artifacts/sparkle/Sparkle/bin"
-          FRAMEWORK="$RT/proto/.build/out/Products/Release/Sparkle.framework"
-          BINARY="$RT/proto/.build/out/Products/Release/SparkleTestApp"
+          BINARY=$(find "$RT/proto/.build" -type f -name SparkleTestApp -perm -u+x -not -path "*/checkouts/*" | head -1)
+          FRAMEWORK=$(find "$RT/proto/.build" -type d -name "Sparkle.framework" -not -path "*xcframework*" -not -path "*PackageFrameworks*" | head -1)
+          test -n "$BINARY" && test -n "$FRAMEWORK" || { echo "binary/framework not found under .build"; find "$RT/proto/.build" \( -name "*.framework" -o -name "SparkleTestApp" \) | head; exit 1; }
+          echo "BINARY=$BINARY"; echo "FRAMEWORK=$FRAMEWORK"
           APP="$RT/Applications/SparkleTestApp.app"
           mkdir -p "$RT/Applications" "$RT/serve" "$RT/logs"
 
