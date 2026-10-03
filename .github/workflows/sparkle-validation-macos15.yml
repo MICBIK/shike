@@ -240,8 +240,30 @@ jobs:
             echo "POSITIVE CHAIN FAILED on macOS 15 — hang diagnostics:"
             echo "== processes (sparkle/installer) =="
             ps aux | grep -iE "sparkle|installer" | grep -v grep || echo "(none)"
-            echo "== launchctl gui domain (sparkle entries) =="
-            launchctl print "gui/$(id -u)" 2>/dev/null | grep -iE "sparkle|installer" | head -10 || echo "(none)"
+            echo "== retrospective system log (last 6m, app/xpc/launchd) =="
+            log show --last 6m --style compact --predicate 'process == "SparkleTestApp" OR process CONTAINS "Installer" OR process CONTAINS "sparkle" OR eventMessage CONTAINS[c] "sparkletest"' 2>/dev/null | grep -viE "^Filtering|Timestamp.*Thread" | tail -50 || echo "(log show failed)"
+            echo "== crash reports =="
+            ls -t ~/Library/Logs/DiagnosticReports/ 2>/dev/null | head -5 || echo "(none)"
+            CRASH=$(ls -t ~/Library/Logs/DiagnosticReports/SparkleTestApp*.ips 2>/dev/null | head -1)
+            if [ -n "$CRASH" ]; then
+              echo "-- $CRASH --"
+              tail -n +2 "$CRASH" > "$RT/logs/crash.json"
+              python3 -c '
+import json,sys
+raw=open(sys.argv[1]).read().split(chr(10),1)[1]
+d=json.loads(raw)
+print("termination:",d.get("termination",{}))
+print("exception:",d.get("exception",{}))
+ft=d.get("faultingThread",0)
+t=d["threads"][ft]
+imgs=d.get("usedImages",[])
+print("faulting thread frames:")
+for f in t.get("frames",[])[:12]:
+    i=f.get("imageIndex",0)
+    name=imgs[i].get("name","?") if isinstance(i,int) and i<len(imgs) else "?"
+    print(" ",name,hex(f.get("imageOffset",0)),f.get("symbol",""))
+' "$RT/logs/crash.json" || sed -n '1,40p' "$CRASH"
+            fi
             APP_PID=$(pgrep -f "MacOS/SparkleTestApp" | head -1)
             if [ -n "$APP_PID" ]; then
               echo "== sample of app pid=$APP_PID (5s) =="
