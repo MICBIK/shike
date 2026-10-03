@@ -1,0 +1,268 @@
+# 临时验证 workflow（卡A S4-00 可选加强，只留在分支、不合入 main）
+# 目的：在 macOS 15 runner 上复跑 Sparkle 2.10 ad-hoc 签名 + EdDSA 更新链路，
+#       覆盖 ADR-032 "macOS 15 可用" 验收条件。
+# 红线：EdDSA 密钥每轮在 $RUNNER_TEMP 现生成、用完即删，绝不写入仓库或制品。
+# 触发：仅 workflow_dispatch 或本文件自身变更时运行，不影响其他 CI。
+# 实现：原型文件用 printf '%s\n' 逐行生成（避开 YAML 块标量内 heredoc 终结符问题）。
+name: sparkle-validation-macos15
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/sparkle-validation-macos15.yml"
+
+jobs:
+  validate:
+    runs-on: macos-15
+    timeout-minutes: 25
+    steps:
+      - name: Generate throwaway EdDSA keys (never committed)
+        run: |
+          mkdir -p "$RUNNER_TEMP/keys"
+          {
+            printf '%s\n' \
+              'import Foundation' \
+              'import CryptoKit' \
+              'let key = Curve25519.Signing.PrivateKey()' \
+              'let outDir = CommandLine.arguments[1]' \
+              'try Data(key.rawRepresentation).base64EncodedString()' \
+              '    .write(to: URL(fileURLWithPath: "\(outDir)/eddsa_priv.txt"), atomically: true, encoding: .utf8)' \
+              'try Data(key.publicKey.rawRepresentation).base64EncodedString()' \
+              '    .write(to: URL(fileURLWithPath: "\(outDir)/eddsa_pub.txt"), atomically: true, encoding: .utf8)' \
+              'print("PUBLIC_KEY_GENERATED")'
+          } > "$RUNNER_TEMP/gen_keys.swift"
+          swift "$RUNNER_TEMP/gen_keys.swift" "$RUNNER_TEMP/keys"
+          test -s "$RUNNER_TEMP/keys/eddsa_priv.txt" && echo "keys generated (throwaway, in RUNNER_TEMP only)"
+
+      - name: Build prototype package (Sparkle 2.10.0)
+        run: |
+          mkdir -p "$RUNNER_TEMP/proto/Sources/SparkleTestApp"
+          {
+            printf '%s\n' \
+              '// swift-tools-version:5.9' \
+              'import PackageDescription' \
+              'let package = Package(' \
+              '    name: "SparkleTestApp",' \
+              '    platforms: [.macOS(.v13)],' \
+              '    dependencies: [' \
+              '        .package(url: "https://github.com/sparkle-project/Sparkle.git", exact: "2.10.0")' \
+              '    ],' \
+              '    targets: [' \
+              '        .executableTarget(' \
+              '            name: "SparkleTestApp",' \
+              '            dependencies: [.product(name: "Sparkle", package: "Sparkle")]' \
+              '        )' \
+              '    ]' \
+              ')'
+          } > "$RUNNER_TEMP/proto/Package.swift"
+          {
+            printf '%s\n' \
+              'import AppKit' \
+              'import Sparkle' \
+              'let logPath = ProcessInfo.processInfo.environment["SPARKLE_TEST_LOG"] ?? "/tmp/sparkle-s4-00/launch.log"' \
+              'func logLine(_ message: String) {' \
+              '    let df = DateFormatter(); df.dateFormat = "yyyy-MM-dd HH:mm:ss.SSS"' \
+              '    let line = "[\(df.string(from: Date()))] \(message)\n"' \
+              '    if let h = FileHandle(forWritingAtPath: logPath) { h.seekToEndOfFile(); h.write(line.data(using: .utf8)!); h.closeFile() }' \
+              '    else { try? line.data(using: .utf8)?.write(to: URL(fileURLWithPath: logPath)) }' \
+              '    print(line, terminator: "")' \
+              '}' \
+              'final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate, SPUStandardUserDriverDelegate {' \
+              '    var updaterController: SPUStandardUpdaterController!' \
+              '    func applicationDidFinishLaunching(_ notification: Notification) {' \
+              '        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "?"' \
+              '        logLine("LAUNCHED version=\(version) pid=\(ProcessInfo.processInfo.processIdentifier) path=\(Bundle.main.bundlePath)")' \
+              '        updaterController = SPUStandardUpdaterController(startingUpdater: true, updaterDelegate: self, userDriverDelegate: self)' \
+              '        logLine("updater started automaticallyChecks=\(updaterController.updater.automaticallyChecksForUpdates) automaticallyDownloads=\(updaterController.updater.automaticallyDownloadsUpdates)")' \
+              '        Timer.scheduledTimer(withTimeInterval: 5, repeats: false) { [weak self] _ in' \
+              '            logLine("calling checkForUpdates()")' \
+              '            self?.updaterController.checkForUpdates(nil)' \
+              '        }' \
+              '    }' \
+              '    func applicationWillTerminate(_ notification: Notification) {' \
+              '        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "?"' \
+              '        logLine("TERMINATE version=\(version)")' \
+              '    }' \
+              '    func updater(_ updater: SPUUpdater, didFindValidUpdate item: SUAppcastItem) {' \
+              '        logLine("DID_FIND_VALID_UPDATE version=\(item.versionString)")' \
+              '    }' \
+              '    func updaterDidNotFindUpdate(_ updater: SPUUpdater) { logLine("DID_NOT_FIND_UPDATE") }' \
+              '    func updater(_ updater: SPUUpdater, failedToDownloadUpdate item: SUAppcastItem, error: Error) {' \
+              '        logLine("FAILED_TO_DOWNLOAD error=\(error)")' \
+              '    }' \
+              '    func updater(_ updater: SPUUpdater, didAbortWithError error: Error) { logLine("ABORTED error=\(error)") }' \
+              '    func updater(_ updater: SPUUpdater, willInstallUpdate update: SUAppcastItem) {' \
+              '        logLine("WILL_INSTALL version=\(update.versionString)")' \
+              '    }' \
+              '    func standardUserDriverWillShowModalAlert(_ standardUserDriver: SPUStandardUserDriver) {' \
+              '        logLine("USER_DRIVER modal alert")' \
+              '    }' \
+              '}' \
+              'let app = NSApplication.shared' \
+              'let delegate = AppDelegate()' \
+              'app.delegate = delegate' \
+              'app.setActivationPolicy(.accessory)' \
+              'Timer.scheduledTimer(withTimeInterval: 240, repeats: false) { _ in' \
+              '    logLine("FAILSAFE quit")' \
+              '    NSApp.terminate(nil)' \
+              '}' \
+              'app.run()'
+          } > "$RUNNER_TEMP/proto/Sources/SparkleTestApp/main.swift"
+          cd "$RUNNER_TEMP/proto"
+          swift build -c release 2>&1 | tail -2
+          test -x ".build/out/Products/Release/SparkleTestApp" || { echo "binary missing"; exit 1; }
+
+      - name: Assemble v2 release (zip + EdDSA + appcast), then install v1
+        run: |
+          RT="$RUNNER_TEMP"
+          TOOLS="$RT/proto/.build/artifacts/sparkle/Sparkle/bin"
+          FRAMEWORK="$RT/proto/.build/out/Products/Release/Sparkle.framework"
+          BINARY="$RT/proto/.build/out/Products/Release/SparkleTestApp"
+          APP="$RT/Applications/SparkleTestApp.app"
+          mkdir -p "$RT/Applications" "$RT/serve" "$RT/logs"
+
+          make_app() {
+            VER="$1"; SHORT="$2"
+            rm -rf "$APP"; mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Frameworks"
+            cp "$BINARY" "$APP/Contents/MacOS/SparkleTestApp"
+            install_name_tool -add_rpath @executable_path/../Frameworks "$APP/Contents/MacOS/SparkleTestApp"
+            cp -R "$FRAMEWORK" "$APP/Contents/Frameworks/Sparkle.framework"
+            PUBKEY=$(cat "$RT/keys/eddsa_pub.txt")
+            {
+              printf '%s\n' \
+                '<?xml version="1.0" encoding="UTF-8"?>' \
+                '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">' \
+                '<plist version="1.0">' \
+                '<dict>' \
+                '    <key>CFBundleName</key><string>SparkleTestApp</string>' \
+                '    <key>CFBundleIdentifier</key><string>io.micbik.sparkletest</string>' \
+                '    <key>CFBundleExecutable</key><string>SparkleTestApp</string>' \
+                '    <key>CFBundlePackageType</key><string>APPL</string>' \
+                "    <key>CFBundleShortVersionString</key><string>${SHORT}</string>" \
+                "    <key>CFBundleVersion</key><string>${VER}</string>" \
+                '    <key>LSMinimumSystemVersion</key><string>13.0</string>' \
+                '    <key>LSUIElement</key><true/>' \
+                '    <key>NSPrincipalClass</key><string>NSApplication</string>' \
+                '    <key>SUFeedURL</key><string>http://127.0.0.1:8765/appcast.xml</string>' \
+                "    <key>SUPublicEDKey</key><string>${PUBKEY}</string>" \
+                '    <key>SUEnableAutomaticChecks</key><true/>' \
+                '    <key>SUScheduledCheckInterval</key><integer>3600</integer>' \
+                '    <key>SUAutomaticallyUpdate</key><true/>' \
+                '    <key>NSAppTransportSecurity</key>' \
+                '    <dict>' \
+                '        <key>NSAllowsLocalNetworking</key><true/>' \
+                '    </dict>' \
+                '</dict>' \
+                '</plist>'
+            } > "$APP/Contents/Info.plist"
+            printf 'APPL????' > "$APP/Contents/PkgInfo"
+            while IFS= read -r b; do codesign --force -s - "$b"; done \
+              < <(find "$APP/Contents/Frameworks/Sparkle.framework/Versions/B" \( -name "*.xpc" -o -name "*.app" \) -print)
+            codesign --force -s - "$APP/Contents/Frameworks/Sparkle.framework"
+            codesign --force -s - "$APP"
+            codesign --verify --deep "$APP"
+          }
+
+          make_app 2 2.0
+          ( cd "$RT/Applications" && zip -qry "$RT/serve/SparkleTestApp-2.zip" SparkleTestApp.app -x "*.DS_Store" )
+          SIG=$("$TOOLS/sign_update" --ed-key-file "$RT/keys/eddsa_priv.txt" -p "$RT/serve/SparkleTestApp-2.zip")
+          LENGTH=$(stat -f%z "$RT/serve/SparkleTestApp-2.zip")
+          {
+            printf '%s\n' \
+              '<?xml version="1.0" standalone="yes"?>' \
+              '<rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">' \
+              '    <channel>' \
+              '        <title>SparkleTestApp</title>' \
+              '        <item>' \
+              '            <title>Version 2.0</title>' \
+              '            <sparkle:version>2.0</sparkle:version>' \
+              '            <sparkle:shortVersionString>2.0</sparkle:shortVersionString>' \
+              '            <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>' \
+              "            <enclosure url=\"http://127.0.0.1:8765/SparkleTestApp-2.zip\" sparkle:edSignature=\"${SIG}\" length=\"${LENGTH}\" type=\"application/octet-stream\" />" \
+              '        </item>' \
+              '    </channel>' \
+              '</rss>'
+          } > "$RT/serve/appcast.xml"
+          make_app 1 1.0
+          echo "== installed app version =="
+          /usr/libexec/PlistBuddy -c "Print CFBundleShortVersionString" "$APP/Contents/Info.plist"
+
+      - name: Positive chain v1 -> v2 (download, EdDSA verify, install, relaunch)
+        run: |
+          RT="$RUNNER_TEMP"
+          APP="$RT/Applications/SparkleTestApp.app"
+          : > "$RT/logs/launch-pos.log"
+          log stream --level debug --style compact --predicate 'subsystem == "com.sparkle-project.Sparkle"' > "$RT/logs/sparkle-pos.log" 2>&1 &
+          LOGPID=$!
+          ( cd "$RT/serve" && exec python3 -m http.server 8765 ) > "$RT/logs/httpd.log" 2>&1 &
+          HTTPD_PID=$!
+          sleep 1
+          SPARKLE_TEST_LOG="$RT/logs/launch-pos.log" "$APP/Contents/MacOS/SparkleTestApp" > "$RT/logs/app-pos-stdout.log" 2>&1 &
+          OK=0
+          for i in $(seq 1 170); do
+            sleep 1
+            grep -q "LAUNCHED version=2.0" "$RT/logs/launch-pos.log" 2>/dev/null && { OK=1; break; }
+          done
+          sleep 3
+          echo "== launch-pos.log =="; cat "$RT/logs/launch-pos.log"
+          ON_DISK=$(/usr/libexec/PlistBuddy -c "Print CFBundleShortVersionString" "$APP/Contents/Info.plist")
+          echo "== on-disk version after update: $ON_DISK =="
+          echo "== xattr after update (expect no quarantine) =="; xattr -l "$APP" || true
+          codesign --verify --deep --strict "$APP" && echo "codesign strict PASS"
+          echo "== httpd access log =="; cat "$RT/logs/httpd.log"
+          kill "$LOGPID" "$HTTPD_PID" 2>/dev/null || true
+          pkill -f SparkleTestApp 2>/dev/null || true
+          if [ "$OK" != "1" ] || [ "$ON_DISK" != "2.0" ]; then
+            echo "POSITIVE CHAIN FAILED on macOS 15"
+            exit 1
+          fi
+          echo "POSITIVE CHAIN OK on $(sw_vers -productVersion)"
+
+      - name: Negative test — tampered zip must be rejected by EdDSA
+        run: |
+          RT="$RUNNER_TEMP"
+          APP="$RT/Applications/SparkleTestApp.app"
+          # 把磁盘上的 v2 改回 v1 身份并重签外层（内嵌框架未动）
+          /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString 1.0" "$APP/Contents/Info.plist"
+          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion 1" "$APP/Contents/Info.plist"
+          codesign --force -s - "$APP"
+          # 篡改 zip 一个字节，appcast 签名不变
+          cp "$RT/serve/SparkleTestApp-2.zip" "$RT/logs/zip-backup.zip"
+          printf '\x7f' | dd of="$RT/serve/SparkleTestApp-2.zip" bs=1 seek=1000 count=1 conv=notrunc 2>/dev/null
+          : > "$RT/logs/launch-neg.log"
+          ( cd "$RT/serve" && exec python3 -m http.server 8765 ) > "$RT/logs/httpd-neg.log" 2>&1 &
+          HTTPD_PID=$!
+          sleep 1
+          SPARKLE_TEST_LOG="$RT/logs/launch-neg.log" "$APP/Contents/MacOS/SparkleTestApp" > "$RT/logs/app-neg-stdout.log" 2>&1 &
+          REJECTED=0
+          for i in $(seq 1 90); do
+            sleep 1
+            grep -q "EdDSA signature does not match" "$RT/logs/launch-neg.log" 2>/dev/null && { REJECTED=1; break; }
+          done
+          sleep 2
+          echo "== launch-neg.log =="; cat "$RT/logs/launch-neg.log"
+          ON_DISK=$(/usr/libexec/PlistBuddy -c "Print CFBundleShortVersionString" "$APP/Contents/Info.plist")
+          echo "== on-disk version after tampered update attempt: $ON_DISK (expect 1.0) =="
+          kill "$HTTPD_PID" 2>/dev/null || true
+          pkill -f SparkleTestApp 2>/dev/null || true
+          if [ "$REJECTED" != "1" ] || [ "$ON_DISK" != "1.0" ]; then
+            echo "NEGATIVE TEST FAILED: tampered update was not rejected"
+            exit 1
+          fi
+          echo "NEGATIVE TEST OK: EdDSA rejection confirmed on $(sw_vers -productVersion)"
+
+      - name: Delete throwaway keys
+        if: always()
+        run: |
+          rm -rf "$RUNNER_TEMP/keys" "$RUNNER_TEMP/gen_keys.swift"
+          echo "throwaway keys deleted"
+
+      - name: Upload logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sparkle-validation-logs
+          path: ${{ runner.temp }}/logs/
+          if-no-files-found: ignore
+          retention-days: 3
