@@ -249,20 +249,20 @@ jobs:
               echo "-- $CRASH --"
               tail -n +2 "$CRASH" > "$RT/logs/crash.json"
               python3 -c '
-import json,sys
-raw=open(sys.argv[1]).read().split(chr(10),1)[1]
-d=json.loads(raw)
-print("termination:",d.get("termination",{}))
-print("exception:",d.get("exception",{}))
-ft=d.get("faultingThread",0)
-t=d["threads"][ft]
-imgs=d.get("usedImages",[])
-print("faulting thread frames:")
-for f in t.get("frames",[])[:12]:
-    i=f.get("imageIndex",0)
-    name=imgs[i].get("name","?") if isinstance(i,int) and i<len(imgs) else "?"
-    print(" ",name,hex(f.get("imageOffset",0)),f.get("symbol",""))
-' "$RT/logs/crash.json" || sed -n '1,40p' "$CRASH"
+              import json,sys
+              raw=open(sys.argv[1]).read().split(chr(10),1)[1]
+              d=json.loads(raw)
+              print("termination:",d.get("termination",{}))
+              print("exception:",d.get("exception",{}))
+              ft=d.get("faultingThread",0)
+              t=d["threads"][ft]
+              imgs=d.get("usedImages",[])
+              print("faulting thread frames:")
+              for f in t.get("frames",[])[:12]:
+                  i=f.get("imageIndex",0)
+                  name=imgs[i].get("name","?") if isinstance(i,int) and i<len(imgs) else "?"
+                  print(" ",name,hex(f.get("imageOffset",0)),f.get("symbol",""))
+              ' "$RT/logs/crash.json" || sed -n '1,40p' "$CRASH"
             fi
             APP_PID=$(pgrep -f "MacOS/SparkleTestApp" | head -1)
             if [ -n "$APP_PID" ]; then
