@@ -201,6 +201,11 @@ jobs:
           ( cd "$RT/serve" && exec python3 -m http.server 8765 ) > "$RT/logs/httpd.log" 2>&1 &
           HTTPD_PID=$!
           sleep 1
+          echo "== firewall / proxy diagnostics =="
+          /usr/libexec/ApplicationFirewall/socketfilterfw --getglobalstate 2>&1 || true
+          scutil --proxy 2>&1 | sed -n '1,12p' || true
+          sudo /usr/libexec/ApplicationFirewall/socketfilterfw --setglobalstate off 2>&1 || echo "(socketfilterfw off failed, continuing)"
+          curl -s --max-time 5 http://127.0.0.1:8765/appcast.xml >/dev/null && echo "loopback HTTP probe OK" || { echo "loopback HTTP probe FAILED — 看上方防火墙/代理诊断"; exit 1; }
           SPARKLE_TEST_LOG="$RT/logs/launch-pos.log" "$APP/Contents/MacOS/SparkleTestApp" > "$RT/logs/app-pos-stdout.log" 2>&1 &
           OK=0
           for i in $(seq 1 170); do
@@ -209,6 +214,7 @@ jobs:
           done
           sleep 3
           echo "== launch-pos.log =="; cat "$RT/logs/launch-pos.log"
+          echo "== app stdout (diagnostics) =="; cat "$RT/logs/app-pos-stdout.log" || true
           ON_DISK=$(/usr/libexec/PlistBuddy -c "Print CFBundleShortVersionString" "$APP/Contents/Info.plist")
           echo "== on-disk version after update: $ON_DISK =="
           echo "== xattr after update (expect no quarantine) =="; xattr -l "$APP" || true
@@ -237,6 +243,7 @@ jobs:
           ( cd "$RT/serve" && exec python3 -m http.server 8765 ) > "$RT/logs/httpd-neg.log" 2>&1 &
           HTTPD_PID=$!
           sleep 1
+          curl -s --max-time 5 http://127.0.0.1:8765/appcast.xml >/dev/null && echo "loopback HTTP probe OK" || echo "loopback HTTP probe FAILED (continuing — 期望链路拒绝)"
           SPARKLE_TEST_LOG="$RT/logs/launch-neg.log" "$APP/Contents/MacOS/SparkleTestApp" > "$RT/logs/app-neg-stdout.log" 2>&1 &
           REJECTED=0
           for i in $(seq 1 90); do
@@ -245,6 +252,7 @@ jobs:
           done
           sleep 2
           echo "== launch-neg.log =="; cat "$RT/logs/launch-neg.log"
+          echo "== app stdout (diagnostics) =="; cat "$RT/logs/app-neg-stdout.log" || true
           ON_DISK=$(/usr/libexec/PlistBuddy -c "Print CFBundleShortVersionString" "$APP/Contents/Info.plist")
           echo "== on-disk version after tampered update attempt: $ON_DISK (expect 1.0) =="
           kill "$HTTPD_PID" 2>/dev/null || true
