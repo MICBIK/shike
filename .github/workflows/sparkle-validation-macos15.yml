@@ -237,7 +237,16 @@ jobs:
           kill "$LOGPID" "$HTTPD_PID" 2>/dev/null || true
           pkill -f SparkleTestApp 2>/dev/null || true
           if [ "$OK" != "1" ] || [ "$ON_DISK" != "2.0" ]; then
-            echo "POSITIVE CHAIN FAILED on macOS 15"
+            echo "POSITIVE CHAIN FAILED on macOS 15 — hang diagnostics:"
+            echo "== processes (sparkle/installer) =="
+            ps aux | grep -iE "sparkle|installer" | grep -v grep || echo "(none)"
+            echo "== launchctl gui domain (sparkle entries) =="
+            launchctl print "gui/$(id -u)" 2>/dev/null | grep -iE "sparkle|installer" | head -10 || echo "(none)"
+            APP_PID=$(pgrep -f "MacOS/SparkleTestApp" | head -1)
+            if [ -n "$APP_PID" ]; then
+              echo "== sample of app pid=$APP_PID (5s) =="
+              sample "$APP_PID" 5 -file "$RT/logs/sample.txt" >/dev/null 2>&1 && sed -n '1,45p' "$RT/logs/sample.txt" || echo "(sample failed)"
+            fi
             exit 1
           fi
           echo "POSITIVE CHAIN OK on $(sw_vers -productVersion)"
